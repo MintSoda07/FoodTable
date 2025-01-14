@@ -55,8 +55,10 @@
                 android:textSize="24sp" />
 
             <GridView
+                android:id="@+id/cardGridView"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:numColumns="3" />
 
         </LinearLayout>
     </LinearLayout>

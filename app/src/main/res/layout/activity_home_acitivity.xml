@@ -52,9 +52,69 @@
                 android:queryBackground="@drawable/round_search_shape"
                 android:queryHint="@string/search_hint"
                 tools:layout_editor_absoluteX="10dp"
-                tools:layout_editor_absoluteY="60dp" />
+                tools:layout_editor_absoluteY="60dp">
+
+            </SearchView>
 
         </com.google.android.material.appbar.AppBarLayout>
+
+        <LinearLayout
+            android:id="@+id/CategoryMenuBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/round_search_shape_categories"
+            android:orientation="vertical"
+            android:padding="8dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/appbar">
+
+            <TextView
+                android:id="@+id/textView3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/category" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="#B71C1C">
+
+            </FrameLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/RecyclerViewCategoryBig"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp">
+
+            </androidx.recyclerview.widget.RecyclerView>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#B71C1C">
+
+            </FrameLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/RecyclerViewCategoryMed"
+                android:layout_width="wrap_content"
+                android:layout_height="75dp">
+
+            </androidx.recyclerview.widget.RecyclerView>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#B71C1C">
+
+            </FrameLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/RecyclerViewCategorySmall"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp" />
+
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/topToolbar"
@@ -66,6 +126,19 @@
             android:translationZ="1dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:id="@+id/imageView4"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:layout_gravity="center"
+                android:layout_marginLeft="4dp"
+                android:background="@drawable/profile_shape"
+                android:backgroundTintMode="src_over"
+                android:clipToOutline="true"
+                android:scaleType="fitXY"
+                tools:src="@tools:sample/avatars"
+                tools:srcCompat="@tools:sample/avatars[0]" />
 
             <TextView
                 android:id="@+id/placeholder_name"
