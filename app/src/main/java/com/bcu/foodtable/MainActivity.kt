@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bcu.foodtable.useful.ActivityTransition
+import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.useful.ViewAnimator
 
 class MainActivity : AppCompatActivity() {
@@ -48,6 +49,8 @@ class MainActivity : AppCompatActivity() {
         loginBtn.alpha = 0f
         signUpBtn.alpha = 0f
 
+        // 테스트용 유저 설정 // 실제 배포 시 다른 작업으로 대체
+        UserManager.setUser("관리자","admin@test.com","01012345678",1500)
 
         // 조건 변수 선언
         var is_floated = false

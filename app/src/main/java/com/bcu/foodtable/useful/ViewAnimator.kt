@@ -15,14 +15,16 @@ object ViewAnimator {
         initXPos: Float,
         lastXPos: Float,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): ValueAnimator {
-        val title_xPosAnimator: ValueAnimator = ObjectAnimator
+        val titleXPosAnimator: ValueAnimator = ObjectAnimator
             .ofFloat(view, "translationX", initXPos, lastXPos).apply {
                 duration = durationOfAnim
                 interpolator?.let { this.interpolator = it }
+                addListener(createAnimatorListener(onEnd))
             }
-        return title_xPosAnimator
+        return titleXPosAnimator
     }
 
     fun moveYPos(
@@ -30,14 +32,16 @@ object ViewAnimator {
         initYPos: Float,
         lastYPos: Float,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): ValueAnimator {
-        val title_xPosAnimator: ValueAnimator = ObjectAnimator
+        val titleYPosAnimator: ValueAnimator = ObjectAnimator
             .ofFloat(view, "translationY", initYPos, lastYPos).apply {
                 duration = durationOfAnim
                 interpolator?.let { this.interpolator = it }
+                addListener(createAnimatorListener(onEnd))
             }
-        return title_xPosAnimator
+        return titleYPosAnimator
     }
 
     fun moveZPos(
@@ -45,29 +49,35 @@ object ViewAnimator {
         initZPos: Float,
         lastZPos: Float,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): ValueAnimator {
-        val title_xPosAnimator: ValueAnimator = ObjectAnimator
+        val titleZPosAnimator: ValueAnimator = ObjectAnimator
             .ofFloat(view, "translationZ", initZPos, lastZPos).apply {
                 duration = durationOfAnim
                 interpolator?.let { this.interpolator = it }
+                addListener(createAnimatorListener(onEnd))
             }
-        return title_xPosAnimator
+        return titleZPosAnimator
     }
+
     fun Rotation(
         view: View,
         initRotation: Float,
         lastRotation: Float,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): ValueAnimator {
         val rotationAnimator: ValueAnimator = ObjectAnimator
             .ofFloat(view, "rotation", initRotation, lastRotation).apply {
                 duration = durationOfAnim
                 interpolator?.let { this.interpolator = it }
+                addListener(createAnimatorListener(onEnd))
             }
         return rotationAnimator
     }
+
     fun changeScale(
         view: View,
         initScaleX: Float,
@@ -75,7 +85,8 @@ object ViewAnimator {
         initScaleY: Float,
         lastScaleY: Float,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): AnimatorSet {
         val scaleXAnimator = ObjectAnimator.ofFloat(view, "scaleX", initScaleX, lastScaleX).apply {
             duration = durationOfAnim
@@ -88,27 +99,31 @@ object ViewAnimator {
 
         return AnimatorSet().apply {
             playTogether(scaleXAnimator, scaleYAnimator)
+            addListener(createAnimatorListener(onEnd))
         }
     }
 
     fun alphaChange(
         view: View,
         durationOfAnim: Long,
-        to_visible: Boolean,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        toVisible: Boolean,
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): ObjectAnimator {
-        val (startAlpha, endAlpha) = if (to_visible) 0f to 1f else 1f to 0f
+        val (startAlpha, endAlpha) = if (toVisible) 0f to 1f else 1f to 0f
         view.alpha = startAlpha
         return ObjectAnimator.ofFloat(view, "alpha", startAlpha, endAlpha).apply {
             duration = durationOfAnim
             interpolator?.let { this.interpolator = it }
+            addListener(createAnimatorListener(onEnd))
         }
     }
 
     fun floatAnimation(
         view: View,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): AnimatorSet {
         val alphaAnimator = ObjectAnimator.ofFloat(view, "alpha", 0f, 1f)
         val translationZAnimator = ObjectAnimator.ofFloat(view, "translationZ", 0f, 50f)
@@ -116,6 +131,7 @@ object ViewAnimator {
             playTogether(alphaAnimator, translationZAnimator)
             duration = durationOfAnim
             interpolator?.let { this.interpolator = it }
+            addListener(createAnimatorListener(onEnd))
         }
         return animatorSet
     }
@@ -125,13 +141,14 @@ object ViewAnimator {
         startAlpha: Float,
         endAlpha: Float,
         durationOfAnim: Long,
-        interpolator: TimeInterpolator? = LinearInterpolator()
+        interpolator: TimeInterpolator? = LinearInterpolator(),
+        onEnd: (() -> Unit)? = null
     ): ObjectAnimator {
-        val alphaAnimator = ObjectAnimator.ofFloat(view, "alpha", startAlpha, endAlpha).apply {
+        return ObjectAnimator.ofFloat(view, "alpha", startAlpha, endAlpha).apply {
             duration = durationOfAnim
             interpolator?.let { this.interpolator = it }
+            addListener(createAnimatorListener(onEnd))
         }
-        return alphaAnimator
     }
 
     fun cancelAnimation(animator: Animator) {
@@ -150,4 +167,20 @@ object ViewAnimator {
         view.scaleY = 1f
     }
 
+    private fun createAnimatorListener(onEnd: (() -> Unit)?): Animator.AnimatorListener {
+        return object : Animator.AnimatorListener {
+            override fun onAnimationStart(animation: Animator) {
+            }
+
+            override fun onAnimationEnd(animation: Animator) {
+                onEnd?.invoke()
+            }
+
+            override fun onAnimationCancel(animation: Animator) {
+            }
+
+            override fun onAnimationRepeat(animation: Animator) {
+            }
+        }
+    }
 }

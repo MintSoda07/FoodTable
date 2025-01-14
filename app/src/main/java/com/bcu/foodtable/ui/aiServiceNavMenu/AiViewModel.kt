@@ -1,13 +1,13 @@
-package com.bcu.foodtable.ui.dashboard
+package com.bcu.foodtable.ui.aiServiceNavMenu
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 
-class RecipeViewModel : ViewModel() {
+class AiViewModel : ViewModel() {
 
     private val _text = MutableLiveData<String>().apply {
-        value = "This is dashboard Fragment"
+        value = "This is notifications Fragment"
     }
     val text: LiveData<String> = _text
 }

@@ -1,4 +1,4 @@
-package com.bcu.foodtable.ui.dashboard
+package com.bcu.foodtable.ui.myRecipeStorage
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -7,11 +7,11 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import com.bcu.foodtable.databinding.FragmentRecipeBinding
+import com.bcu.foodtable.databinding.FragmentRecipeStorageBinding
 
-class RecipeFragment : Fragment() {
+class RecipeStorageFragment : Fragment() {
 
-    private var _binding: FragmentRecipeBinding? = null
+    private var _binding: FragmentRecipeStorageBinding? = null
 
     // This property is only valid between onCreateView and
     // onDestroyView.
@@ -22,16 +22,12 @@ class RecipeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val dashboardViewModel =
-            ViewModelProvider(this).get(RecipeViewModel::class.java)
+        val recipeViewModel =
+            ViewModelProvider(this).get(RecipeStorageViewModel::class.java)
 
-        _binding = FragmentRecipeBinding.inflate(inflater, container, false)
+        _binding = FragmentRecipeStorageBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-        val textView: TextView = binding.textRecipe
-        dashboardViewModel.text.observe(viewLifecycleOwner) {
-            textView.text = it
-        }
         return root
     }
 

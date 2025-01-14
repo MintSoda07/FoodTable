@@ -12,14 +12,19 @@
         tools:layout="@layout/fragment_home" />
 
     <fragment
-        android:id="@+id/navigation_profile"
-        android:name="com.bcu.foodtable.ui.dashboard.RecipeFragment"
-        android:label="@string/title_profile"
-        tools:layout="@layout/fragment_profile" />
+        android:id="@+id/navigation_subscribe"
+        android:name="com.bcu.foodtable.ui.subscribeNavMenu.SubscribeFragment"
+        android:label="@string/title_AI"
+        tools:layout="@layout/fragment_subscribe" />
 
     <fragment
+        android:id="@+id/navigation_AI"
+        android:name="com.bcu.foodtable.ui.aiServiceNavMenu.AIFragment"
+        android:label="@string/title_AI"
+        tools:layout="@layout/fragment_subscribe" />
+    <fragment
         android:id="@+id/navigation_recipe"
-        android:name="com.bcu.foodtable.ui.notifications.ProfileFragment"
+        android:name="com.bcu.foodtable.ui.aiServiceNavMenu.AIFragment"
         android:label="@string/title_recipe"
-        tools:layout="@layout/fragment_recipe" />
+        tools:layout="@layout/fragment_subscribe" />
 </navigation>
