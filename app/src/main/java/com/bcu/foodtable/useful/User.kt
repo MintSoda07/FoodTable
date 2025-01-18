@@ -5,4 +5,5 @@ data class User(
     var email : String,
     var phoneNumber : String,
     var point : Int,
+    var image:Int
 )

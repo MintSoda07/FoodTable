@@ -17,13 +17,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/appbar">
+            app:layout_constraintTop_toBottomOf="@id/appbar">
 
             <fragment
                 android:id="@+id/nav_host_fragment_activity_home_acitivity"
                 android:name="androidx.navigation.fragment.NavHostFragment"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 app:defaultNavHost="true"
                 app:layout_constraintBottom_toTopOf="@id/nav_view"
                 app:layout_constraintLeft_toLeftOf="parent"
@@ -91,6 +91,8 @@
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="2dp"
                 android:background="#B71C1C">
 
             </FrameLayout>
@@ -105,6 +107,8 @@
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="2dp"
                 android:background="#B71C1C">
 
             </FrameLayout>
@@ -128,7 +132,7 @@
             app:layout_constraintTop_toTopOf="parent">
 
             <ImageView
-                android:id="@+id/imageView4"
+                android:id="@+id/UserImageView"
                 android:layout_width="45dp"
                 android:layout_height="45dp"
                 android:layout_gravity="center"
