@@ -5,6 +5,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
+// 리사이클러뷰에서 사용하기 위한  어댑터.
 object UsefulRecycler {
     fun addCategory(Adapter:CategoryAdapter,category: String, dataList: MutableList<String>) {
         dataList.add(category)  // 카테고리 추가

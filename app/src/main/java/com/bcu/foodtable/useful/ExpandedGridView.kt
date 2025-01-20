@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.widget.GridView
 
+// 그리드 뷰 이지만 화면이 잘리지 않음.
 class ExpandedGridView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0
 ) : GridView(context, attrs, defStyleAttr) {

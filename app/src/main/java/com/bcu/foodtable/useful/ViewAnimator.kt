@@ -8,8 +8,14 @@ import android.animation.ValueAnimator
 import android.view.View
 import android.view.animation.LinearInterpolator
 
-
+// 뷰를 간단하게 움직일 수 있도록 정리한 오브젝트.
+// 사용예시 :
+// ViewAnimator.moveYPos(categoryMenuBar, -600f, 0f, 300, DecelerateInterpolator(2f))
+// categoryMenuBar를 300 시간 동안 0f로부터 -600f만큼 움직인다.DecelerateInterpolator (감속) 한다.
+// 꼭 맨 뒤에 .start()를 붙여 주어야 시작 할 수 있다.
 object ViewAnimator {
+
+    // 뷰의 좌우 위치 조절
     fun moveXPos(
         view: View,
         initXPos: Float,
@@ -27,6 +33,7 @@ object ViewAnimator {
         return titleXPosAnimator
     }
 
+    // 뷰의 상하 위치 조절
     fun moveYPos(
         view: View,
         initYPos: Float,
@@ -44,6 +51,7 @@ object ViewAnimator {
         return titleYPosAnimator
     }
 
+    // 뷰의 높이 순서 조절
     fun moveZPos(
         view: View,
         initZPos: Float,
@@ -61,6 +69,7 @@ object ViewAnimator {
         return titleZPosAnimator
     }
 
+    // 회전
     fun Rotation(
         view: View,
         initRotation: Float,
@@ -78,6 +87,7 @@ object ViewAnimator {
         return rotationAnimator
     }
 
+    // 크기변경
     fun changeScale(
         view: View,
         initScaleX: Float,
@@ -119,6 +129,7 @@ object ViewAnimator {
         }
     }
 
+    // 나타나기 애니메이션
     fun floatAnimation(
         view: View,
         durationOfAnim: Long,
@@ -136,6 +147,7 @@ object ViewAnimator {
         return animatorSet
     }
 
+    // 투명도 변화
     fun alphaChangeDetail(
         view: View,
         startAlpha: Float,
@@ -151,12 +163,14 @@ object ViewAnimator {
         }
     }
 
+    // 애니메이션 취소
     fun cancelAnimation(animator: Animator) {
         if (animator.isRunning || animator.isStarted) {
             animator.cancel()
         }
     }
 
+    // 애니메이션으로 움직인 위치 초기화
     fun resetAnimation(view: View) {
         view.translationX = 0f
         view.translationY = 0f
@@ -167,6 +181,7 @@ object ViewAnimator {
         view.scaleY = 1f
     }
 
+    // 애니메이션 리스너
     private fun createAnimatorListener(onEnd: (() -> Unit)?): Animator.AnimatorListener {
         return object : Animator.AnimatorListener {
             override fun onAnimationStart(animation: Animator) {

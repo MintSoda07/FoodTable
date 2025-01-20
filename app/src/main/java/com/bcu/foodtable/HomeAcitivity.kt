@@ -56,9 +56,8 @@ class HomeAcitivity : AppCompatActivity() {
     private val dataListSmall: MutableList<String> =
         mutableListOf("단맛", "짠맛", "신맛", "쓴맛", "감칠맛", "매운맛", "기타")
 
-
-
     // 여기까지.
+
     private val hideSearchBarDelay = 5000L // 5초
     private val handler = Handler(Looper.getMainLooper())
     private var hideSearchBarRunnable: Runnable? = null
@@ -88,6 +87,7 @@ class HomeAcitivity : AppCompatActivity() {
 
         categoryMenuBar = findViewById(R.id.CategoryMenuBar)
 
+        // 클릭 리스너
         CategoryAdapterBig = CategoryAdapter(
             dataListBig
         ) { item ->
@@ -103,6 +103,8 @@ class HomeAcitivity : AppCompatActivity() {
         ) { item ->
             println("Clicked: $item")
         }
+
+        // 리사이클러 뷰
         recyclerViewSearchBig = findViewById(R.id.RecyclerViewCategoryBig)
         recyclerViewSearchMed = findViewById(R.id.RecyclerViewCategoryMed)
         recyclerViewSearchSmall = findViewById(R.id.RecyclerViewCategorySmall)
@@ -111,7 +113,7 @@ class HomeAcitivity : AppCompatActivity() {
         UsefulRecycler.setupRecyclerView(recyclerViewSearchMed, CategoryAdapterMed, this, 2)
         UsefulRecycler.setupRecyclerView(recyclerViewSearchSmall, CategoryAdapterSmall, this, 1)
         
-        // 테스트용 유저 설정 불러오기
+        // 유저 설정 불러오기
         val userData = UserManager.getUser()!!
         val userName = findViewById<TextView>(R.id.placeholder_name)
         val userPoint = findViewById<TextView>(R.id.salt_placeholder)
@@ -119,11 +121,12 @@ class HomeAcitivity : AppCompatActivity() {
 
         userName.text = userData.Name
         userPoint.text = userData.point.toString() + getString(R.string.title_salt)
-        userImage.id = userData.image
+        userImage.setImageResource(userData.image)
         //
 
         categoryMenuBar.visibility = View.INVISIBLE
 
+        // 스크롤 뷰 터치 리스너
         contentScrollView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_MOVE -> {
@@ -133,28 +136,42 @@ class HomeAcitivity : AppCompatActivity() {
             false
         }
         // 타이머 초기화 및 검색창 숨김 로직 설정
+        // Runnable로 설정한다
         hideSearchBarRunnable = Runnable {
-            if (!searchBarHidden&&contentScrollView.scrollY>10) hideSearchView()
+            if (!searchBarHidden&&contentScrollView.scrollY>10) hideSearchView() // 10 이상 스크롤 되지 않은 상태에 검색창이 있다면 -> 검색창을 숨긴다
         }
 
 
+        // 검색창에 focus를 받았을 경우
         homeSearchBar.setOnQueryTextFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
                 showCategories()
-            } else {
-                hideCategories()
             }
         }
     }
 
+
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_DOWN) {
+        if (event.action == MotionEvent.ACTION_DOWN) { //터치 액션 중 누를 때 발동됨
             val currentFocusView = currentFocus
             if (currentFocusView != null) {
+                // Rect() = 사각형 크기 (영역 크기 계산용)
                 val outRect = Rect()
+                val searchRect = Rect()
+                val categoryRect = Rect()
+
+                // View의 Rect() 크기를 정의해 준다.
                 currentFocusView.getGlobalVisibleRect(outRect)
-                if (!outRect.contains(event.rawX.toInt(), event.rawY.toInt())) {
+                homeSearchBar.getGlobalVisibleRect(searchRect)
+                categoryMenuBar.getGlobalVisibleRect(categoryRect)
+
+                // 검색창 & 카테고리 창 밖을 터치하면 카테고리를 숨기고, 포커스 해제와 함께 입력창을 닫는다.
+                if (!outRect.contains(event.rawX.toInt(), event.rawY.toInt()) &&
+                    (!searchRect.contains(event.rawX.toInt(), event.rawY.toInt())) &&
+                    (!categoryRect.contains(event.rawX.toInt(), event.rawY.toInt()))
+                ) {
                     currentFocusView.clearFocus()
+                    hideCategories()
                     val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                     imm.hideSoftInputFromWindow(currentFocusView.windowToken, 0)
                 }
@@ -163,16 +180,16 @@ class HomeAcitivity : AppCompatActivity() {
         return super.dispatchTouchEvent(event)
     }
 
-
     private fun checkScrollPosition() {
-        if (contentScrollView.scrollY <= 0) {
+        if (contentScrollView.scrollY <= 5) { // 5 이상 스크롤되지 않으면 (사실상 맨 위로 당기면)
             if (searchBarHidden) {
-                showSearchView()
+                showSearchView() //검색창을 표시한다.
             }
         }
-        resetHideSearchBarTimer()
+        resetHideSearchBarTimer() // 검색창 타이머 초기화 ( 검색창이 위에 있지 않으면 5초 후 사라지는 함수 호출 )
     }
 
+    // 카테고리를 표시한다
     private fun showCategories() {
         categoryMenuBar.visibility = View.VISIBLE
         ViewAnimator.moveYPos(categoryMenuBar, -600f, 0f, 300, DecelerateInterpolator(2f)) {
@@ -181,6 +198,7 @@ class HomeAcitivity : AppCompatActivity() {
         categoryBarHidden = false
     }
 
+    // 카테고리를 숨긴다
     private fun hideCategories() {
         ViewAnimator.moveYPos(
             categoryMenuBar,
@@ -194,6 +212,8 @@ class HomeAcitivity : AppCompatActivity() {
         }.start()
         categoryBarHidden = true
     }
+    
+    // 5초 후 검색창을 숨기는 기능
     private fun resetHideSearchBarTimer() {
         // 기존 타이머 취소
         hideSearchBarRunnable?.let { handler.removeCallbacks(it) }
@@ -201,22 +221,24 @@ class HomeAcitivity : AppCompatActivity() {
         handler.postDelayed(hideSearchBarRunnable!!, hideSearchBarDelay)
     }
 
+    // 검색창을 표시하는 기능
     private fun showSearchView() {
         homeSearchBarAppMenu.visibility = View.VISIBLE
-        ViewAnimator.moveYPos(homeSearchBarAppMenu, -120f, 0f, 300, DecelerateInterpolator(2f)) {
+        ViewAnimator.moveYPos(homeSearchBarAppMenu, -130f, 0f, 300, DecelerateInterpolator(2f)) {
             homeSearchBarAppMenu.isClickable = true
         }.start()
-        ViewAnimator.moveYPos(contentScrollView, -120f, 0f, 300, DecelerateInterpolator(2f)).start()
+        ViewAnimator.moveYPos(contentScrollView, -130f, 0f, 300, DecelerateInterpolator(2f)).start()
         homeSearchBar.isFocusable = true
         homeSearchBar.isFocusableInTouchMode = true
         searchBarHidden = false
     }
 
+    // 검색창을 숨기는 기능
     private fun hideSearchView() {
         ViewAnimator.moveYPos(
             homeSearchBarAppMenu,
             0f,
-            -120f,
+            -130f,
             300,
             AccelerateInterpolator(2f)
         ) {
@@ -226,11 +248,12 @@ class HomeAcitivity : AppCompatActivity() {
         ViewAnimator.moveYPos(
             contentScrollView,
             0f,
-            -120f,
+            -130f,
             300,
             AccelerateInterpolator(2f)
         ).start()
         homeSearchBar.clearFocus()
+        if(!categoryBarHidden) hideCategories()
         searchBarHidden = true
     }
 }

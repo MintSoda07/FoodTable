@@ -7,7 +7,8 @@ import android.os.Bundle
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 
-
+// 액티비티 간의 화면 전환 시 적용할 수 있는 커스텀 object.
+// startStatic을 사용하면 부드럽게 화면을 전환할 수 있다.
 object ActivityTransition {
 
     fun startAnim(

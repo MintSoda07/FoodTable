@@ -33,29 +33,30 @@ class LoginActivity : AppCompatActivity() {
 
         val submitBtn = findViewById<Button>(R.id.loginSubmitBtn)
         val signUpBtn = findViewById<Button>(R.id.loginSignUpBtn)
-        val passwordPattern = "^(?=.*[A-Z])(?=.*[@#\$%^&+=!]).{6,48}\$"
+        val passwordPattern = "^(?=.*[A-Z])(?=.*[@#\$%^&+=!]).{6,48}\$" // 로그인 비밀번호 정규식 // 알파벳 대문자,특수문자 포함으로 6자부터 48자까지.
 
         loginIdInputLayout = findViewById(R.id.idInputBox)
         loginPwdInputLayout = findViewById(R.id.pwdInputBox)
 
         loginWarningTextBox = findViewById(R.id.warningText)
 
+        // 로그인 버튼 클릭 시
         submitBtn.setOnClickListener{
-            if(loginIdInputLayout.text!!.length <= 0){
+            if(loginIdInputLayout.text!!.length <= 0){ // 로그인 ID 입력 길이가 0일때
               loginIdInputLayout.requestFocus()
                 warning_about(R.string.id_empty_warning)
-            }else if(loginPwdInputLayout.text!!.length <= 0){
+            }else if(loginPwdInputLayout.text!!.length <= 0){ // 로그인 비밀번호 입력 길이가 0일때
                 loginPwdInputLayout.requestFocus()
                 warning_about(R.string.pwd_empty_warning)
-            }else if(loginPwdInputLayout.text!!.matches(Regex(passwordPattern)) == false){
+            }else if(loginPwdInputLayout.text!!.matches(Regex(passwordPattern)) == false){ // 로그인 비밀번호가 조건을 만족하지 못할 때
                 loginPwdInputLayout.requestFocus()
                 warning_about(R.string.pwd_validate_warning)
             }else{
-                login(loginIdInputLayout.text.toString(),loginPwdInputLayout.text.toString())
+                login(loginIdInputLayout.text.toString(),loginPwdInputLayout.text.toString()) //로그인 시도
             }
         }
 
-        signUpBtn.setOnClickListener{
+        signUpBtn.setOnClickListener{ // 회원가입 버튼 클릭 시 // 회원가입 페이지로 이동 
             ActivityTransition.startStatic(
                 this@LoginActivity,
                 SignUpAcitivity::class.java
@@ -63,13 +64,13 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // 경고 텍스트박스에 경고 메시지를 출력하는 함수
+    // 경고 텍스트뷰에 경고 메시지를 출력하는 함수
     fun warning_about(stringSourceId: Int){
         if(loginWarningTextBox.visibility==TextView.INVISIBLE) loginWarningTextBox.visibility = TextView.VISIBLE
         loginWarningTextBox.text=getString(stringSourceId)
     }
 
-    //
+    // 파이어베이스에 로그인을 시도하는 함수
     fun login(email: String, password: String) {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->

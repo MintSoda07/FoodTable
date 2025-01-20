@@ -21,8 +21,9 @@ class HomeFragment : Fragment() {
     private lateinit var CardGridView: GridView
 
 
+    // 임시로  집어넣은 값
     private val dataListBig: MutableList<String> =
-        mutableListOf("한식", "양식", "일식", "중식", "기타", "임시음식")  // 가변형 리스트 (임시)
+        mutableListOf("한식", "양식", "일식", "중식", "기타", "임시음식")  // 가변형 리스트
 
     private var _binding: FragmentHomeBinding? = null
 
@@ -40,13 +41,14 @@ class HomeFragment : Fragment() {
         // 카테고리 (가로)
         recyclerView = binding.RecyclerViewCategories
 
+        // 아이템의 클릭을 감지하는 기능
         firstAdapter = CategoryAdapter(
             dataListBig){ item ->
             println("Clicked: $item")
         }
         UsefulRecycler.setupRecyclerView(recyclerView, firstAdapter, requireContext(),1)
 
-
+        // 임시로 넣어놓은 데이터 2
         val recipes = listOf(
             RecipeItem("3분 카레", "밥과 함께 먹기 좋은 간단한 카레입니다.", R.drawable.curry_sample),
             RecipeItem("봄철 라이스 롤", "향긋한 봄나물이 들어간, 한입에 먹기 좋은 요리입니다.", R.drawable.riceroll_sample),

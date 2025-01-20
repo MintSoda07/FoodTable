@@ -19,6 +19,8 @@ import com.bcu.foodtable.useful.ViewAnimator
 
 class MainActivity : AppCompatActivity() {
     // Icons by FlatIcon :: https://www.flaticon.com/kr/ //
+    // 저작권 표시 ! 지우지 말 것.
+
     lateinit var titleText: TextView
     lateinit var subTitleText: TextView
     lateinit var loginBtn: Button
@@ -49,7 +51,7 @@ class MainActivity : AppCompatActivity() {
         loginBtn.alpha = 0f
         signUpBtn.alpha = 0f
 
-        // 테스트용 유저 설정 // 실제 배포 시 다른 작업으로 대체
+        // 테스트용 유저 설정 // 실제 배포 시 다른 작업으로 대체 // data 입력하는 것임.
         UserManager.setUser("관리자","admin@test.com","01012345678",1500,R.drawable.tacco_sample)
 
         // 조건 변수 선언
@@ -67,14 +69,14 @@ class MainActivity : AppCompatActivity() {
             }
         })
         listenerAnim.start()
-        loginBtn.setOnClickListener {
+        loginBtn.setOnClickListener { // 로그인 버튼 클릭 시
             if (is_floated) {
                 mainBoxLayout.isEnabled = false
                 mainBoxLayout.isClickable = false
                 ActivityTransition.startStatic(this@MainActivity, LoginActivity::class.java)
             }
         }
-        signUpBtn.setOnClickListener {
+        signUpBtn.setOnClickListener { // 회원가입 버튼 클릭 시
             if (is_floated) {
                 ActivityTransition.startStatic(
                     this@MainActivity,

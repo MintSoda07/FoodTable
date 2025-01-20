@@ -5,6 +5,7 @@ import android.view.*
 import android.widget.*
 import com.bcu.foodtable.R
 
+// 레시피 아이템을 뷰에 추가하는 어댑터.
 class RecipeAdapter(private val context: Context, private val recipes: List<RecipeItem>) : BaseAdapter() {
 
     override fun getCount(): Int = recipes.size

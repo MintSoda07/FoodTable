@@ -22,9 +22,6 @@ class AIFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val aiViewModel =
-            ViewModelProvider(this).get(AiViewModel::class.java)
-
         _binding = FragmentAiBinding.inflate(inflater, container, false)
         val root: View = binding.root
 

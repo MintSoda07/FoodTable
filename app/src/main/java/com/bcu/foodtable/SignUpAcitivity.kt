@@ -16,5 +16,6 @@ class SignUpAcitivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        // 작성되지 않음.
     }
 }

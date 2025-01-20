@@ -7,6 +7,7 @@ import android.widget.Button
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 
+// 카테고리 뷰를 만들 때 필요한 어댑터.
 class CategoryAdapter(private val data: MutableList<String>, private val onItemClick: (String) -> Unit) :
 
     RecyclerView.Adapter<CategoryAdapter.ButtonViewHolder>() {

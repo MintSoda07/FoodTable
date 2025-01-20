@@ -140,9 +140,8 @@
                 android:background="@drawable/profile_shape"
                 android:backgroundTintMode="src_over"
                 android:clipToOutline="true"
-                android:scaleType="fitXY"
-                tools:src="@tools:sample/avatars"
-                tools:srcCompat="@tools:sample/avatars[0]" />
+                android:scaleType="centerCrop"
+                tools:src="@tools:sample/avatars"/>
 
             <TextView
                 android:id="@+id/placeholder_name"

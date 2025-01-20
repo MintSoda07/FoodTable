@@ -1,5 +1,6 @@
 package com.bcu.foodtable.useful
 
+//  User 데이터타입을 초기화하고 사용하기 위한 object
 object UserManager {
     private var user: User? = null
 
