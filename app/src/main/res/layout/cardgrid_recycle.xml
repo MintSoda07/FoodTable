@@ -48,14 +48,6 @@
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
 
-            <TextView
-                android:id="@+id/RecipeDes"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="4dp"
-                android:text="@string/title_recipe"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp" />
         </LinearLayout>
 
     </androidx.cardview.widget.CardView>

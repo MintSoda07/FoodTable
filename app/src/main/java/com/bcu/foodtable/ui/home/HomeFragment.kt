@@ -23,7 +23,7 @@ class HomeFragment : Fragment() {
 
     // 임시로  집어넣은 값
     private val dataListBig: MutableList<String> =
-        mutableListOf("한식", "양식", "일식", "중식", "기타", "임시음식")  // 가변형 리스트
+        mutableListOf("한식", "양식", "일식", "중식", "기타")  // 가변형 리스트
 
     private var _binding: FragmentHomeBinding? = null
 

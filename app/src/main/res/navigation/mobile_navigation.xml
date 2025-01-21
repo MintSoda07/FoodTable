@@ -14,17 +14,21 @@
     <fragment
         android:id="@+id/navigation_subscribe"
         android:name="com.bcu.foodtable.ui.subscribeNavMenu.SubscribeFragment"
-        android:label="@string/title_AI"
+        android:label="@string/channel"
         tools:layout="@layout/fragment_subscribe" />
-
     <fragment
         android:id="@+id/navigation_AI"
         android:name="com.bcu.foodtable.ui.aiServiceNavMenu.AIFragment"
         android:label="@string/title_AI"
-        tools:layout="@layout/fragment_subscribe" />
+        tools:layout="@layout/fragment_ai" />
     <fragment
         android:id="@+id/navigation_recipe"
-        android:name="com.bcu.foodtable.ui.aiServiceNavMenu.AIFragment"
+        android:name="com.bcu.foodtable.ui.myRecipeStorage.RecipeStorageFragment"
         android:label="@string/title_recipe"
-        tools:layout="@layout/fragment_subscribe" />
+        tools:layout="@layout/fragment_recipe_storage" />
+    <fragment
+        android:id="@+id/navigation_mypage"
+        android:name="com.bcu.foodtable.ui.myPage.MyPage"
+        android:label="@string/mypage"
+        tools:layout="@layout/fragment_mypage" />
 </navigation>

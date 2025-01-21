@@ -1,3 +1,5 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -41,11 +43,19 @@ android {
 }
 
 dependencies {
+    // 파이어베이스 라이브러리
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
-
     implementation(libs.firebase.analytics)
+    implementation(libs.firebase.firestore)
 
+    // JSON 파싱 라이브러리
+    implementation(libs.gson)
+
+    // HTTP 요청 라이브러리
+    implementation(libs.okhttp) 
+    implementation(libs.logging.interceptor)
+    
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
