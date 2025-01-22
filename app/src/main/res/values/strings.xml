@@ -31,6 +31,8 @@
     <string name="ai_chat">AI 채팅</string>
     <string name="ai_recipe">AI 추천</string>
     <string name="ai_assistant">AI 도우미</string>
+    <string name="start">시작</string>
+    <string name="done">완료</string>
     <string name="Lorem_ipsum">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 Section 1.10.32 of "de Finibus Bonorum et Malorum", written by Cicero in 45 BC

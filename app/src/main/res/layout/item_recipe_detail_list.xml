@@ -3,50 +3,99 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="wrap_content">
 
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="5dp"
-        android:background="#C3C3C3"
-        tools:layout_editor_absoluteX="5dp">
+        app:cardCornerRadius="10dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical">
+            android:background="#D7D7D7"
+            android:orientation="vertical"
+            android:padding="3dp">
 
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
-                <TextView
-                    android:id="@+id/itemListName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/the_jamsil"
-                    android:text="TextView" />
-
                 <CheckBox
                     android:id="@+id/checkBox2"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="end" />
+                    android:layout_gravity="end"
+                    android:clickable="false" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/ItemListNumber"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="3dp"
+                            android:fontFamily="@font/the_jamsil"
+                            android:text="1."
+                            android:textColor="#D32F2F"
+                            android:textSize="20sp" />
+
+                        <FrameLayout
+                            android:layout_width="3dp"
+                            android:layout_height="match_parent"
+                            android:background="#D32F2F">
+
+                        </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/itemListTitleName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="5dp"
+                            android:fontFamily="@font/the_jamsil"
+                            android:text="TextView"
+                            android:textColor="#D32F2F"
+                            android:textSize="20sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/itemListName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="24dp"
+                        android:fontFamily="@font/the_jamsil"
+                        android:text="TextView"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
             </FrameLayout>
 
             <FrameLayout
                 android:id="@+id/ItemTimerFrame"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent">
+                android:layout_height="match_parent"
+                android:visibility="gone">
 
                 <TextView
                     android:id="@+id/ItemTimerTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:layout_marginBottom="50dp"
+                    android:layout_marginBottom="24dp"
+                    android:fontFamily="@font/the_jamsil"
                     android:text="TextView"
                     android:textAlignment="center" />
 
@@ -55,14 +104,16 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:fontFamily="@font/the_jamsil"
                     android:text="00:00:00"
-                    android:textAlignment="center" />
+                    android:textAlignment="center"
+                    android:textSize="24sp" />
 
                 <ProgressBar
                     android:id="@+id/ItemTimerProgress"
                     style="@style/Widget.AppCompat.ProgressBar"
-                    android:layout_width="270dp"
-                    android:layout_height="270dp"
+                    android:layout_width="200dp"
+                    android:layout_height="200dp"
                     android:layout_centerInParent="true"
                     android:layout_gravity="center"
                     android:background="@drawable/progress_ring_in"
@@ -82,20 +133,24 @@
                     app:layout_constraintVertical_bias="0.25" />
 
                 <Button
-                    android:id="@+id/button3"
+                    android:id="@+id/ItemStartButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:layout_marginTop="50dp"
                     android:background="@drawable/round_button_alpha"
-                    android:text="Button" />
+                    android:text="@string/start" />
             </FrameLayout>
 
             <Button
-                android:id="@+id/ItemStartBtn"
+                android:id="@+id/itemDoneButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Button" />
+                android:background="@drawable/round_login_button"
+                android:backgroundTint="#D32F2F"
+                android:text="@string/done"
+                android:textColor="#FFFFFF"
+                android:visibility="gone" />
 
         </LinearLayout>
 
