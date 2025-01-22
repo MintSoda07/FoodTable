@@ -6,6 +6,7 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.Vibrator
 import android.util.Log
 import android.view.GestureDetector
 import android.view.MotionEvent
@@ -26,11 +27,13 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
 import com.bcu.foodtable.useful.CategoryAdapter
+import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.RecipeAdapter
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UsefulRecycler
 import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.useful.ViewAnimator
+import com.google.android.material.navigation.NavigationView
 
 
 class HomeAcitivity : AppCompatActivity() {
@@ -50,9 +53,9 @@ class HomeAcitivity : AppCompatActivity() {
 
     // 여기 아래로 다음 주석까지의 부분은 모두 임시로 지정된 데이터임. DB와 연결 시 수정해야 할 부분.
     private val dataListBig: MutableList<String> =
-        mutableListOf("한식", "양식", "일식", "중식", "기타", "임시음식")
+        mutableListOf("한식", "양식", "일식", "중식", "기타")
     private val dataListMed: MutableList<String> =
-        mutableListOf("밥", "빵", "면", "국/찌개", "나물", "볶음", "구이", "찜", "튀김", "디저트", "음료", "기타ㅁ")
+        mutableListOf("밥", "빵", "면", "국/찌개", "나물", "볶음", "구이", "찜", "튀김", "디저트", "음료", "기타")
     private val dataListSmall: MutableList<String> =
         mutableListOf("단맛", "짠맛", "신맛", "쓴맛", "감칠맛", "매운맛", "기타")
 
@@ -113,16 +116,24 @@ class HomeAcitivity : AppCompatActivity() {
         UsefulRecycler.setupRecyclerView(recyclerViewSearchMed, CategoryAdapterMed, this, 2)
         UsefulRecycler.setupRecyclerView(recyclerViewSearchSmall, CategoryAdapterSmall, this, 1)
         
-        // 유저 설정 불러오기
-        val userData = UserManager.getUser()!!
+        
         val userName = findViewById<TextView>(R.id.placeholder_name)
         val userPoint = findViewById<TextView>(R.id.salt_placeholder)
         val userImage = findViewById<ImageView>(R.id.UserImageView)
 
+        // 네비바 아이템 클릭시 약간의 진동
+        val vibrator = this.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        val navBottom = findViewById<BottomNavigationView>(R.id.nav_view)
+        navBottom.setOnClickListener{
+            hideSearchView()
+            vibrator.vibrate(250)
+        }
+        
+        // 유저 설정 불러오기
+        val userData = UserManager.getUser()!!
         userName.text = userData.Name
         userPoint.text = userData.point.toString() + getString(R.string.title_salt)
-        userImage.setImageResource(userData.image)
-        //
+        FireStoreHelper.loadImageFromUrl(userData.image,userImage)
 
         categoryMenuBar.visibility = View.INVISIBLE
 
@@ -141,7 +152,6 @@ class HomeAcitivity : AppCompatActivity() {
             if (!searchBarHidden&&contentScrollView.scrollY>10) hideSearchView() // 10 이상 스크롤 되지 않은 상태에 검색창이 있다면 -> 검색창을 숨긴다
         }
 
-
         // 검색창에 focus를 받았을 경우
         homeSearchBar.setOnQueryTextFocusChangeListener { view, hasFocus ->
             if (hasFocus) {
@@ -150,7 +160,8 @@ class HomeAcitivity : AppCompatActivity() {
         }
     }
 
-
+    // 화면 클릭시 발생하는 이벤트를 재정의
+    // - 특정 범위 클릭을 감지하는데 사용하였고, 검색창이나 카테고리창을 터치하였는지, 아니면 바깥쪽 영역을 터치하였는지 감지하는데 사용하였음.
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) { //터치 액션 중 누를 때 발동됨
             val currentFocusView = currentFocus
@@ -180,6 +191,7 @@ class HomeAcitivity : AppCompatActivity() {
         return super.dispatchTouchEvent(event)
     }
 
+    // 스크롤 위취를 감지한다.
     private fun checkScrollPosition() {
         if (contentScrollView.scrollY <= 5) { // 5 이상 스크롤되지 않으면 (사실상 맨 위로 당기면)
             if (searchBarHidden) {

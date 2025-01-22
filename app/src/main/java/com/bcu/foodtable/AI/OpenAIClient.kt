@@ -14,6 +14,26 @@ import okhttp3.MediaType.Companion.toMediaType
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+//  사용 예시. setAIWithAPI로 API Key를 받아 준비한 뒤, Success 시 sendMeesage 실행할 것!
+//  순서 잘못될 시 오류를 반환함. (Key가 null)
+//
+//  val aIServiceManager = OpenAIClient()
+//  aIServiceManager.setAIWithAPI(
+//  onSuccess = {
+//     aIServiceManager.sendMessage(
+//            prompt = "안녕하세요, 쿡봇! 이것은 테스트 수신입니다. 수신하였다면 아무 농담이나 입력해 주세요!", // 사용자 입력
+//            onSuccess = { response ->
+//                println("ChatGPT 응답: $response")
+//           },
+//            onError = { error ->
+//              println("오류: $error")
+//
+//         }
+//       )
+//  },
+//  onError = {
+//      Log.e("AI_SERVICE","An Error Occured During Setting an AI.")
+//  })
 class OpenAIClient() {
     // AI API 키 불러오기
     private lateinit var apiKeyInfo : ApiKey

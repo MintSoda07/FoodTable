@@ -1,6 +1,7 @@
 package com.bcu.foodtable
 
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
@@ -10,8 +11,11 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bcu.foodtable.useful.ActivityTransition
+import com.bcu.foodtable.useful.User
+import com.bcu.foodtable.useful.UserManager
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class LoginActivity : AppCompatActivity() {
 
@@ -19,6 +23,7 @@ class LoginActivity : AppCompatActivity() {
     lateinit var loginPwdInputLayout : TextInputEditText
     lateinit var loginWarningTextBox : TextView
     val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    val firestore = FirebaseFirestore.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,10 +81,26 @@ class LoginActivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     // 로그인 성공
-                    Toast.makeText(this, R.string.login_success, Toast.LENGTH_LONG).show()
-                    ActivityTransition.startStatic(
-                        this@LoginActivity,
-                        HomeAcitivity::class.java
+                    // 현재 유저 정보를 전역으로 관리
+                    fetchUserData(
+                        onSuccess = { user ->
+                            Log.i("LOGIN","Log In Success. USER INFO : ${user.Name}, With Point ${user.point}")
+                            UserManager.setUser(
+                                user.Name,
+                                user.email,
+                                user.image,
+                                user.phoneNumber,
+                                user.point,
+                            )
+                            Toast.makeText(this, R.string.login_success, Toast.LENGTH_LONG).show()
+                            ActivityTransition.startStatic(
+                                this@LoginActivity,
+                                HomeAcitivity::class.java
+                            )
+                        },
+                        onFailure = { errorMessage->
+                            Log.e("LOGIN","Log In failure due to DataSet. ${errorMessage}")
+                        }
                     )
                 } else {
                     // 로그인 실패
@@ -87,5 +108,40 @@ class LoginActivity : AppCompatActivity() {
                     warning_about(R.string.login_failure)
                 }
             }
+    }
+
+    // 로그인된 유저의 UID를 바탕으로 유저 정보를 불러와 설정하는 함수
+    fun fetchUserData(
+        onSuccess: (User) -> Unit,
+        onFailure: (Exception) -> Unit
+    ) {
+        val auth = FirebaseAuth.getInstance()
+        val firestore = FirebaseFirestore.getInstance()
+
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            val uid = currentUser.uid // 로그인한 사용자의 UID 가져오기
+
+            // Firestore에서 해당 UID를 문서 ID로 사용하여 데이터 가져오기
+            firestore.collection("user").document(uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val user = document.toObject(User::class.java)
+                        if (user != null) {
+                            onSuccess(user)
+                        } else {
+                            onFailure(Exception("사용자 데이터 변환 실패"))
+                        }
+                    } else {
+                        onFailure(Exception("사용자 문서가 존재하지 않습니다"))
+                    }
+                }
+                .addOnFailureListener { exception ->
+                    onFailure(exception)
+                }
+        } else {
+            onFailure(Exception("로그인된 사용자가 없습니다"))
+        }
     }
 }

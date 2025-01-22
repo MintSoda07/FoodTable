@@ -5,16 +5,19 @@ import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 
 // FirebaseHelper 오브젝트는 파이어베이스 관력 작업을 처리해 줌.
-
+// 다양한 작업을 처리할 수 있으므로 사용 권장. (조금 복잡하긴 함)
 object FirebaseHelper {
 
-    private val db = FirebaseFirestore.getInstance()
+    private fun getFirestoreInstance(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
+    }
 
     // 특정 컬렉션에서 모든 문서를 가져오는 함수
     suspend fun <T> getAllDocuments(
         collectionPath: String,
         documentClass: Class<T>
     ): List<T> {
+        val db = getFirestoreInstance()
         return try {
             val querySnapshot = db.collection(collectionPath).get().await()
             querySnapshot.documents.mapNotNull { it.toObject(documentClass) }
@@ -30,6 +33,7 @@ object FirebaseHelper {
         documentId: String,
         documentClass: Class<T>
     ): T? {
+        val db = getFirestoreInstance()
         return try {
             val documentSnapshot = db.collection(collectionPath).document(documentId).get().await()
             documentSnapshot.toObject(documentClass)
@@ -44,6 +48,7 @@ object FirebaseHelper {
         collectionPath: String,
         data: Any
     ): Boolean {
+        val db = getFirestoreInstance()
         return try {
             db.collection(collectionPath).add(data).await()
             true
@@ -59,6 +64,7 @@ object FirebaseHelper {
         documentId: String,
         updates: Map<String, Any>
     ): Boolean {
+        val db = getFirestoreInstance()
         return try {
             db.collection(collectionPath).document(documentId).update(updates).await()
             true
@@ -73,6 +79,7 @@ object FirebaseHelper {
         collectionPath: String,
         documentId: String
     ): Boolean {
+        val db = getFirestoreInstance()
         return try {
             db.collection(collectionPath).document(documentId).delete().await()
             true
@@ -89,6 +96,7 @@ object FirebaseHelper {
         fieldValue: Any,
         documentClass: Class<T>
     ): List<T> {
+        val db = getFirestoreInstance()
         return try {
             val querySnapshot = db.collection(collectionPath)
                 .whereEqualTo(fieldName, fieldValue)
@@ -108,6 +116,7 @@ object FirebaseHelper {
         conditions: List<Pair<String, Any>>,
         documentClass: Class<T>
     ): List<T> {
+        val db = getFirestoreInstance()
         return try {
             // query를 Query 타입으로 선언
             var query: Query = db.collection(collectionPath)
@@ -125,7 +134,7 @@ object FirebaseHelper {
 
     suspend fun getApiKeyInfo(documentId: String): ApiKey? {
         return try {
-            val db = FirebaseFirestore.getInstance()
+            val db = getFirestoreInstance()
             val documentSnapshot = db.collection("API_KEY").document(documentId).get().await()
             documentSnapshot.toObject(ApiKey::class.java)
         } catch (e: Exception) {

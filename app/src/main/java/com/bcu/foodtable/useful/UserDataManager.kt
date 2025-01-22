@@ -4,8 +4,8 @@ package com.bcu.foodtable.useful
 object UserManager {
     private var user: User? = null
 
-    fun setUser(name: String, email: String, phoneNumber: String,point:Int ,imageID:Int) {
-        user = User(name, email, phoneNumber, point, imageID)
+    fun setUser(name: String, email: String, imageURL: String, phoneNumber: String, point: Int) {
+        user = User(name, email, imageURL, phoneNumber, point)
     }
 
     fun getUser(): User? {

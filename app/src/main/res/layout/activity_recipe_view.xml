@@ -7,4 +7,48 @@
     android:layout_height="match_parent"
     tools:context=".ui.RecipeViewActivity">
 
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:layout_editor_absoluteX="0dp"
+        tools:layout_editor_absoluteY="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/itemName_recipe"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#D32F2F"
+                android:elevation="5dp"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:padding="5dp"
+                android:text="ItemNameHere"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:translationZ="5dp" />
+
+            <TextView
+                android:id="@+id/BasicDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="10dp"
+                android:text="ItemDetailDescriptionHere" />
+
+            <ListView
+                android:id="@+id/RecipeList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+            <GridView
+                android:id="@+id/ItemTags"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+        </LinearLayout>
+    </ScrollView>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

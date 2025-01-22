@@ -48,7 +48,10 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.firestore)
-
+    implementation(libs.firebase.storage)
+    
+    // 이미지 로드 라이브러리
+    implementation(libs.glide)
     // JSON 파싱 라이브러리
     implementation(libs.gson)
 

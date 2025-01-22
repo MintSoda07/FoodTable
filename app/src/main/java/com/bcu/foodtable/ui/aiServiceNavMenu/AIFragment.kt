@@ -1,13 +1,13 @@
 package com.bcu.foodtable.ui.aiServiceNavMenu
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.Fragment
-import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.databinding.FragmentAiBinding
+import com.bcu.foodtable.useful.ViewAnimator
 
 class AIFragment : Fragment() {
 
@@ -24,24 +24,38 @@ class AIFragment : Fragment() {
     ): View {
         _binding = FragmentAiBinding.inflate(inflater, container, false)
         val root: View = binding.root
-        val aIServiceManager = OpenAIClient()
-        aIServiceManager.setAIWithAPI(
-            onSuccess = {
-                aIServiceManager.sendMessage(
-                    prompt = "안녕하세요, 쿡봇! 이것은 테스트 수신입니다. 수신하였다면 아무 농담이나 입력해 주세요!", // 사용자 입력
-                    onSuccess = { response ->
-                        println("ChatGPT 응답: $response")
-                    },
-                    onError = { error ->
-                        println("오류: $error")
 
-                    }
-                )
-            },
-            onError = {
-                Log.e("AI_SERVICE","An Error Occured During Setting an AI.")
-            }
-        )
+        val cardItem_1 = binding.CardRecommendation
+        val cardItem_2 = binding.CardChatting
+        val cardItem_3 = binding.CardAIAssistant
+
+        // 좌우에서 나타나는 애니메이션
+        ViewAnimator.moveXPos(cardItem_1, -900f, -120f, 380, DecelerateInterpolator(3.0f), {
+            ViewAnimator.moveXPos(
+                cardItem_2,
+                900f,
+                120f,
+                380,
+                DecelerateInterpolator(3.0f),
+                {
+                    ViewAnimator.moveXPos(cardItem_3, -900f, -120f, 380, DecelerateInterpolator(3.0f))
+                        .start()
+                }).start()
+        }).start()
+
+        // 클릭 시 효과
+        cardItem_1.setOnClickListener{
+            // AI 추천
+        }
+        cardItem_2.setOnClickListener{
+            // AI 채팅
+        }
+        cardItem_3.setOnClickListener{
+            // AI 도우미
+        }
+
+
+
 
         return root
     }

@@ -8,30 +8,136 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:background="#FFFFFF">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical" >
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/aiServiceRecipeText"
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/ai_recipe" />
+                android:layout_height="match_parent"
+                android:background="#FFFFFF">
 
-            <TextView
-                android:id="@+id/aiChatText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/ai_chat" />
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/CardRecommendation"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="15dp"
+                    android:layout_marginBottom="15dp"
+                    android:translationX="-500dp"
+                    android:translationZ="5dp"
+                    app:cardCornerRadius="50dp"
+                    app:cardElevation="10dp"
+                    app:cardMaxElevation="10dp">
 
-            <TextView
-                android:id="@+id/aiAssistantText"
+                    <ImageView
+                        android:id="@+id/imageView9"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/food_image" />
+
+                    <TextView
+                        android:id="@+id/aiServiceRecipeText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#A6505050"
+                        android:fontFamily="@font/the_jamsil_bold"
+                        android:paddingStart="65dp"
+                        android:paddingTop="25dp"
+                        android:text="@string/ai_recipe"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:translationY="-15dp"
+                        android:translationZ="12dp" />
+                </androidx.cardview.widget.CardView>
+            </FrameLayout>
+
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/ai_assistant" />
+                android:layout_height="match_parent"
+                android:background="#C3C3C3"
+                android:elevation="5dp">
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/CardChatting"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="15dp"
+                    android:layout_marginBottom="15dp"
+                    android:translationX="500dp"
+                    android:translationZ="5dp"
+                    app:cardCornerRadius="50dp"
+                    app:cardElevation="10dp"
+                    app:cardMaxElevation="10dp">
+
+                    <ImageView
+                        android:id="@+id/imageView8"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/chat_image" />
+
+                    <TextView
+                        android:id="@+id/aiChatText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#A6505050"
+                        android:fontFamily="@font/the_jamsil_bold"
+                        android:gravity="end"
+                        android:paddingTop="25dp"
+                        android:paddingEnd="65dp"
+                        android:text="@string/ai_chat"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:translationY="-15dp"
+                        android:translationZ="12dp" />
+
+                </androidx.cardview.widget.CardView>
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#FFFFFF">
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/CardAIAssistant"
+                    android:layout_width="match_parent"
+                    android:layout_height="200dp"
+                    android:layout_marginTop="15dp"
+                    android:layout_marginBottom="15dp"
+                    android:translationX="-500dp"
+                    android:translationZ="5dp"
+                    app:cardCornerRadius="50dp"
+                    app:cardElevation="10dp"
+                    app:cardMaxElevation="10dp">
+
+                    <TextView
+                        android:id="@+id/aiAssistantText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#A6505050"
+                        android:fontFamily="@font/the_jamsil_bold"
+                        android:paddingStart="65dp"
+                        android:paddingTop="25dp"
+                        android:text="@string/ai_assistant"
+                        android:textColor="#FFFFFF"
+                        android:textSize="20sp"
+                        android:translationY="-15dp"
+                        android:translationZ="12dp" />
+
+                    <ImageView
+                        android:id="@+id/imageView10"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/cookpot_image" />
+                </androidx.cardview.widget.CardView>
+            </FrameLayout>
 
         </LinearLayout>
     </ScrollView>

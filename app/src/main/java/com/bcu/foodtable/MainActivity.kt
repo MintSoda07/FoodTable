@@ -51,9 +51,7 @@ class MainActivity : AppCompatActivity() {
         loginBtn.alpha = 0f
         signUpBtn.alpha = 0f
 
-        // 테스트용 유저 설정 // 실제 배포 시 다른 작업으로 대체 // data 입력하는 것임.
-        UserManager.setUser("관리자","admin@test.com","01012345678",1500,R.drawable.tacco_sample)
-
+       
         // 조건 변수 선언
         var is_floated = false
         // 레이아웃 애니메이션

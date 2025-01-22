@@ -9,10 +9,13 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 
 // 뷰를 간단하게 움직일 수 있도록 정리한 오브젝트.
+// 복잡한 움직임은 따로 구현해야 하지만, 자주 사용할 법한 애니메이션 동작을 빠르게 처리할 수 있도록 정리하였다.
+//
 // 사용예시 :
 // ViewAnimator.moveYPos(categoryMenuBar, -600f, 0f, 300, DecelerateInterpolator(2f))
 // categoryMenuBar를 300 시간 동안 0f로부터 -600f만큼 움직인다.DecelerateInterpolator (감속) 한다.
 // 꼭 맨 뒤에 .start()를 붙여 주어야 시작 할 수 있다.
+
 object ViewAnimator {
 
     // 뷰의 좌우 위치 조절
