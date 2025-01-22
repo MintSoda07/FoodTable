@@ -12,7 +12,7 @@
         android:layout_margin="5dp"
         android:autoText="true"
         android:background="@drawable/round_login_button"
-        android:fontFamily="sans-serif-medium"
+        android:fontFamily="@font/the_jamsil"
         android:text="Button"
         android:textColor="#FFFFFF"
         android:textSize="14sp"

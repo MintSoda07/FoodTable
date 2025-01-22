@@ -5,7 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.RecipeViewActivity">
+    tools:context=".RecipeViewActivity">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -25,18 +25,40 @@
                 android:background="#D32F2F"
                 android:elevation="5dp"
                 android:fontFamily="@font/the_jamsil_bold"
-                android:padding="5dp"
+                android:padding="7dp"
                 android:text="ItemNameHere"
                 android:textColor="#FFFFFF"
                 android:textSize="24sp"
                 android:translationZ="5dp" />
 
-            <TextView
-                android:id="@+id/BasicDescription"
+            <ImageView
+                android:id="@+id/itemImageView"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="10dp"
-                android:text="ItemDetailDescriptionHere" />
+                android:layout_height="300dp"
+                android:scaleType="centerCrop"
+                tools:src="@tools:sample/backgrounds/scenic" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:background="#D32F2F">
+
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#E6E6E6"
+                android:padding="6dp">
+
+                <TextView
+                    android:id="@+id/BasicDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/the_jamsil"
+                    android:text="ItemDetailDescriptionHere"
+                    android:textSize="16sp" />
+            </FrameLayout>
 
             <ListView
                 android:id="@+id/RecipeList"

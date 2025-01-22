@@ -22,7 +22,7 @@
             android:name=".RecipeItemView"
             android:exported="false" />
         <activity
-            android:name=".ui.RecipeViewActivity"
+            android:name=".RecipeViewActivity"
             android:exported="false" />
         <activity
             android:name=".SignUpAcitivity"
