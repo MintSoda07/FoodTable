@@ -9,6 +9,9 @@ import android.view.ViewGroup
 import android.widget.AbsListView
 import android.widget.GridView
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.useful.CategoryAdapter
 import com.bcu.foodtable.databinding.FragmentHomeBinding
@@ -25,7 +28,7 @@ class HomeFragment : Fragment() {
     private lateinit var firstAdapter: CategoryAdapter
     private lateinit var cardGridView: GridView
     private lateinit var cardGridAdapter: RecipeAdapter
-
+    private lateinit var viewModel: HomeViewModel
 
     // 임시로  집어넣은 값
     private val dataListBig: MutableList<String> =
@@ -53,6 +56,7 @@ class HomeFragment : Fragment() {
         // 카테고리 (가로)
         recyclerView = binding.RecyclerViewCategories
 
+        viewModel = ViewModelProvider(this).get(HomeViewModel::class.java)
         // 카테고리 아이템의 클릭을 감지하는 기능
         firstAdapter = CategoryAdapter(
             dataListBig){ item ->
@@ -91,11 +95,15 @@ class HomeFragment : Fragment() {
 
             override fun onScrollStateChanged(view: AbsListView?, scrollState: Int) {}
         })
+        viewModel.recipes.observe(viewLifecycleOwner) { recipes ->
+            cardGridAdapter.updateRecipes(recipes)
+        }
 
         // 초기 데이터 로드
         loadMoreRecipes(isInitialLoad = true) { newRecipes ->
             cardGridAdapter.updateRecipes(newRecipes)
         }
+
         return root
     }
 
@@ -107,49 +115,49 @@ class HomeFragment : Fragment() {
         isInitialLoad: Boolean,
         onRecipesLoaded: (List<RecipeItem>) -> Unit
     ) {
-        if (isLoading) return // 이미 로드 중이면 무시
-        isLoading = true
+        if (viewModel.isLoading) return
+        viewModel.isLoading = true
 
         // 쿼리 작성: "clicked" 필드 기준으로 오름차순 정렬하고 "clicked" 값이 40 이상인 데이터만 가져오기
         var query = recipesCollection
-            .whereGreaterThan("clicked", 40) // "clicked" 값이 40보다 큰 데이터만
+            //.whereGreaterThan("clicked", 40) // "clicked" 값이 40보다 큰 데이터만
             .orderBy("clicked") // "clicked" 필드로 정렬
             .limit(pageSize.toLong()) // 한 번에 20개 데이터 로드
 
         // 추가 로드 시: lastDocument 기준으로 데이터 이어서 로드
-        if (!isInitialLoad && lastDocument != null) {
-            query = query.startAfter(lastDocument) // 마지막 문서 이후의 데이터를 가져옴
+        if (!isInitialLoad && viewModel.lastDocument != null) {
+            query = query.startAfter(viewModel.lastDocument)
         }
 
         query.get()
             .addOnSuccessListener { querySnapshot ->
-                // 쿼리 결과가 없는 경우 처리
-                if (querySnapshot.isEmpty) {
-                    Log.d("Firestore", "No more recipes to load.")
-                }
-
-                val recipes = querySnapshot.documents.mapNotNull { document ->
+                val newRecipes = querySnapshot.documents.mapNotNull { document ->
                     val recipe = document.toObject(RecipeItem::class.java)
                     recipe?.copy(id = document.id)
-                }
-                // 마지막 문서 업데이트
-                if (querySnapshot.documents.isNotEmpty()) {
-                    lastDocument = querySnapshot.documents.last() // 마지막 문서 참조 업데이트
-                }
+                }.toMutableList()
 
-                // 로드된 데이터 처리
-                if (recipes.isNotEmpty()) {
-                    onRecipesLoaded(recipes) // 데이터를 콜백으로 전달
+                if (isInitialLoad) {
+                    viewModel.recipes.value = newRecipes
                 } else {
-                    Log.d("Firestore", "No recipes found.")
+                    val currentRecipes = viewModel.recipes.value ?: mutableListOf()
+                    currentRecipes.addAll(newRecipes)
+                    viewModel.recipes.value = currentRecipes
                 }
 
-                isLoading = false // 로드 완료
+                if (querySnapshot.documents.isNotEmpty()) {
+                    viewModel.lastDocument = querySnapshot.documents.last()
+                }
+
+                viewModel.isLoading = false
             }
-            .addOnFailureListener { exception ->
-                Log.e("Firestore", "Failed to load recipes: ${exception.message}")
-                isLoading = false // 로드 실패 시 플래그 해제
+            .addOnFailureListener {
+                viewModel.isLoading = false
             }
     }
 }
 
+class HomeViewModel : ViewModel() {
+    val recipes = MutableLiveData<MutableList<RecipeItem>>()
+    var lastDocument: DocumentSnapshot? = null
+    var isLoading = false
+}
