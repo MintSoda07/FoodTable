@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.useful.*
+import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var RecipeAdaptor: RecipeDetailRecyclerAdaptor
     private lateinit var items: List<String>
 
+    private var isClickedUpdated = false
     private lateinit var notificationPermissionManager: NotificationPermissionManager
 
     //    private val regex = Regex("(.*)\\s*\\((.*),(\\d{2}:\\d{2}:\\d{2})\\)") // 타이머가 포함된 형식
@@ -40,14 +42,15 @@ class RecipeViewActivity : AppCompatActivity() {
         }
         adaptorViewList = findViewById(R.id.RecipeList)
         adaptorViewList.layoutManager = LinearLayoutManager(this)
-        val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                // 알림 승인
-                Toast.makeText(this, "알림이 승인되었습니다.", Toast.LENGTH_SHORT).show()
-            } else {
-                // 알림 거부
+        val permissionLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                if (isGranted) {
+                    // 알림 승인
+                    Toast.makeText(this, "알림이 승인되었습니다.", Toast.LENGTH_SHORT).show()
+                } else {
+                    // 알림 거부
+                }
             }
-        }
 
         notificationPermissionManager = NotificationPermissionManager(this, permissionLauncher)
 
@@ -61,11 +64,21 @@ class RecipeViewActivity : AppCompatActivity() {
             recipe?.let {
                 it.id = recipeId  // Firestore 문서의 ID를 recipe.id에 할당
 
+                // 해당 아이템의 클릭 수 +1
+                if (!isClickedUpdated) {
+                    updateFieldById(
+                        collectionPath = "recipe", // 컬렉션 이름
+                        documentId = recipeId, // 문서 ID
+                        fieldName = "clicked", // 수정할 필드 이름
+                        newValue = it.clicked + 1 // 새 값
+                    )
+                }
                 // UI 업데이트
                 val placeholder_name = findViewById<TextView>(R.id.itemName_recipe)
                 val placeholder_description = findViewById<TextView>(R.id.BasicDescription)
                 val placeholder_image = findViewById<ImageView>(R.id.itemImageView)
                 val inputString = it.order
+
                 // ○를 기준으로 문자열을 나눔 (
                 items = inputString.split("○").filter { it.isNotBlank() }
                 // 리스트 어댑터

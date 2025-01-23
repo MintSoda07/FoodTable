@@ -12,6 +12,7 @@ object FirebaseHelper {
         return FirebaseFirestore.getInstance()
     }
 
+
     // suspend가 붙은 이유는 조금 시간이 걸리는 네트워크 요청이므로, 비동기로 처리하기 위함.
     // 특정 컬렉션에서 모든 문서를 가져오는 함수
     suspend fun <T> getAllDocuments(
@@ -130,6 +131,16 @@ object FirebaseHelper {
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
+        }
+    }
+    suspend fun updateFieldById(collectionPath: String, documentId: String, fieldName: String, newValue: Any) {
+        val updateMap = mapOf(fieldName to newValue)
+        val isUpdated = FirebaseHelper.updateDocument(collectionPath, documentId, updateMap)
+
+        if (isUpdated) {
+            println("Document with ID $documentId updated successfully!")
+        } else {
+            println("Failed to update document with ID $documentId.")
         }
     }
 

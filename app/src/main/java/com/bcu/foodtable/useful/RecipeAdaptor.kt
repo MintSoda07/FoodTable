@@ -5,15 +5,13 @@ import android.util.Log
 import android.view.*
 import android.widget.*
 import com.bcu.foodtable.R
-import com.bcu.foodtable.useful.FireStoreHelper.loadImageFromUrl
 import com.bumptech.glide.Glide
 
 // 레시피 아이템을 뷰에 추가하는 어댑터.
 class RecipeAdapter(
     private val context: Context,
-    private var recipes: List<RecipeItem> // 데이터를 동적으로 변경할 수 있도록 var로 선언
+    var recipes: List<RecipeItem> // 데이터를 동적으로 변경할 수 있도록 var로 선언
 ) : BaseAdapter() {
-    var onClick: (RecipeItem) -> Unit = {}
     override fun getCount(): Int = recipes.size
 
     override fun getItem(position: Int): Any = recipes[position]
@@ -30,9 +28,6 @@ class RecipeAdapter(
 
         val recipe = recipes[position]
 
-        view.setOnClickListener {
-            onClick(recipe)
-        }
 
         nameTextView.text = recipe.name
         if (imageView.context != null) {
