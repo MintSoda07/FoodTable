@@ -21,6 +21,7 @@
         tools:targetApi="35">
         <activity
             android:name=".AI.AiRecommendationActivity"
+            android:windowSoftInputMode="adjustPan"
             android:exported="false" />
         <activity
             android:name=".RecipeViewActivity"

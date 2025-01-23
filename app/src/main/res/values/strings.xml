@@ -34,6 +34,14 @@
     <string name="start">시작</string>
     <string name="done">완료</string>
     <string name="cooking_order">조리과정</string>
+    <string name="recommend_AI_output">AI의 추천 결과</string>
+    <string name="recommend_AI_reason">추천 이유</string>
+    <string name="recommend_sample">AI에게 추천받고 싶은 음식을 이야기 해 주세요!</string>
+    <string name="submit">전송</string>
+    <string name="ai_working">AI가 생각중입니다..</string>
+    <string name="ai_cost">AI기능 사용에는 %1$d 소금이 필요합니다. </string>
+    <string name="ai_error">죄송합니다! 오류가 발생했습니다.</string>
+    <string name="ai_no_salt">소금이 부족합니다!</string>
     <string name="Lorem_ipsum">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 Section 1.10.32 of "de Finibus Bonorum et Malorum", written by Cicero in 45 BC

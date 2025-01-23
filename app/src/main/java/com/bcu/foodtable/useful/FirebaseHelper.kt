@@ -135,7 +135,7 @@ object FirebaseHelper {
     }
     suspend fun updateFieldById(collectionPath: String, documentId: String, fieldName: String, newValue: Any) {
         val updateMap = mapOf(fieldName to newValue)
-        val isUpdated = FirebaseHelper.updateDocument(collectionPath, documentId, updateMap)
+        val isUpdated = updateDocument(collectionPath, documentId, updateMap)
 
         if (isUpdated) {
             println("Document with ID $documentId updated successfully!")

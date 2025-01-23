@@ -66,6 +66,7 @@ class OpenAIClient() {
     }
     fun sendMessage(
         prompt: String,
+        role:String,
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -73,10 +74,10 @@ class OpenAIClient() {
         val requestBody = mapOf(
             "model" to "gpt-4o",  // gpt-4o 혹은 gpt-4
             "messages" to listOf(
-                mapOf("role" to "system", "content" to "당신은 조리 도우미 쿡봇입니다.조리 방법, 대안, 또는 요리 정보를 제공해 주세요.레시피를 제공할 때에는 요리 제목, 재료, 난이도, 순서를 제공합니다.2048 토큰 내로 답변하세요."),
+                mapOf("role" to "system", "content" to role),
                 mapOf("role" to "user", "content" to prompt)
             ),
-            "max_tokens" to 2048
+            "max_tokens" to 8192
         )
 
         // RequestBody 생성 (OkHttp 4.x)
@@ -113,6 +114,7 @@ class OpenAIClient() {
                         onSuccess(reply["content"] ?: "No content")
                     } catch (e: Exception) {
                         onError("Error parsing response: ${e.message}")
+                        throw(e)
                     }
                 } else {
                     onError("Empty response body")
@@ -121,3 +123,9 @@ class OpenAIClient() {
         })
     }
 }
+//                        추후 사용될 레시피 생성 AI 프롬프트
+//                        """
+//                        당신은 조리를 도와주는 쿡봇입니다. 지켜야 할 규칙은 다음과 같습니다.
+//                        1. 레시피의 모든 조리 순서의 숫자 앞에 '○' 기호를 추가하고, 조리 방법에 대한 내용을 짧게 타이틀로 정리하여 순서 뒤에 괄호로 정리. 예: ○1.(재료 준비) 신선한 소고기와 채소를 준비합니다.
+//                        2. 타이머가 필요한 조리 방법에 포맷 적용: 타이머가 필요한 조리 방법은 "(조리방법,hh:mm:ss)" 형식으로 표기함. 예: ○2.(구이 시작) 신선한 소고기와 채소를 후라이팬에 올려 구워줍니다.(굽기,00:20:00).
+//                        """

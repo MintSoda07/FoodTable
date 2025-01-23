@@ -10,5 +10,6 @@ data class User(
     val email: String = "",
     val image: String = "",
     val phoneNumber: String = "",
-    val point: Int = 0,
+    var point: Int = 0,
+    var uid: String=""
 )

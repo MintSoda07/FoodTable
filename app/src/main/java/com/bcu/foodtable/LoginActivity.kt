@@ -22,7 +22,6 @@ class LoginActivity : AppCompatActivity() {
     lateinit var loginPwdInputLayout : TextInputEditText
     lateinit var loginWarningTextBox : TextView
     val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    val firestore = FirebaseFirestore.getInstance()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,14 +82,15 @@ class LoginActivity : AppCompatActivity() {
                     // 현재 유저 정보를 전역으로 관리
                     fetchUserData(
                         onSuccess = { user ->
-                            Log.i("LOGIN","Log In Success. USER INFO : ${user.Name}, With Point ${user.point}")
                             UserManager.setUser(
                                 user.Name,
                                 user.email,
                                 user.image,
                                 user.phoneNumber,
                                 user.point,
+                                user.uid
                             )
+                            Log.i("LOGIN","Log In Success. USER INFO : ${user.Name}, With Point ${user.point}, UID : ${user.uid} , USER DATA : ${UserManager.getUser()}")
                             Toast.makeText(this, R.string.login_success, Toast.LENGTH_LONG).show()
                             ActivityTransition.startStatic(
                                 this@LoginActivity,
@@ -128,6 +128,7 @@ class LoginActivity : AppCompatActivity() {
                     if (document.exists()) {
                         val user = document.toObject(User::class.java)
                         if (user != null) {
+                            user.uid = uid
                             onSuccess(user)
                         } else {
                             onFailure(Exception("사용자 데이터 변환 실패"))

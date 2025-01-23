@@ -1,12 +1,16 @@
 package com.bcu.foodtable.ui.aiServiceNavMenu
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.Fragment
+import com.bcu.foodtable.AI.AiRecommendationActivity
 import com.bcu.foodtable.databinding.FragmentAiBinding
+import com.bcu.foodtable.useful.ActivityTransition
 import com.bcu.foodtable.useful.ViewAnimator
 
 class AIFragment : Fragment() {
@@ -46,6 +50,7 @@ class AIFragment : Fragment() {
         // 클릭 시 효과
         cardItem_1.setOnClickListener{
             // AI 추천
+            ActivityTransition.startStaticInFragment(context,AiRecommendationActivity::class.java)
         }
         cardItem_2.setOnClickListener{
             // AI 채팅

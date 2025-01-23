@@ -43,8 +43,6 @@ class HomeFragment : Fragment() {
     private val firestore = FirebaseFirestore.getInstance()
     private val recipesCollection = firestore.collection("recipe")
     private val pageSize = 20 // 한 번에 가져올 데이터 개수
-    private var lastDocument: DocumentSnapshot? = null // 마지막으로 가져온 문서의 참조
-    private var isLoading = false // 중복 로드를 방지하기 위한 플래그
 
     override fun onCreateView(
         inflater: LayoutInflater,
