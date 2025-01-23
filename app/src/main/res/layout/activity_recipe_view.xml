@@ -40,13 +40,6 @@
 
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="5dp"
-                android:background="#D32F2F">
-
-            </FrameLayout>
-
-            <FrameLayout
-                android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="#E6E6E6"
                 android:padding="6dp">
@@ -58,18 +51,44 @@
                     android:fontFamily="@font/the_jamsil"
                     android:text="ItemDetailDescriptionHere"
                     android:textSize="16sp" />
+
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/textView4"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="@string/cooking_order"
+                android:textColor="#D32F2F"
+                android:textSize="20sp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:background="#D32F2F">
+
             </FrameLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/RecipeList"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
+                android:layout_height="match_parent"
+                android:nestedScrollingEnabled="true" />
 
             <GridView
                 android:id="@+id/ItemTags"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent" >
+
+            </GridView>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:background="#D32F2F">
+
+            </FrameLayout>
 
         </LinearLayout>
     </ScrollView>

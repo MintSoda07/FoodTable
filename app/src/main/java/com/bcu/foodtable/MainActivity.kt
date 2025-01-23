@@ -3,7 +3,6 @@ package com.bcu.foodtable
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
@@ -14,7 +13,6 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bcu.foodtable.useful.ActivityTransition
-import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.useful.ViewAnimator
 
 class MainActivity : AppCompatActivity() {

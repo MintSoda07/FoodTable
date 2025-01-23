@@ -1,13 +1,15 @@
 package com.bcu.foodtable
 
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
-import android.widget.ListView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -23,7 +25,10 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var adaptorViewList: RecyclerView
     private lateinit var RecipeAdaptor: RecipeDetailRecyclerAdaptor
     private lateinit var items: List<String>
-    private val regex = Regex("(.*)\\s*\\((.*),(\\d{2}:\\d{2}:\\d{2})\\)") // 타이머가 포함된 형식
+
+    private lateinit var notificationPermissionManager: NotificationPermissionManager
+
+    //    private val regex = Regex("(.*)\\s*\\((.*),(\\d{2}:\\d{2}:\\d{2})\\)") // 타이머가 포함된 형식
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -35,6 +40,19 @@ class RecipeViewActivity : AppCompatActivity() {
         }
         adaptorViewList = findViewById(R.id.RecipeList)
         adaptorViewList.layoutManager = LinearLayoutManager(this)
+        val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                // 알림 승인
+                Toast.makeText(this, "알림이 승인되었습니다.", Toast.LENGTH_SHORT).show()
+            } else {
+                // 알림 거부
+            }
+        }
+
+        notificationPermissionManager = NotificationPermissionManager(this, permissionLauncher)
+
+        // 알림 권한 요청
+        notificationPermissionManager.requestPermissionIfNeeded()
 
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
@@ -51,7 +69,10 @@ class RecipeViewActivity : AppCompatActivity() {
                 // ○를 기준으로 문자열을 나눔 (
                 items = inputString.split("○").filter { it.isNotBlank() }
                 // 리스트 어댑터
-                RecipeAdaptor = RecipeDetailRecyclerAdaptor(mutableListOf()) { position ->
+                RecipeAdaptor = RecipeDetailRecyclerAdaptor(
+                    mutableListOf(),
+                    this@RecipeViewActivity
+                ) { position ->
                     onDoneButtonClick(position)
                 }
                 RecipeAdaptor.updateItems(items)
@@ -103,5 +124,6 @@ class RecipeViewActivity : AppCompatActivity() {
         }
 
     }
+
 }
 

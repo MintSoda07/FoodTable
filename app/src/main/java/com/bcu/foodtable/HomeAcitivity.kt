@@ -7,33 +7,22 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Vibrator
-import android.util.Log
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
-import android.widget.GridView
 import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.SearchView
 import android.widget.TextView
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.constraintlayout.widget.ConstraintSet.Layout
 import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
-import com.bcu.foodtable.useful.CategoryAdapter
-import com.bcu.foodtable.useful.FireStoreHelper
-import com.bcu.foodtable.useful.RecipeAdapter
-import com.bcu.foodtable.useful.RecipeItem
-import com.bcu.foodtable.useful.UsefulRecycler
-import com.bcu.foodtable.useful.UserManager
-import com.bcu.foodtable.useful.ViewAnimator
-import com.google.android.material.navigation.NavigationView
+import com.bcu.foodtable.useful.*
 
 
 class HomeAcitivity : AppCompatActivity() {

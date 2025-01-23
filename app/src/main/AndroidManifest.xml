@@ -4,6 +4,7 @@
     <!-- 인터넷 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- 진동 권한 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- 알림 권한 -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
@@ -19,7 +20,7 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
-            android:name=".RecipeItemView"
+            android:name=".AI.AiRecommendationActivity"
             android:exported="false" />
         <activity
             android:name=".RecipeViewActivity"

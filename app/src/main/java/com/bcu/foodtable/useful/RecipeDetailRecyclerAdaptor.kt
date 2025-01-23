@@ -1,5 +1,6 @@
 package com.bcu.foodtable.useful
 
+import android.content.Context
 import android.os.CountDownTimer
 import android.view.*
 import android.widget.*
@@ -8,6 +9,7 @@ import com.bcu.foodtable.R
 
 class RecipeDetailRecyclerAdaptor(
     private var items: MutableList<String>,
+    private val context: Context,
     private val onDoneButtonClick: (Int) -> Unit
 ) : RecyclerView.Adapter<RecipeDetailRecyclerAdaptor.ViewHolder>() {
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -56,6 +58,7 @@ class RecipeDetailRecyclerAdaptor(
             if (position == 0) {
                 holder.timerFrame.visibility = View.VISIBLE
             }
+
             val action = matchResult.groupValues[1].trim() // 앞의 문자열
             val method = matchResult.groupValues[2].trim() // 조리방식 문자열
             val timeStr = matchResult.groupValues[3].trim() // "hh:mm:ss" 의 시간 비슷한 문자열
@@ -83,6 +86,7 @@ class RecipeDetailRecyclerAdaptor(
 
             // 타이머 함수
             fun startTimer(holder: ViewHolder, timeLeft: Int) {
+                val notificationHelper = NotificationHelper(context)
                 val timer = object : CountDownTimer((timeLeft * 1000).toLong(), 1000) {
                     override fun onTick(millisUntilFinished: Long) {
                         val secondsLeft = millisUntilFinished / 1000
@@ -94,12 +98,14 @@ class RecipeDetailRecyclerAdaptor(
                         val seconds = secondsLeft % 60
                         holder.timerTime.text =
                             String.format("%02d:%02d:%02d", hours, minutes, seconds)
+                        notificationHelper.showTimerNotification(String.format("%02d:%02d:%02d", hours, minutes, seconds),method)
                     }
 
                     override fun onFinish() {
                         holder.timerProgress.progress = totalTimeInSeconds
                         holder.timerTime.text = "00:00:00"
                         holder.doneButton.visibility = View.VISIBLE
+                        notificationHelper.cancelNotification()
                     }
                 }
 
