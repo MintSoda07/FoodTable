@@ -21,7 +21,7 @@
 1차 개발 목표 (~1/26)
 - AI Fragment 완성하기 - DONE (1/22)
 - AI Recommendation 완성하기 - DONE (1/23)
-- AI Chat Activity 완성하기
+- AI Chat Activity 완성하기 - DONE (1/24~1/25)
 - 레벨 1 개발 단계 중 레시피 클릭시 표시할 액티비티 만들기 - DONE (1/23)
 - FireBase 중 FireStore 연결 후 하드코딩된 각종 요소 파이어베이스와 연동하기 - DONE (1/23)
 - 프로필 페이지 만들기

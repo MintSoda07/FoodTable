@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
 
 class AiRecommendationActivity : AppCompatActivity() {
     private var isSending = false
-    private var apiKeyItem: ApiKey? = null
     private val aiUseCost = 40 // 한 번 AI 프롬프트를 전송할 때 필요한 소금(값)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +55,7 @@ class AiRecommendationActivity : AppCompatActivity() {
 
         val userSendingArea = findViewById<View>(R.id.Sending)
         val BackgroundText = findViewById<TextView>(R.id.BackgroundText)
+
         // Ai 불러오기
         val aIServiceAgent = OpenAIClient()
 
@@ -195,6 +195,14 @@ class AiRecommendationActivity : AppCompatActivity() {
                             responseViewBody.text = getString(R.string.ai_error)
                             aiResponse = response
                             Log.e("OpenAI", response)
+                            isSending = false
+                            ViewAnimator.moveYPos(
+                                submitBtn,
+                                150f,
+                                0f,
+                                400,
+                                DecelerateInterpolator(3.0f)
+                            )
                         }
                     }
                 )

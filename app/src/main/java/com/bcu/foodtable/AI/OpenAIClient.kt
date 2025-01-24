@@ -39,8 +39,8 @@ class OpenAIClient() {
     private lateinit var apiKeyInfo : ApiKey
 
     private val client = OkHttpClient.Builder()
-        .readTimeout(30, TimeUnit.SECONDS) //  타임아웃 설정
-        .connectTimeout(30, TimeUnit.SECONDS) // 연결 타임아웃 설정
+        .readTimeout(60, TimeUnit.SECONDS) //  타임아웃 설정
+        .connectTimeout(60, TimeUnit.SECONDS) // 연결 타임아웃 설정
         .build() // HTTP 클라이언트 생성 실행
 
     private val gson = Gson()

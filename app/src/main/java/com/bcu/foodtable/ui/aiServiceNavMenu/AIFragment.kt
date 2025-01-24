@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.Fragment
+import com.bcu.foodtable.AI.AiChattingActivity
 import com.bcu.foodtable.AI.AiRecommendationActivity
 import com.bcu.foodtable.databinding.FragmentAiBinding
 import com.bcu.foodtable.useful.ActivityTransition
@@ -54,6 +55,7 @@ class AIFragment : Fragment() {
         }
         cardItem_2.setOnClickListener{
             // AI 채팅
+            ActivityTransition.startStaticInFragment(context,AiChattingActivity::class.java)
         }
         cardItem_3.setOnClickListener{
             // AI 도우미

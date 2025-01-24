@@ -20,9 +20,12 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
-            android:name=".AI.AiRecommendationActivity"
-            android:windowSoftInputMode="adjustPan"
+            android:name=".AI.AiChattingActivity"
             android:exported="false" />
+        <activity
+            android:name=".AI.AiRecommendationActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".RecipeViewActivity"
             android:exported="false" />
