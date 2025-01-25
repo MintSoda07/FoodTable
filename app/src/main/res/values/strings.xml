@@ -42,6 +42,11 @@
     <string name="ai_cost">AI기능 사용에는 %1$d 소금이 필요합니다. </string>
     <string name="ai_error">죄송합니다! 오류가 발생했습니다.</string>
     <string name="ai_no_salt">소금이 부족합니다!</string>
+    <string name="introduce">자기소개</string>
+    <string name="have_salt">가진 소금</string>
+    <string name="purchase">결제하기</string>
+    <string name="subscribe_channels">구독 중인 채널</string>
+    <string name="profile_edit">프로필 수정하기</string>
     <string name="Lorem_ipsum">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
 
 Section 1.10.32 of "de Finibus Bonorum et Malorum", written by Cicero in 45 BC
