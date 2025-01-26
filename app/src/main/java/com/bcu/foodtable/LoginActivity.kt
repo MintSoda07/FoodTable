@@ -88,7 +88,9 @@ class LoginActivity : AppCompatActivity() {
                                 user.image,
                                 user.phoneNumber,
                                 user.point,
-                                user.uid
+                                user.uid,
+                                user.rankPoint,
+                                user.description
                             )
                             Log.i("LOGIN","Log In Success. USER INFO : ${user.Name}, With Point ${user.point}, UID : ${user.uid} , USER DATA : ${UserManager.getUser()}")
                             Toast.makeText(this, R.string.login_success, Toast.LENGTH_LONG).show()

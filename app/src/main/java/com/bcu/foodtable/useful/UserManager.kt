@@ -10,9 +10,11 @@ object UserManager {
         imageURL: String,
         phoneNumber: String,
         point: Int,
-        uid: String
+        uid: String,
+        rankPoint: Int,
+        description: String
     ) {
-        user = User(name, email, imageURL, phoneNumber, point, uid)
+        user = User(name, email, imageURL, phoneNumber, point, uid,rankPoint,description)
     }
 
     fun getUser(): User? {

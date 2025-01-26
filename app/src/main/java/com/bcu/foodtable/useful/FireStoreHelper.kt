@@ -135,13 +135,15 @@ object FireStoreHelper {
     }
     // 그 외의 경우에는 이거 사용
     fun loadImageFromUrl(imageUrl: String, imageView: ImageView) {
-        if (imageView.context != null) {
+        if (imageView.context != null  && imageView.tag != imageUrl) {
             Glide.with(imageView.context)
                 .load(imageUrl) // 매개변수로 전달받은 URL을 그대로 사용
                 .centerCrop()
                 .placeholder(R.drawable.baseline_menu_book_24) // 로딩 중 표시할 이미지
+                .override(imageView.width, imageView.height)
                 .error(R.drawable.dish_icon) // 실패 시 표시할 이미지
                 .into(imageView) // ImageView에 로드
+            imageView.tag = imageUrl
         } else {
             Log.e("FirebaseStorage", "Context is null, cannot load image.")
         }
