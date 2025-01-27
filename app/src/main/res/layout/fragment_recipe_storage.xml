@@ -6,21 +6,16 @@
     android:layout_height="match_parent"
     tools:context=".ui.subscribeNavMenu.SubscribeFragment">
 
-    <ScrollView
+    <GridView
+        android:id="@+id/GalleryItemsGroup"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:numColumns="2"
+        android:overScrollMode="never"
+        android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <com.bcu.foodtable.useful.ExpandedGridView
-            android:id="@+id/GalleryItemsGroup"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:columnWidth="170dp"
-            android:nestedScrollingEnabled="false"
-            android:numColumns="2" />
-    </ScrollView>
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

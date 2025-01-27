@@ -14,6 +14,9 @@ import com.bcu.foodtable.useful.GalleryItem
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.useful.UserManager
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 
 class RecipeStorageFragment : Fragment() {
@@ -42,9 +45,15 @@ class RecipeStorageFragment : Fragment() {
         fetchGalleryItems(
             onSuccess = { galleryItems ->
                 // 어댑터 설정
+                Log.d("FB_Gallery","Item List : $galleryItems")
                 gridView = binding.GalleryItemsGroup
                 adapter = GalleryGridAdapter(requireContext(), galleryItems)
                 gridView.adapter = adapter
+
+
+                // 아이템 개수 기반으로 GridView의 높이 설정
+                val numColumns = 2 // GridView의 열(column) 개수 설정
+                setGridViewHeightBasedOnItems(gridView, adapter, numColumns)
             },
             onFailure = { exception ->
                 Toast.makeText(requireContext(), "Failed to load data: ${exception.message}", Toast.LENGTH_LONG).show()
@@ -73,13 +82,17 @@ class RecipeStorageFragment : Fragment() {
                     Log.d("FB_Gallery", "No items found for this user.")  // 결과가 없을 경우 로그 추가
                 }
                 // recipeId를 기반으로 추가적인 정보를 가져오기 위한 리스트 준비
+                val tasks = mutableListOf<Task<DocumentSnapshot>>() // 각 recipeId 조회 작업 저장
                 val items = querySnapshot.documents.mapNotNull { doc ->
                     val galleryItem = doc.toObject(GalleryItem::class.java)
 
                     galleryItem?.recipeId?.let { recipeId ->
                         // recipeId가 존재하는 경우, recipe/ 콜렉션에서 해당 recipeId 문서를 찾아 추가 정보 가져오기
-                        firestore.collection("recipe").document(recipeId).get()
-                            .addOnSuccessListener { recipeDoc ->
+                        // recipeId에 해당하는 recipe 문서 조회 작업 추가
+                        val task = firestore.collection("recipe").document(recipeId).get()
+                        tasks.add(task)
+
+                        task.addOnSuccessListener { recipeDoc ->
                                 if (recipeDoc.exists()) {
                                     val recipe = recipeDoc.toObject(RecipeItem::class.java)
                                     // recipe 정보를 galleryItem에 추가하거나 처리
@@ -98,11 +111,43 @@ class RecipeStorageFragment : Fragment() {
 
                     galleryItem
                 }
-                onSuccess(items)
+                // 모든 작업이 완료된 후 onSuccess 호출
+                Tasks.whenAllComplete(tasks).addOnCompleteListener {
+                    Log.d("FB_Gallery", "All recipe details fetched. Total items: ${items.size}")
+                    onSuccess(items) // 최종 결과 반환
+                }
             }
             .addOnFailureListener { exception ->
                 Log.e("FB_Gallery", "Error fetching data", exception)  // 실패시 오류 로그 추가
                 onFailure(exception)
             }
+    }
+    fun setGridViewHeightBasedOnItems(gridView: GridView, adapter: GalleryGridAdapter, numColumns: Int) {
+        val totalItems = adapter.count
+        if (totalItems <= 0) return
+
+        // 한 행에 들어가는 아이템 수 (numColumns) 기준으로 전체 행 수 계산
+        val rows = (totalItems + numColumns - 1) / numColumns // 올림 처리
+        var totalHeight = 0
+
+        // 각 아이템의 높이를 측정
+        for (i in 0 until rows) {
+            val itemView = adapter.getView(i, null, gridView)
+            itemView.measure(
+                View.MeasureSpec.makeMeasureSpec(gridView.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.UNSPECIFIED
+            )
+            totalHeight += itemView.measuredHeight
+        }
+
+        // 높이에 divider height 추가 (GridView의 rowSpacing을 반영)
+        val verticalSpacing = gridView.verticalSpacing
+        totalHeight += (rows - 1) * verticalSpacing
+
+        // GridView의 레이아웃 파라미터 설정
+        val params = gridView.layoutParams
+        params.height = totalHeight
+        gridView.layoutParams = params
+        gridView.requestLayout()
     }
 }
