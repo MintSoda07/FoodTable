@@ -9,7 +9,9 @@ import com.bumptech.glide.Glide
 
 class GalleryGridAdapter(
     private val context: Context,
-    private val items: List<GalleryItem>
+    var items: List<GalleryItem>,
+    private val onGroupClick: (String) -> Unit, // 그룹 클릭 리스너
+    private val onItemClick: (GalleryItem) -> Unit // 일반 아이템 클릭 리스너
 ) : BaseAdapter() {
     private val groupViews = mutableMapOf<String, View>() // groupId 별 View
 
@@ -42,6 +44,10 @@ class GalleryGridAdapter(
 
                 // groupId에 해당하는 View를 저장
                 groupViews[groupId] = newGroupView
+
+                newGroupView.setOnClickListener {
+                    onGroupClick(groupId)
+                }
                 newGroupView
             }
 
@@ -97,6 +103,10 @@ class GalleryGridAdapter(
                 .into(imageView)
 
             textItemView.text = item.name
+
+            view.setOnClickListener {
+                onItemClick(item)
+            }
             return view
         }
     }

@@ -6,16 +6,62 @@
     android:layout_height="match_parent"
     tools:context=".ui.subscribeNavMenu.SubscribeFragment">
 
-    <GridView
-        android:id="@+id/GalleryItemsGroup"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:numColumns="2"
-        android:overScrollMode="never"
-        android:scrollbars="none"
+        android:layout_height="match_parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <GridView
+            android:id="@+id/GalleryItemsGroup"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:numColumns="2"
+            android:overScrollMode="never"
+            android:scrollbars="none" />
+
+        <FrameLayout
+            android:id="@+id/GalleryBackground"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#4DCECECE"
+            android:visibility="gone">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/GalleryInsideCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="7dp"
+                app:cardBackgroundColor="#CACACA"
+                app:cardCornerRadius="25dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="10dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/GalleryFolderName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/the_jamsil"
+                        android:text="TextView"
+                        android:textSize="20sp" />
+
+                    <com.bcu.foodtable.useful.ExpandedGridView
+                        android:id="@+id/GalleryFolderInnerItemGrid"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:numColumns="2" />
+
+                </LinearLayout>
+
+            </androidx.cardview.widget.CardView>
+        </FrameLayout>
+
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
