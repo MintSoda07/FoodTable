@@ -9,10 +9,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.bcu.foodtable.useful.UserManager
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.*
+import com.bcu.foodtable.useful.User as UserData
 
 class SignUpAcitivity : AppCompatActivity() {
 
@@ -114,15 +116,20 @@ class SignUpAcitivity : AppCompatActivity() {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     val uid = auth.currentUser?.uid ?: return@addOnCompleteListener
-                    val user = hashMapOf(
-                        "email" to email,
-                        "nickname" to nickname,
-                        "uid" to uid
+                    val user = UserData(
+                        Name=nickname,
+                        email= email,
+                        image="",
+                        phoneNumber = "",
+                        point= 0,
+                        rankPoint = 0,
+                        description = ""
                     )
                     firestore.collection("user").document(uid)
                         .set(user)
                         .addOnSuccessListener {
                             Toast.makeText(this, R.string.signup_success, Toast.LENGTH_LONG).show()
+                            user.uid=uid
                             finish()
                         }
                         .addOnFailureListener {
