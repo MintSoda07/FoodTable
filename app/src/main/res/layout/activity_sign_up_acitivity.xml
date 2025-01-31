@@ -90,7 +90,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:background="@drawable/round_shape"
-                        android:hint="@string/login_id"
+                        android:hint="닉네임"
                         android:inputType="text"
                         android:padding="10dp"
                         android:paddingStart="40dp" />
@@ -98,12 +98,82 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <Button
-                    android:id="@+id/button"
+                    android:id="@+id/nicknameCheckButton"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_weight="0.8"
                     android:background="@drawable/round_login_button"
-                    android:text="@string/check_email"
+                    android:text="닉네임 확인"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:startIconDrawable="@drawable/baseline_lock_24">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/passwordInputBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/round_shape"
+                    android:hint="비밀번호"
+                    android:inputType="textPassword"
+                    android:padding="10dp"
+                    android:paddingStart="40dp" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                app:startIconDrawable="@drawable/baseline_lock_24">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/confirmPasswordInputBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@drawable/round_shape"
+                    android:hint="비밀번호 확인"
+                    android:inputType="textPassword"
+                    android:padding="10dp"
+                    android:paddingStart="40dp" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="0.6">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/verificationCodeInputBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/round_shape"
+                        android:hint="인증코드 입력"
+                        android:inputType="number"
+                        android:padding="10dp"
+                        android:paddingStart="40dp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Button
+                    android:id="@+id/emailVerifyButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="0.4"
+                    android:background="@drawable/round_login_button"
+                    android:text="인증 버튼"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp" />
             </LinearLayout>

@@ -62,4 +62,19 @@ Section 1.10.33 of "de Finibus Bonorum et Malorum", written by Cicero in 45 BC
 "On the other hand, we denounce with righteous indignation and dislike men who are so beguiled and demoralized by the charms of pleasure of the moment, so blinded by desire, that they cannot foresee the pain and trouble that are bound to ensue; and equal blame belongs to those who fail in their duty through weakness of will, which is the same as saying through shrinking from toil and pain. These cases are perfectly simple and easy to distinguish. In a free hour, when our power of choice is untrammelled and when nothing prevents our being able to do what we like best, every pleasure is to be welcomed and every pain avoided. But in certain circumstances and owing to the claims of duty or the obligations of business it will frequently occur that pleasures have to be repudiated and annoyances accepted. The wise man therefore always holds in these matters to this principle of selection: he rejects pleasures to secure other greater pleasures, or else he endures pains to avoid worse pains."
 
 </string>
+    <!-- 회원가입 Warnings -->
+    <string name="email_empty_warning">이메일을 입력하세요.</string>
+    <string name="nickname_empty_warning">닉네임을 입력하세요.</string>
+    <string name="password_empty_warning">비밀번호를 입력하세요.</string>
+    <string name="confirm_password_empty_warning">비밀번호 확인을 입력하세요.</string>
+    <string name="password_mismatch_warning">비밀번호가 일치하지 않습니다.</string>
+    <string name="verification_code_invalid_warning">인증 코드가 올바르지 않습니다.</string>
+
+    <!-- Toast Messages -->
+    <string name="verification_code_sent">인증 코드가 이메일로 전송되었습니다.</string>
+    <string name="nickname_available">사용 가능한 닉네임입니다.</string>
+    <string name="nickname_unavailable_warning">이미 사용 중인 닉네임입니다.</string>
+    <string name="nickname_check_failed">닉네임 중복 확인에 실패했습니다.</string>
+    <string name="signup_success">회원가입이 성공적으로 완료되었습니다!</string>
+    <string name="signup_failed">회원가입에 실패했습니다. 다시 시도해주세요.</string>
 </resources>
