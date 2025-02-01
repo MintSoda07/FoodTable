@@ -11,5 +11,6 @@ data class RecipeItem(
     val date : Timestamp = Timestamp.now(),
     val order : String ="",
     var id: String = "",
-    var categories : String =""
+    var categories : String ="",
+    var channelId:String=""
 )
