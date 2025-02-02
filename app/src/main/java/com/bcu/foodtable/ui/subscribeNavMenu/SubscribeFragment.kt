@@ -7,14 +7,22 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.GridView
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.FragmentSubscribeBinding
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.GalleryGridAdapter
+import com.bcu.foodtable.useful.GalleryItem
+import com.bcu.foodtable.useful.RecipeItem
+import com.bcu.foodtable.useful.SubscribeItem
 import com.bcu.foodtable.useful.SubscribedChannelGridView
 import com.bcu.foodtable.useful.UserManager
+import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 
 class SubscribeFragment : Fragment() {
 
@@ -25,7 +33,9 @@ class SubscribeFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var topMySubscribes: RecyclerView
-    private lateinit var subscribeRoundAdaptor: SubscribedChannelGridView
+    private lateinit var middleMyChannel: RecyclerView
+    private lateinit var bottomAllCHannel: RecyclerView
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -35,21 +45,44 @@ class SubscribeFragment : Fragment() {
         _binding = FragmentSubscribeBinding.inflate(inflater, container, false)
         val root: View = binding.root
 
-
-
-        fetchChannels(
+        fetchSubscribedChannels(
             onSuccess = { items->
                 topMySubscribes= binding.SubscribeItemsGrid
                 Log.d(
                     "FB_Subscribe",
                     "Items Loaded with Size : ${items.size}"
                 )
-                subscribeRoundAdaptor = SubscribedChannelGridView(
+                val subscribeRoundAdaptor = SubscribedChannelGridView(
                     context = requireContext(),
                     itemList = items
                 )
                 topMySubscribes.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
                 topMySubscribes.adapter = subscribeRoundAdaptor
+                Log.d(
+                    "FB_Subscribe",
+                    "Fetching items Successfully after Data Loading."
+                )
+            },
+            onFailure = {
+                Log.d(
+                    "FB_Subscribe",
+                    "Fetching items failed after Data Loading."
+                )
+            }
+        )
+        fetchMyChannels(
+            onSuccess = { items->
+                middleMyChannel= binding.SubscribeMyChannelGrid
+                Log.d(
+                    "FB_Subscribe",
+                    "Items Loaded with Size : ${items.size}"
+                )
+                val subscribeMyChannelRoundAdaptor = SubscribedChannelGridView(
+                    context = requireContext(),
+                    itemList = items
+                )
+                middleMyChannel.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+                middleMyChannel.adapter = subscribeMyChannelRoundAdaptor
                 Log.d(
                     "FB_Subscribe",
                     "Fetching items Successfully after Data Loading."
@@ -72,15 +105,15 @@ class SubscribeFragment : Fragment() {
         _binding = null
     }
 
-    fun fetchChannels(onSuccess: (List<Channel>) -> Unit, onFailure: (Exception) -> Unit) {
+    fun fetchMyChannels(onSuccess: (List<Channel>) -> Unit, onFailure: (Exception) -> Unit) {
         val firestore = FirebaseFirestore.getInstance()
         Log.d(
             "FB_Subscribe",
             "Fetching items for user UID: ${UserManager.getUser()!!.uid}"
         )  // 디버그 로그 추가
         firestore.collection("channel")
-            .orderBy("date") // "subscribers" 필드로 정렬
-            .limit(20) //일단 20개까지만 불러온다.
+            .whereEqualTo("owner", UserManager.getUser()!!.uid)
+            .orderBy("date")
             .get()
             .addOnSuccessListener { querySnapshot ->
                 Log.d(
@@ -88,14 +121,12 @@ class SubscribeFragment : Fragment() {
                     "Query successful. Documents found: ${querySnapshot.size()}"
                 )  // 쿼리 성공시 로그 추가
                 if (querySnapshot.isEmpty) {
-                    Log.d("FB_Gallery", "No items found.")  // 결과가 없을 경우 로그 추가
+                    Log.d("FB_Subscribe", "No items found.")  // 결과가 없을 경우 로그 추가
                 }
-                // recipeId를 기반으로 추가적인 정보를 가져오기 위한 리스트 준비
                 val items = querySnapshot.documents.mapNotNull { doc ->
                     val topRecyclerViewItem = doc.toObject(Channel::class.java)
                     topRecyclerViewItem
                 }
-                // 모든 작업이 완료된 후 onSuccess 호출
                 Log.d("FB_Subscribe", "All recipe details fetched. Total items: ${items.size}")
                 onSuccess(items) // 최종 결과 반환
             }
@@ -105,4 +136,60 @@ class SubscribeFragment : Fragment() {
             }
     }
 
+
+    fun fetchSubscribedChannels(onSuccess: (List<Channel>) -> Unit, onFailure: (Exception) -> Unit) {
+        val firestore = FirebaseFirestore.getInstance()
+        Log.d(
+            "FB_Subscribe",
+            "Fetching items for user UID: ${UserManager.getUser()!!.uid}"
+        )  // 디버그 로그 추가
+        firestore.collection("channel_subscribe")
+            .whereEqualTo("userId", UserManager.getUser()!!.uid)
+            .orderBy("date")
+            .limit(40) //일단 40개까지만 불러온다.
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                Log.d(
+                    "FB_Subscribe",
+                    "Query successful. Documents found: ${querySnapshot.size()}"
+                )  // 쿼리 성공시 로그 추가
+                if (querySnapshot.isEmpty) {
+                    Log.d("FB_Subscribe", "No items found.")
+                }
+                val tasks = mutableListOf<Task<DocumentSnapshot>>() // 개별 조회 작업 저장
+                val channelList = mutableListOf<Channel>() // 최종 채널 리스트
+
+                for (doc in querySnapshot.documents) {
+                    val channelId = doc.getString("channel") ?: continue // `channelId` 가져오기
+
+                    // channel 컬렉션에서 해당 channelId 문서 가져오기
+                    val task = firestore.collection("channel").document(channelId).get()
+                    tasks.add(task)
+
+                    task.addOnSuccessListener { channelDoc ->
+                        if (channelDoc.exists()) {
+                            val channelItem = channelDoc.toObject(Channel::class.java)
+                            channelItem?.let {
+                                channelList.add(it)
+                                Log.i("FB_Subscribe", "Subscribed Channel Added: $it")
+                            }
+                        } else {
+                            Log.d("FB_Subscribe", "No Channel found for ID: $channelId")
+                        }
+                    }.addOnFailureListener { exception ->
+                        Log.e("FB_Subscribe", "Error fetching channel data", exception)
+                    }
+                }
+
+                // 3️⃣ 모든 Firestore 요청이 끝난 후 `onSuccess` 호출
+                Tasks.whenAllComplete(tasks).addOnCompleteListener {
+                    Log.d("FB_Subscribe", "All channels fetched. Total items: ${channelList.size}")
+                    onSuccess(channelList) // 최종 리스트 반환
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FB_Subscribe", "Error fetching data", exception)  // 실패시 오류 로그 추가
+                onFailure(exception)
+            }
+    }
 }
