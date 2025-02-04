@@ -59,6 +59,9 @@ dependencies {
     implementation(libs.okhttp) 
     implementation(libs.logging.interceptor)
 
+    // 플랙스 레이아웃 사용을 위한 라이브러리
+    implementation(libs.flexbox)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)

@@ -51,6 +51,9 @@
     <string name="channel_subscribed">채널 구독하기</string>
     <string name="channel_all">전체 채널</string>
     <string name="see_more">더보기</string>
+    <string name="ai_helper">레시피 작성에 필요한 재료를 입력해 보세요. \nAI가 입력된 재료로 만들 수 있는 레시피를 알려줍니다!</string>
+    <string name="ingredients">재료 목록</string>
+    <string name="recipes">레시피 목록</string>
     <!-- 회원가입 Warnings -->
     <string name="email_empty_warning">이메일을 입력하세요.</string>
     <string name="nickname_empty_warning">닉네임을 입력하세요.</string>

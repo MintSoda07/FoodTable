@@ -17,7 +17,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bcu.foodtable.R
-import com.bcu.foodtable.useful.ApiKey
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.UserManager
