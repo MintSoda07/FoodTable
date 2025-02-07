@@ -33,7 +33,7 @@ class GalleryFolderInnerGrid(
         Glide.with(context)
             .load(item.image)
             .centerCrop()
-            .override(500, 500)
+            .override(imageView.width, imageView.height)
             .placeholder(R.drawable.baseline_menu_book_24)
             .error(R.drawable.dish_icon)
             .into(imageView)

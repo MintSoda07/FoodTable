@@ -1,5 +1,6 @@
 package com.bcu.foodtable.AI
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,9 +19,11 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
+import com.bcu.foodtable.RecipeViewActivity
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.FlexAdaptor
+import com.bcu.foodtable.useful.ListItemButtonAdaptor
 import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.useful.ViewAnimator
 import com.google.android.flexbox.FlexDirection
@@ -228,7 +231,17 @@ class AiHelperActivity : AppCompatActivity() {
                             ingredientsItemRecyclerView.adapter = FlexAdaptor(ingredients)
 
                             RecipessItemRecyclerView.layoutManager = layoutManager2
-                            RecipessItemRecyclerView.adapter = FlexAdaptor(recipes)
+                            RecipessItemRecyclerView.adapter = ListItemButtonAdaptor(
+                                recipes,
+                                onClick = { clickedItem->
+                                    val clickedRecipeName = recipes[clickedItem]
+                                    val intent = Intent(this, RecipeViewActivity::class.java)
+                                    intent.putExtra("RecipeName", clickedRecipeName)  // Firestore 문서 ID 전달
+                                    this.startActivity(intent)  // 새로운 액티비티로 전환
+                                },
+                            )
+
+
                         }
                     },
                     onError = { response ->

@@ -34,7 +34,7 @@ class RecipeAdapter(
             Glide.with(imageView.context)
                 .load(recipe.imageResId) // 매개변수로 전달받은 URL을 그대로 사용
                 .centerCrop()
-                .override(500,400)
+                .override(imageView.width, imageView.height)
                 .placeholder(R.drawable.baseline_menu_book_24) // 로딩 중 표시할 이미지
                 .error(R.drawable.dish_icon) // 실패 시 표시할 이미지
                 .into(imageView) // ImageView에 로드

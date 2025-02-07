@@ -97,7 +97,7 @@ class GalleryGridAdapter(
             Glide.with(context)
                 .load(item.image) // 이미지 URL 로드
                 .centerCrop()
-                .override(500, 500)
+                .override(imageView.width, imageView.height)
                 .placeholder(R.drawable.baseline_menu_book_24)
                 .error(R.drawable.dish_icon)
                 .into(imageView)

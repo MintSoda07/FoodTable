@@ -20,6 +20,9 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
+            android:name=".recipe_making_page"
+            android:exported="false" />
+        <activity
             android:name=".AI.AiHelperActivity"
             android:exported="false" />
         <activity

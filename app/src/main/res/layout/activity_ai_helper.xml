@@ -141,7 +141,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/the_jamsil"
-                android:hint="@string/recommend_sample"
+                android:hint="@string/ai_helper"
                 android:textSize="12sp"
                 android:translationY="-5dp" />
 
