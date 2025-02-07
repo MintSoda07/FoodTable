@@ -54,7 +54,18 @@
     <string name="ai_helper">레시피 작성에 필요한 재료를 입력해 보세요. \nAI가 입력된 재료로 만들 수 있는 레시피를 알려줍니다!</string>
     <string name="ingredients">재료 목록</string>
     <string name="recipes">레시피 목록</string>
+    <string name="recipe_name">레시피 이름</string>
     <string name="recipe_make">레시피 만들기</string>
+    <string name="upload">업로드</string>
+    <string name="recipe_description">레시피 설명</string>
+    <string name="hour">시간</string>
+    <string name="minute">분</string>
+    <string name="second">초</string>
+    <string name="recipe_add_title">조리 단계 이름 입력 (예:손질하기)</string>
+    <string name="recipe_add_inner">상세한 설명을 입력해 주세요.</string>
+    <string name="recipe_timer_add">타이머 등록</string>
+    <string name="recipe_stage_add">단계 등록</string>
+    <string name="add">등록하기</string>
     <!-- 회원가입 Warnings -->
     <string name="email_empty_warning">이메일을 입력하세요.</string>
     <string name="nickname_empty_warning">닉네임을 입력하세요.</string>

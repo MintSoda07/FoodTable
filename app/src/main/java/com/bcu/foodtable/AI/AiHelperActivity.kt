@@ -20,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 import com.bcu.foodtable.RecipeViewActivity
+import com.bcu.foodtable.RecipeViewMakingActivity
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.FlexAdaptor
@@ -235,8 +236,10 @@ class AiHelperActivity : AppCompatActivity() {
                                 recipes,
                                 onClick = { clickedItem->
                                     val clickedRecipeName = recipes[clickedItem]
-                                    val intent = Intent(this, RecipeViewActivity::class.java)
-                                    intent.putExtra("RecipeName", clickedRecipeName)  // Firestore 문서 ID 전달
+                                    val intent = Intent(this, RecipeViewMakingActivity::class.java)
+                                    intent.putExtra("RecipeName", clickedRecipeName)  // 전달할 레시피의 이름
+                                    intent.putExtra("Ingredients", ingredients.toString())
+                                    intent.putExtra("Type","New")
                                     this.startActivity(intent)  // 새로운 액티비티로 전환
                                 },
                             )

@@ -40,7 +40,7 @@ class RecipeViewActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        adaptorViewList = findViewById(R.id.RecipeList)
+        adaptorViewList = findViewById(R.id.AddPageStageListRecyclerView)
         adaptorViewList.layoutManager = LinearLayoutManager(this)
         val permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
