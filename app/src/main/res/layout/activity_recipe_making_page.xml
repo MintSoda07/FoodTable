@@ -242,12 +242,10 @@
 
             </LinearLayout>
 
-            <GridView
-                android:id="@+id/ItemTags"
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/AddPageItemTags"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" >
-
-            </GridView>
+                android:layout_height="match_parent" />
 
             <FrameLayout
                 android:layout_width="match_parent"

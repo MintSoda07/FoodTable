@@ -40,9 +40,6 @@ class AiHelperActivity : AppCompatActivity() {
     private var isSending = false
     private val aiUseCost = 40 // 한 번 AI 프롬프트를 전송할 때 필요한 소금(값)
 
-
-
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -239,7 +236,7 @@ class AiHelperActivity : AppCompatActivity() {
                                     val intent = Intent(this, RecipeViewMakingActivity::class.java)
                                     intent.putExtra("RecipeName", clickedRecipeName)  // 전달할 레시피의 이름
                                     intent.putExtra("Ingredients", ingredients.toString())
-                                    intent.putExtra("Type","New")
+                                    intent.putExtra("Type","NewAI")
                                     this.startActivity(intent)  // 새로운 액티비티로 전환
                                 },
                             )
