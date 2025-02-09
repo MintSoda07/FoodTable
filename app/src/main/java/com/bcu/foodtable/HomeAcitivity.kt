@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Vibrator
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.animation.AccelerateInterpolator
@@ -23,6 +24,7 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
 import com.bcu.foodtable.useful.*
+import com.google.firebase.auth.FirebaseAuth
 
 
 class HomeAcitivity : AppCompatActivity() {
@@ -147,6 +149,7 @@ class HomeAcitivity : AppCompatActivity() {
                 showCategories()
             }
         }
+        Log.d("Home_Activity","LOGGED IN WITH ${FirebaseAuth.getInstance().currentUser}")
     }
 
     // 화면 클릭시 발생하는 이벤트를 재정의

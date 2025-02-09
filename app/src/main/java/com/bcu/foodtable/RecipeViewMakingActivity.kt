@@ -22,6 +22,7 @@ import com.bcu.foodtable.useful.ApiKey
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FlexAdaptor
+import com.bcu.foodtable.useful.RecipeDetailRecyclerAdaptor
 import com.bumptech.glide.Glide
 import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
@@ -30,15 +31,25 @@ import com.google.android.flexbox.JustifyContent
 import com.google.android.material.textfield.TextInputEditText
 
 class RecipeViewMakingActivity : AppCompatActivity() {
-    private val PICK_IMAGE_REQUEST = 1 // 갤러리 요청 코드
+
+    val promptForAi = """
+            당신은 조리를 도와주는 쿡봇입니다. 지켜야 할 규칙은 다음과 같습니다.
+            1. 레시피의 모든 조리 순서의 숫자 앞에 '○' 기호를 추가하고, 조리 방법에 대한 내용을 짧게 타이틀로 정리하여 순서 뒤에 괄호로 정리. 예: ○1.(손질 준비) 신선한 소고기와 채소를 준비합니다.
+            2. 타이머가 필요한 조리 방법에 포맷 적용: 타이머가 필요한 조리 방법은 "(조리방법,hh:mm:ss)" 형식으로 표기함. 예: ○2.(구이 시작) 신선한 소고기와 채소를 후라이팬에 올려 구워줍니다.(굽기,00:20:00).
+            3. 사용자가 입력한 재료만 사용하여 레시피를 제공합니다.
+            4. 재료 목록은 따로 레시피 제공 전 {}안에 작성합니다. 예: {소고기}{감자}{소금}{후추} 
+        """.trimIndent()
+
 
     var recipeName = ""
     var type="New"
+    var isMainImageUploaded = false
 
     lateinit var itemImageView : ImageView
     lateinit var ingredientsList:List<String>
-    private lateinit var imagePickerLauncher: ActivityResultLauncher<Intent>
 
+    lateinit var recipeItemAdaptor : RecipeDetailRecyclerAdaptor
+    private lateinit var imagePickerLauncher: ActivityResultLauncher<Intent>
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -59,21 +70,9 @@ class RecipeViewMakingActivity : AppCompatActivity() {
         type = intent.getStringExtra("RecipeName") ?: ""
         intent.putExtra("Type","New")
 
-        val OpenAI = OpenAIClient()
-        if (ApiKeyManager.getGptApi() == null) {
-            // 객체가 null이 아닌지 확인한 후 사용
-            OpenAI.setAIWithAPI(
-                onSuccess = { info ->
-                    Log.i("OpenAI", "API Name: ${info.KEY_NAME}")
-                    Log.i("OpenAI", "API Key Successfully loaded.")
-                    ApiKeyManager.setGptApiKey(info.KEY_NAME!!, info.KEY_VALUE!!)
-                },
-                onError = {
-                    Log.e("OpenAI", "Failed to Load OpenAI API Key.")
-                })
-        }
+
         val AddPageRecipeNameText = findViewById<TextView>(R.id.AddPageRecipeNameText)
-        itemImageView = findViewById<ImageView>(R.id.itemImageView)
+        itemImageView = findViewById(R.id.itemImageView)
         val AddPageImageUploadBtn = findViewById<Button>(R.id.AddPageImageUploadBtn)
         val AddPageDescriptionText = findViewById<TextView>(R.id.AddPageDescriptionText)
 
@@ -84,6 +83,8 @@ class RecipeViewMakingActivity : AppCompatActivity() {
         val AddPageStageTitleText = findViewById<TextView>(R.id.AddPageStageTitleText)
         val AddPageStageDescriptionText = findViewById<TextView>(R.id.AddPageStageDescriptionText)
         val AddPageStageAddBtn = findViewById<Button>(R.id.AddPageStageAddBtn)
+
+
 
         val AddPageStageTimerHour = findViewById<TextView>(R.id.AddPageStageTimerHour)
         val AddPageStageTimerMinute = findViewById<TextView>(R.id.AddPageStageTimerMinute)
@@ -101,12 +102,64 @@ class RecipeViewMakingActivity : AppCompatActivity() {
 
         AddPageRecipeNameText.text = recipeName
 
+        val OpenAI = OpenAIClient()
 
+
+        if(list!=null) {
+            if (ApiKeyManager.getGptApi() == null) {
+                // 객체가 null이 아닌지 확인한 후 사용
+                OpenAI.setAIWithAPI(
+                    onSuccess = { info ->
+                        Log.i("OpenAI", "API Name: ${info.KEY_NAME}")
+                        Log.i("OpenAI", "API Key Successfully loaded.")
+                        ApiKeyManager.setGptApiKey(info.KEY_NAME!!, info.KEY_VALUE!!)
+                        OpenAI.apiKeyInfo = ApiKeyManager.getGptApi()!!
+                    },
+                    onError = {
+                        Log.e("OpenAI", "Failed to Load OpenAI API Key.")
+                    })
+
+            }else{
+                OpenAI.apiKeyInfo = ApiKeyManager.getGptApi()!!
+            }
+            OpenAI.sendMessage(
+                prompt = "사용 가능한 재료 목록은 ${ingredientsList}이며, 이 중 필요한 재료만을 선택해 ${recipeName}을 만들어 주세요.",
+                role = promptForAi,
+                onSuccess = { response ->
+                    Log.i("AI_Helper","response :$response")
+                    // 재료 추출: {재료} 형태 찾기
+                    val ingredientRegex = """\{(.*?)\}""".toRegex()
+                    val ingredients = ingredientRegex.findAll(response).map { it.groupValues[1] }.toList()
+
+                    // 레시피 추출: 레시피 형태 찾기
+
+                    val recipeRegex = Regex("""○(.*)""")
+                    val recipes = recipeRegex.findAll(response).map { it.groupValues[1] }.toList()
+
+                    Log.d("Recipe_ListChecker","Recipe String List : ${recipes}")
+                    // 리스트 어댑터
+                    runOnUiThread {
+                        recipeItemAdaptor = RecipeDetailRecyclerAdaptor(
+                            mutableListOf(),
+                            this@RecipeViewMakingActivity
+                        ){ clickedPosition ->
+
+                        }
+                        recipeItemAdaptor.updateItems(recipes)
+                        AddPageStageListRecyclerView.adapter = recipeItemAdaptor
+                        AddPageIngredientsItemList.adapter = FlexAdaptor(ingredients)
+                    }
+                },
+                onError = { errorMessage ->
+
+                }
+            )
+        }
         AddPageImageUploadBtn.setOnClickListener{
             openGallery()
         }
         imagePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
+            if (result.resultCode == RESULT_OK) {
                 val imageUri = result.data?.data
                 if (imageUri != null) {
                     Glide.with(itemImageView.context)
@@ -116,6 +169,7 @@ class RecipeViewMakingActivity : AppCompatActivity() {
                         .placeholder(R.drawable.baseline_menu_book_24) // 로딩 중 표시할 이미지
                         .error(R.drawable.dish_icon) // 실패 시 표시할 이미지
                         .into(itemImageView) // ImageView에 로드
+                    isMainImageUploaded = true
                 } else {
                     Toast.makeText(this, "이미지를 선택하지 않았습니다.", Toast.LENGTH_SHORT).show()
                 }

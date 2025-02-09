@@ -21,8 +21,8 @@
         lateinit var loginIdInputLayout : TextInputEditText
         lateinit var loginPwdInputLayout : TextInputEditText
         lateinit var loginWarningTextBox : TextView
-        val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
+        val auth :FirebaseAuth = FirebaseAuth.getInstance()
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             enableEdgeToEdge()

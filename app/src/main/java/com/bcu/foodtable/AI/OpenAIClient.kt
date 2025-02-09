@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit
 //  })
 class OpenAIClient() {
     // AI API 키 불러오기
-    private lateinit var apiKeyInfo : ApiKey
+    lateinit var apiKeyInfo : ApiKey
 
     private val client = OkHttpClient.Builder()
         .readTimeout(60, TimeUnit.SECONDS) //  타임아웃 설정
@@ -52,7 +52,7 @@ class OpenAIClient() {
             try {
                 // Firebase에서 API 키 정보를 가져옵니다
                 apiKeyInfo = FirebaseHelper.getApiKeyInfo("QQH5lCbu52yagfWpJphQ")!!
-
+                if(apiKeyInfo.toString().length>5)  Log.i("AI_KEY","Set AI KEY, and api Key is not null")
                 withContext(Dispatchers.Main) {
                     onSuccess(apiKeyInfo)
                 }
