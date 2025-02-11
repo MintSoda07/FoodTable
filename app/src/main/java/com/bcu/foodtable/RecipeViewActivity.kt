@@ -4,7 +4,10 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.widget.GridView
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -17,6 +20,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
+import com.google.android.flexbox.FlexDirection
+import com.google.android.flexbox.FlexWrap
+import com.google.android.flexbox.FlexboxLayoutManager
+import com.google.android.flexbox.JustifyContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +49,7 @@ class RecipeViewActivity : AppCompatActivity() {
         }
         adaptorViewList = findViewById(R.id.AddPageStageListRecyclerView)
         adaptorViewList.layoutManager = LinearLayoutManager(this)
+
         val permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
                 if (isGranted) {
@@ -51,11 +59,11 @@ class RecipeViewActivity : AppCompatActivity() {
                     // 알림 거부
                 }
             }
-
         notificationPermissionManager = NotificationPermissionManager(this, permissionLauncher)
 
         // 알림 권한 요청
         notificationPermissionManager.requestPermissionIfNeeded()
+
 
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
@@ -79,6 +87,25 @@ class RecipeViewActivity : AppCompatActivity() {
                 val placeholder_image = findViewById<ImageView>(R.id.itemImageView)
                 val inputString = it.order
 
+                val placeholder_ingredients = findViewById<RecyclerView>(R.id.itemIngredientsRecycler)
+                placeholder_ingredients.layoutManager  = LinearLayoutManager(this@RecipeViewActivity)
+                placeholder_ingredients.adapter = IngredientAdapter(it.ingredients)
+
+                val placeholder_categories = findViewById<RecyclerView>(R.id.categories)
+                val placeholder_tags = findViewById<RecyclerView>(R.id.ItemTags)
+
+                val placeholder_note = findViewById<TextView>(R.id.itemUserNote)
+
+                val layoutManager = FlexboxLayoutManager(this@RecipeViewActivity).apply {
+                    flexDirection = FlexDirection.ROW   // 행(row) 방향으로 아이템 배치
+                    justifyContent = JustifyContent.FLEX_START // 아이템을 왼쪽 정렬
+                    flexWrap = FlexWrap.WRAP           // 줄바꿈 허용 (자동으로 아이템 크기 맞추기)
+                }
+                val layoutManager2 = FlexboxLayoutManager(this@RecipeViewActivity).apply {
+                    flexDirection = FlexDirection.ROW   // 행(row) 방향으로 아이템 배치
+                    justifyContent = JustifyContent.FLEX_START // 아이템을 왼쪽 정렬
+                    flexWrap = FlexWrap.WRAP           // 줄바꿈 허용 (자동으로 아이템 크기 맞추기)
+                }
                 // ○를 기준으로 문자열을 나눔 (
                 items = inputString.split("○").filter { it.isNotBlank() }
                 // 리스트 어댑터
@@ -94,6 +121,21 @@ class RecipeViewActivity : AppCompatActivity() {
                 placeholder_name.text = it.name
                 placeholder_description.text = it.description
 
+                placeholder_categories.layoutManager = layoutManager
+                placeholder_tags.layoutManager = layoutManager2
+
+                placeholder_note.text = it.note
+                placeholder_categories.adapter = FlexAdaptor(it.categories)
+                placeholder_tags.adapter = FlexAdaptor(it.tags)
+
+                adaptorViewList.viewTreeObserver.addOnGlobalLayoutListener {
+                    val itemCount = RecipeAdaptor?.itemCount ?: 0
+                    val itemHeight = adaptorViewList.getChildAt(0)?.height ?: 100 // 첫 번째 아이템 높이 가져오기
+                    val totalHeight = itemCount * itemHeight
+
+                    adaptorViewList.layoutParams.height = totalHeight
+                    adaptorViewList.requestLayout()
+                }
             } ?: run {
                 Log.d("Recipe", "No recipe found for the provided ID.")
             }
@@ -140,3 +182,23 @@ class RecipeViewActivity : AppCompatActivity() {
 
 }
 
+class IngredientAdapter(private val ingredients: List<String>) :
+    RecyclerView.Adapter<IngredientAdapter.IngredientViewHolder>() {
+
+    // ViewHolder 클래스 정의
+    class IngredientViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val ingredientText: TextView = itemView.findViewById(R.id.textIngre)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): IngredientViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.list_with_dots, parent, false)
+        return IngredientViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: IngredientViewHolder, position: Int) {
+        holder.ingredientText.text = ingredients[position]
+    }
+
+    override fun getItemCount(): Int = ingredients.size
+}

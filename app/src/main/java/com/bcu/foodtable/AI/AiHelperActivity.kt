@@ -61,8 +61,10 @@ class AiHelperActivity : AppCompatActivity() {
             당신은 조리를 도와주는 쿡봇입니다. 지켜야 할 규칙은 다음과 같습니다.
             1. 사용자가 입력한 재료만 사용하여 만들 수 있는 레시피를 최소 4개 이상 제공합니다.
             2. 재료 목록은 따로 레시피 제공 전 {}안에 작성합니다. 예: {소고기}{감자}{소금}{후추} 
-            3. 제공되는 레시피의 앞과 뒤에는 정규식 구분을 위해 ◆을 붙여 주세요. 예: ◆감자 소금구이◆ 
-            4. 최종 출력은 이런 형식이 되어야 합니다. 예: {소고기}{감자}{소금}{후추} ◆감자 소금구이◆ ◆감자 고기구이◆ ◆소고기 구이◆ ◆소고기 감자볶음◆
+            3. 제공되는 레시피의 앞과 뒤에는 정규식 구분을 위해 ◆을 붙여 주세요. 예: ◆감자 소금구이◆
+            4. 또한, 레시피에 사용되는 재료를 자세한 용량과 함께 레시피 이름 뒤에 괄호로 넣어 주세요. 예: ◆감자 소금구이◆(감자 2개,소금 5g)
+            5. 최종 출력은 이런 형식이 되어야 합니다. 예: {소고기}{감자}{소금}{후추} ◆감자 소금구이◆ ◆감자 고기구이◆ ◆소고기 구이◆ ◆소고기 감자볶음◆
+            
         """.trimIndent()
 
 
@@ -205,8 +207,14 @@ class AiHelperActivity : AppCompatActivity() {
                         val recipeRegex = """◆(.*?)◆""".toRegex()
                         val recipes = recipeRegex.findAll(aiResponse).map { it.groupValues[1] }.toList()
 
+                        // 3. 레시피별 사용된 재료 추출: 레시피 제목 뒤 괄호 안의 재료 찾기
+                        // ◆레시피◆(감자 2개, 버터 10g, 소금 5g) -> 괄호 안의 내용만 추출
+                        val recipeIngredientsRegex = """◆.*?◆\((.*?)\)""".toRegex()
+                        val recipeIngredientsRaw = recipeIngredientsRegex.findAll(aiResponse).map { it.groupValues[1] }.toList()
+
                         println("재료 목록: $ingredients")
                         println("레시피 목록: $recipes")
+                        println("레시피에 사용된 재료 목록 : $recipeIngredientsRaw")
 
                         finalIngredientList = ingredients
                         finalRecipeList = recipes
@@ -231,13 +239,14 @@ class AiHelperActivity : AppCompatActivity() {
                             RecipessItemRecyclerView.layoutManager = layoutManager2
                             RecipessItemRecyclerView.adapter = ListItemButtonAdaptor(
                                 recipes,
+                                recipeIngredientsRaw,
                                 onClick = { clickedItem->
                                     val clickedRecipeName = recipes[clickedItem]
-                                    val intent = Intent(this, RecipeViewMakingActivity::class.java)
-                                    intent.putExtra("RecipeName", clickedRecipeName)  // 전달할 레시피의 이름
-                                    intent.putExtra("Ingredients", ingredients.toString())
-                                    intent.putExtra("Type","NewAI")
-                                    this.startActivity(intent)  // 새로운 액티비티로 전환
+//                                    val intent = Intent(this, RecipeViewMakingActivity::class.java)
+//                                    intent.putExtra("RecipeName", clickedRecipeName)  // 전달할 레시피의 이름
+//                                    intent.putExtra("Ingredients", ingredients.toString())
+//                                    intent.putExtra("Type","NewAI")
+//                                    this.startActivity(intent)  // 새로운 액티비티로 전환
                                 },
                             )
 

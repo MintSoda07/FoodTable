@@ -21,8 +21,8 @@
 
         <ImageView
             android:id="@+id/RecipeImage"
-            android:layout_width="180dp"
-            android:layout_height="180dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:background="@drawable/round_card_shape"
             android:scaleType="centerCrop"
             tools:srcCompat="@tools:sample/backgrounds/scenic" />
