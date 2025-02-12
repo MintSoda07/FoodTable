@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
             if (is_floated) {
                 ActivityTransition.startStatic(
                     this@MainActivity,
-                    SignUpAcitivity::class.java
+                    SignUpActivity::class.java
                 )
             }
         }

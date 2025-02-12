@@ -150,30 +150,13 @@
                 android:orientation="horizontal"
                 android:layout_marginTop="10dp">
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="0.6">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/verificationCodeInputBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:background="@drawable/round_shape"
-                        android:hint="인증코드 입력"
-                        android:inputType="number"
-                        android:padding="10dp"
-                        android:paddingStart="40dp" />
-
-                </com.google.android.material.textfield.TextInputLayout>
 
                 <Button
                     android:id="@+id/emailVerifyButton"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_weight="0.4"
                     android:background="@drawable/round_login_button"
-                    android:text="인증 버튼"
+                    android:text="이메일 인증 보내기"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp" />
             </LinearLayout>
