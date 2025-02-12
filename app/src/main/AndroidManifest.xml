@@ -30,7 +30,8 @@
             android:name=".RecipeViewActivity"
             android:exported="false" />
         <activity
-            android:name=".SignUpAcitivity"
+            android:name=".SignUpActivity"
+
             android:exported="false" />
         <activity
             android:name=".HomeAcitivity"
@@ -48,6 +49,7 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
     </application>
 
