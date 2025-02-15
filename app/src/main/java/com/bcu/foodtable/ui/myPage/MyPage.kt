@@ -21,6 +21,7 @@ class MyPage : Fragment() {
     private var _binding: FragmentMypageBinding? = null
     private val binding get() = _binding!!
     private var selectedImageUri: Uri? = null
+    private var originalDescription: String = ""
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -33,14 +34,21 @@ class MyPage : Fragment() {
         val userData = UserManager.getUser()
         if (userData != null) {
             loadImageFromUrl(userData.image, binding.ProfileMyImage)
-            binding.ProfileMyName.text = userData.Name
+            binding.ProfileMyName.text = userData.name
+            binding.ProfileIntroduceTextView.text = if (userData.description.isNotEmpty()) userData.description else "자기소개가 없습니다."
             binding.ProfileIntroduceEditText.setText(userData.description)
             binding.ProfileMySalt.text = "${userData.point}"
             binding.ProfileRankText.text = "${userData.rankPoint}"
+            binding.ProfileMyImage.isClickable = false
+            binding.ProfileMyImage.isFocusable = false
+
             toggleEditMode(false) // 초기에는 읽기 전용
         } else {
             fetchUserDataFromFirestore()
         }
+        // 마이페이지 처음 왔을때 이미지 클릭 방지
+        binding.ProfileMyImage.isClickable = false
+        binding.ProfileMyImage.isFocusable = false
 
         binding.ProfileEditBtn.setOnClickListener {
             toggleEditMode(true)
@@ -53,6 +61,7 @@ class MyPage : Fragment() {
         binding.ProfileCancelBtn.setOnClickListener {
             toggleEditMode(false)
         }
+
 
         binding.ProfileMyImage.setOnClickListener {
             pickImageFromGallery()
@@ -77,10 +86,13 @@ class MyPage : Fragment() {
 
                     requireActivity().runOnUiThread {
                         binding.ProfileMyName.text = name
+                        binding.ProfileIntroduceTextView.text = if (description.isNotEmpty()) description else "자기소개가 없습니다."
                         binding.ProfileIntroduceEditText.setText(description)
                         binding.ProfileMySalt.text = "$point"
                         binding.ProfileRankText.text = "$rankPoint"
                         loadImageFromUrl(imageUrl, binding.ProfileMyImage)
+                        binding.ProfileMyImage.isClickable = false
+                        binding.ProfileMyImage.isFocusable = false
                     }
                 } else {
                     println(" Firestore 문서가 존재하지 않음")
@@ -94,12 +106,40 @@ class MyPage : Fragment() {
     }
 
     private fun toggleEditMode(enable: Boolean) {
-        binding.ProfileIntroduceEditText.visibility = if (enable) View.VISIBLE else View.GONE
-        binding.ProfileIntroduceEditText.isEnabled = enable
+        if (enable) {
+            // 편집 모드 시작: 기존 값을 저장
+            originalDescription = binding.ProfileIntroduceTextView.text.toString()
+
+            // EditText의 값이 기존 자기소개 값으로 유지되도록 설정
+            binding.ProfileIntroduceEditText.setText(originalDescription)
+
+            binding.ProfileMyImage.isClickable = true
+            binding.ProfileMyImage.isFocusable = true
+            binding.ProfileEditIcon.visibility = View.VISIBLE
+            // EditText 보이기, TextView 숨기기
+            binding.ProfileIntroduceTextView.visibility = View.GONE
+            binding.ProfileIntroduceEditText.visibility = View.VISIBLE
+            binding.ProfileIntroduceEditText.isEnabled = true
+        } else {
+            // 읽기 전용 모드: EditText 숨기고 TextView 보이기
+            binding.ProfileIntroduceEditText.visibility = View.GONE
+            binding.ProfileIntroduceTextView.visibility = View.VISIBLE
+
+            // 취소 버튼을 눌렀을 때는 기존 값으로 복원
+            binding.ProfileIntroduceEditText.setText(originalDescription)
+            //  프로필 이미지 변경 불가능 (클릭 비활성화)
+            binding.ProfileMyImage.isClickable = false
+            binding.ProfileMyImage.isFocusable = false
+            binding.ProfileEditIcon.visibility = View.GONE
+        }
+
+        // 버튼 가시성 전환
         binding.ProfileEditBtn.visibility = if (enable) View.GONE else View.VISIBLE
         binding.ProfileSaveBtn.visibility = if (enable) View.VISIBLE else View.GONE
         binding.ProfileCancelBtn.visibility = if (enable) View.VISIBLE else View.GONE
     }
+
+
 
     private fun pickImageFromGallery() {
         val intent = Intent(Intent.ACTION_PICK)
@@ -128,17 +168,18 @@ class MyPage : Fragment() {
             .update(updates)
             .addOnSuccessListener {
                 Toast.makeText(context, "프로필이 성공적으로 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
-                binding.ProfileMyName.text = user.Name // 사용자 이름 업데이트 반영
+
+                // 저장 버튼 클릭 시, TextView에도 값 반영
+                binding.ProfileIntroduceTextView.text = newDescription
+
+                // 편집 모드 종료
                 toggleEditMode(false)
             }
             .addOnFailureListener {
                 Toast.makeText(context, "프로필 업데이트에 실패했습니다.", Toast.LENGTH_SHORT).show()
             }
-
-        if (selectedImageUri != null) {
-            uploadImageToFirebase(user.uid)
-        }
     }
+
 
     private fun uploadImageToFirebase(userId: String) {
         val storageRef = FirebaseStorage.getInstance().reference.child("user_profile_image/$userId.jpg")

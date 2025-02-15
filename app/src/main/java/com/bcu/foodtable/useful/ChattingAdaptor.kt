@@ -73,7 +73,7 @@ class ChattingAdaptor:RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
         fun bind(chat: AIChatting) {
             chatTextView.text = chat.content
-            chatName.text = UserManager.getUser()!!.Name
+            chatName.text = UserManager.getUser()!!.name
             FireStoreHelper.loadImageFromUrl(UserManager.getUser()!!.image,imageProfile)
 
 

@@ -122,7 +122,7 @@ class HomeAcitivity : AppCompatActivity() {
         
         // 유저 설정 불러오기
         val userData = UserManager.getUser()!!
-        userName.text = userData.Name
+        userName.text = userData.name
         userPoint.text = userData.point.toString() + getString(R.string.title_salt)
         FireStoreHelper.loadImageFromUrl(userData.image,userImage)
 

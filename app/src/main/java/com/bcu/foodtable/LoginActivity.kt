@@ -90,7 +90,7 @@ class LoginActivity : AppCompatActivity() {
                     fetchUserData(
                         onSuccess = { userData ->
                             UserManager.setUser(
-                                userData.Name,
+                                userData.name,
                                 userData.email,
                                 userData.image,
                                 userData.phoneNumber,
@@ -99,7 +99,7 @@ class LoginActivity : AppCompatActivity() {
                                 userData.rankPoint,
                                 userData.description
                             )
-                            Log.i("LOGIN", "Log In Success. USER INFO: ${userData.Name}, UID: ${userData.uid}")
+                            Log.i("LOGIN", "Log In Success. USER INFO: ${userData.name}, UID: ${userData.uid}")
                             Toast.makeText(this, R.string.login_success, Toast.LENGTH_LONG).show()
                             ActivityTransition.startStatic(
                                 this@LoginActivity,

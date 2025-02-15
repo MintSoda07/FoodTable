@@ -6,7 +6,7 @@ package com.bcu.foodtable.useful
 // RecipeItem 또한 DB 수정 시 해당 data class 수정 필요.
 
 data class User(
-    val Name: String = "",
+    val name: String = "",
     val email: String = "",
     val image: String = "",
     val phoneNumber: String = "",
@@ -14,4 +14,5 @@ data class User(
     var uid: String="",
     var rankPoint: Int =0,
     var description: String=""
+
 )

@@ -17,7 +17,7 @@ object UserManager {
         user = User(name, email, imageURL, phoneNumber, point, uid,rankPoint,description)
     }
     fun setUserByDatatype(userdata:User){
-        user = User(userdata.Name, userdata.email, userdata.image, userdata.phoneNumber, userdata.point, userdata.uid,userdata.rankPoint,userdata.description)
+        user = User(userdata.name, userdata.email, userdata.image, userdata.phoneNumber, userdata.point, userdata.uid,userdata.rankPoint,userdata.description)
     }
 
     fun getUser(): User? {

@@ -201,7 +201,7 @@ class SignUpActivity : AppCompatActivity() {
     private fun createUser(email: String, password: String, nickname: String) {
         val uid = auth.currentUser?.uid ?: return
         val user = UserData(
-            Name = nickname,
+            name = nickname,
             email = email,
             image = "",
             phoneNumber = "",
