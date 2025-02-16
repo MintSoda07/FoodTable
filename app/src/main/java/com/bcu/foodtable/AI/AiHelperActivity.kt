@@ -19,6 +19,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
+import com.bcu.foodtable.RecipeDetailViewByHelperActivity
 import com.bcu.foodtable.RecipeViewActivity
 import com.bcu.foodtable.RecipeViewMakingActivity
 import com.bcu.foodtable.useful.ApiKeyManager
@@ -248,6 +249,14 @@ class AiHelperActivity : AppCompatActivity() {
 //                                    intent.putExtra("Type","NewAI")
 //                                    this.startActivity(intent)  // 새로운 액티비티로 전환
                                 },
+                                onBtnClick = { clickedItem->
+                                    val clickedRecipeName = recipes[clickedItem]
+                                    val clickedRecipeIngredients = recipeIngredientsRaw[clickedItem]
+                                    val intent = Intent(this, RecipeDetailViewByHelperActivity::class.java)
+                                    intent.putExtra("RecipeName", clickedRecipeName)  // 전달할 레시피의 이름
+                                    intent.putExtra("Ingredients", clickedRecipeIngredients)
+                                    this.startActivity(intent)  // 새로운 액티비티로 전환
+                                }
                             )
 
 

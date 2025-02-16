@@ -99,6 +99,18 @@
                     android:text="TextView"
                     android:textSize="16sp" />
 
+                <Button
+                    android:id="@+id/ListItemSeeMore"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="3"
+                    android:backgroundTint="#D32F2F"
+                    android:fontFamily="@font/the_jamsil"
+                    android:text="@string/see_more"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:visibility="visible" />
+
             </LinearLayout>
 
         </LinearLayout>
