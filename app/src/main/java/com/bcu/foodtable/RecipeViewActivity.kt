@@ -127,15 +127,6 @@ class RecipeViewActivity : AppCompatActivity() {
                 placeholder_note.text = it.note
                 placeholder_categories.adapter = FlexAdaptor(it.categories)
                 placeholder_tags.adapter = FlexAdaptor(it.tags)
-
-                adaptorViewList.viewTreeObserver.addOnGlobalLayoutListener {
-                    val itemCount = RecipeAdaptor?.itemCount ?: 0
-                    val itemHeight = adaptorViewList.getChildAt(0)?.height ?: 100 // 첫 번째 아이템 높이 가져오기
-                    val totalHeight = itemCount * itemHeight
-
-                    adaptorViewList.layoutParams.height = totalHeight
-                    adaptorViewList.requestLayout()
-                }
             } ?: run {
                 Log.d("Recipe", "No recipe found for the provided ID.")
             }
