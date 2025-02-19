@@ -25,6 +25,9 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
+            android:name=".ui.subscribeNavMenu.ChannelViewPage"
+            android:exported="false" />
+        <activity
             android:name=".RecipeDetailViewByHelperActivity"
             android:exported="false" />
         <activity

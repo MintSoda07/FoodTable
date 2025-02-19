@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.subscribeNavMenu
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,6 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bcu.foodtable.RecipeViewActivity
 import com.bcu.foodtable.databinding.FragmentSubscribeBinding
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.GalleryGridAdapter
@@ -34,7 +36,7 @@ class SubscribeFragment : Fragment() {
 
     private lateinit var topMySubscribes: RecyclerView
     private lateinit var middleMyChannel: RecyclerView
-    private lateinit var bottomAllCHannel: RecyclerView
+    private lateinit var bottomAllChannel: RecyclerView
 
 
     override fun onCreateView(
@@ -54,7 +56,13 @@ class SubscribeFragment : Fragment() {
                 )
                 val subscribeRoundAdaptor = SubscribedChannelGridView(
                     context = requireContext(),
-                    itemList = items
+                    itemList = items,
+                    onClick = { item->
+                        val channelItem = item.name
+                        val intent = Intent(context, ChannelViewPage::class.java)
+                        intent.putExtra("channel_name", channelItem)  // Firestore 문서 ID 전달
+                        context?.startActivity(intent)  // 새로운 액티비티로 전환
+                    }
                 )
                 topMySubscribes.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
                 topMySubscribes.adapter = subscribeRoundAdaptor
@@ -79,10 +87,47 @@ class SubscribeFragment : Fragment() {
                 )
                 val subscribeMyChannelRoundAdaptor = SubscribedChannelGridView(
                     context = requireContext(),
-                    itemList = items
+                    itemList = items,
+                    onClick = { item->
+                        val channelItem = item.name
+                        val intent = Intent(context, ChannelViewPage::class.java)
+                        intent.putExtra("channel_name", channelItem)  // Firestore 문서 ID 전달
+                        context?.startActivity(intent)  // 새로운 액티비티로 전환
+                    }
                 )
                 middleMyChannel.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
                 middleMyChannel.adapter = subscribeMyChannelRoundAdaptor
+                Log.d(
+                    "FB_Subscribe",
+                    "Fetching items Successfully after Data Loading."
+                )
+            },
+            onFailure = {
+                Log.d(
+                    "FB_Subscribe",
+                    "Fetching items failed after Data Loading."
+                )
+            }
+        )
+        fetchRecommendedChannels(
+            onSuccess = { items->
+                bottomAllChannel= binding.SubscribeMyChannelGrid
+                Log.d(
+                    "FB_Subscribe",
+                    "Items Loaded with Size : ${items.size}"
+                )
+                val subscribeMyChannelRoundAdaptor = SubscribedChannelGridView(
+                    context = requireContext(),
+                    itemList = items,
+                    onClick = { item->
+                        val channelItem = item.name
+                        val intent = Intent(context, ChannelViewPage::class.java)
+                        intent.putExtra("channel_name", channelItem)  // Firestore 문서 ID 전달
+                        context?.startActivity(intent)  // 새로운 액티비티로 전환
+                    }
+                )
+                bottomAllChannel.layoutManager = LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+                bottomAllChannel.adapter = subscribeMyChannelRoundAdaptor
                 Log.d(
                     "FB_Subscribe",
                     "Fetching items Successfully after Data Loading."
@@ -181,11 +226,41 @@ class SubscribeFragment : Fragment() {
                     }
                 }
 
-                // 3️⃣ 모든 Firestore 요청이 끝난 후 `onSuccess` 호출
+                // 3️ 모든 Firestore 요청이 끝난 후 `onSuccess` 호출
                 Tasks.whenAllComplete(tasks).addOnCompleteListener {
                     Log.d("FB_Subscribe", "All channels fetched. Total items: ${channelList.size}")
                     onSuccess(channelList) // 최종 리스트 반환
                 }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FB_Subscribe", "Error fetching data", exception)  // 실패시 오류 로그 추가
+                onFailure(exception)
+            }
+    }
+
+    fun fetchRecommendedChannels(onSuccess: (List<Channel>) -> Unit, onFailure: (Exception) -> Unit) {
+        val firestore = FirebaseFirestore.getInstance()
+        Log.d(
+            "FB_Subscribe",
+            "Fetching Recommended Channels for user UID: ${UserManager.getUser()!!.uid}"
+        )  // 디버그 로그 추가
+        firestore.collection("channel")
+            .orderBy("subscribers")
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                Log.d(
+                    "FB_Subscribe",
+                    "(recommendedChannel) Query successful. Documents found: ${querySnapshot.size()}"
+                )  // 쿼리 성공시 로그 추가
+                if (querySnapshot.isEmpty) {
+                    Log.d("FB_Subscribe", "No items found.")  // 결과가 없을 경우 로그 추가
+                }
+                val items = querySnapshot.documents.mapNotNull { doc ->
+                    val topRecyclerViewItem = doc.toObject(Channel::class.java)
+                    topRecyclerViewItem
+                }
+                Log.d("FB_Subscribe", "All recipe details fetched. Total items: ${items.size}")
+                onSuccess(items) // 최종 결과 반환
             }
             .addOnFailureListener { exception ->
                 Log.e("FB_Subscribe", "Error fetching data", exception)  // 실패시 오류 로그 추가

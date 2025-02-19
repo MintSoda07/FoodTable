@@ -7,7 +7,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 import com.bumptech.glide.Glide
 
-class SubscribedChannelGridView(private val context: Context, private val itemList: List<Channel>) :
+class SubscribedChannelGridView(private val context: Context, private val itemList: List<Channel>, private val onClick: (channelItem: Channel) -> Unit) :
     RecyclerView.Adapter<SubscribedChannelGridView.ViewHolder>() {
 
     // ViewHolder 클래스 정의
@@ -37,6 +37,9 @@ class SubscribedChannelGridView(private val context: Context, private val itemLi
             .error(R.drawable.dish_icon)
             .into(holder.imageView)
 
+        holder.imageView.setOnClickListener{
+            onClick(itemList[position])
+        }
     }
 
     // 아이템 개수 반환
