@@ -72,17 +72,18 @@
                     android:scaleType="centerCrop"
                     tools:srcCompat="@tools:sample/avatars" />
 
-                <!--  프로필 수정 모드에서만 보이는 카메라 아이콘 -->
                 <ImageView
-                    android:id="@+id/ProfileEditIcon"
-                    android:layout_width="60dp"
-                    android:layout_height="60dp"
-                    android:layout_gravity="center"
+                    android:id="@+id/ProfileCameraIcon"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="bottom|end"
+                    android:layout_marginBottom="4dp"
+                    android:layout_marginEnd="4dp"
                     android:src="@android:drawable/ic_menu_camera"
-                    app:tint="@android:color/white"
-                    android:background="@drawable/circle_background"
-                    android:padding="10dp"
-                    android:visibility="gone"/> <!-- 기본적으로 숨김 -->
+                    android:background="@drawable/round_camera_icon"
+                    android:padding="4dp"
+                    android:elevation="4dp"/>
+
             </FrameLayout>
 
             <LinearLayout
