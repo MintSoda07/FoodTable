@@ -2,6 +2,7 @@ package com.bcu.foodtable
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.Handler
@@ -24,6 +25,7 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
 import com.bcu.foodtable.useful.*
+import com.google.android.flexbox.FlexboxLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
@@ -43,14 +45,17 @@ class HomeAcitivity : AppCompatActivity() {
     private var searchBarHidden = false
     private var categoryBarHidden = true
 
+    private lateinit var tagContainer: FlexboxLayout  //  태그를 담을 뷰
+    private val selectedCategory = mutableMapOf<String, String?>()  //  "종류" & "조리방식" 단일 선택
+    private val selectedIngredients = mutableSetOf<String>()  //  "재료" 다중 선택
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()  // Firestore 초기화
 
     // 여기 아래로 다음 주석까지의 부분은 모두 임시로 지정된 데이터임. DB와 연결 시 수정해야 할 부분.
     private val dataListBig: MutableList<String> =
         mutableListOf("종류", "조리방식", "재료")
     private val dataListMed: MutableList<String> =
-        mutableListOf("밥", "빵", "면", "국/찌개", "나물", "볶음", "구이", "찜", "튀김", "디저트", "음료", "기타")
-    private val dataListSmall: MutableList<String> =
+        mutableListOf()
+        private val dataListSmall: MutableList<String> =
         mutableListOf("단맛", "짠맛", "신맛", "쓴맛", "감칠맛", "매운맛", "기타")
 
     // 여기까지.
@@ -84,6 +89,8 @@ class HomeAcitivity : AppCompatActivity() {
 
         categoryMenuBar = findViewById(R.id.CategoryMenuBar)
 
+        tagContainer = findViewById(R.id.tagContainer) // 태그 컨테이너 초기화
+
         // 클릭 리스너
         CategoryAdapterBig = CategoryAdapter(
             dataListBig
@@ -94,6 +101,7 @@ class HomeAcitivity : AppCompatActivity() {
         CategoryAdapterMed = CategoryAdapter(
             dataListMed
         ) { item ->
+            handleCategorySelection(item)
             println("Clicked: $item")
         }
         CategoryAdapterSmall = CategoryAdapter(
@@ -101,6 +109,8 @@ class HomeAcitivity : AppCompatActivity() {
         ) { item ->
             println("Clicked: $item")
         }
+
+        fetchCategoryData("종류")
 
         // 리사이클러 뷰
         recyclerViewSearchBig = findViewById(R.id.RecyclerViewCategoryBig)
@@ -154,6 +164,7 @@ class HomeAcitivity : AppCompatActivity() {
             }
         }
         Log.d("Home_Activity","LOGGED IN WITH ${FirebaseAuth.getInstance().currentUser}")
+
     }
 
     // 화면 클릭시 발생하는 이벤트를 재정의
@@ -309,4 +320,104 @@ class HomeAcitivity : AppCompatActivity() {
         if(!categoryBarHidden) hideCategories()
         searchBarHidden = true
     }
+    // 선택한 항목을 태그에 추가
+    private fun handleCategorySelection(selectedItem: String) {
+        when {
+            //  "종류" 선택 (한 개만 가능)
+            dataListBig.contains(selectedItem) -> {
+                selectedCategory["종류"] = selectedItem
+                Log.d("TAG_SELECTION", "종류 선택됨: $selectedItem")
+            }
+
+            //  "조리방식" 선택 (한 개만 가능)
+            dataListMed.contains(selectedItem) -> {
+                selectedCategory["조리방식"] = selectedItem
+                Log.d("TAG_SELECTION", "조리방식 선택됨: $selectedItem")
+            }
+
+            //  "재료" 선택 (여러 개 가능)
+            dataListSmall.contains(selectedItem) -> {
+                if (selectedIngredients.contains(selectedItem)) {
+                    selectedIngredients.remove(selectedItem) // 이미 선택된 재료는 제거
+                    Log.d("TAG_SELECTION", "재료 제거됨: $selectedItem")
+                } else {
+                    selectedIngredients.add(selectedItem) // 새로운 재료 추가
+                    Log.d("TAG_SELECTION", "재료 추가됨: $selectedItem")
+                }
+            }
+        }
+
+        updateTagDisplay()  //  UI 업데이트
+    }
+
+
+    private fun updateTagDisplay() {
+        runOnUiThread {
+            tagContainer.removeAllViews()  //  기존 태그 삭제
+
+            Log.d("TAG_UI", "태그 UI 업데이트 시작")
+
+            //  "종류" 태그 추가 (1개만 선택 가능)
+            selectedCategory["종류"]?.let {
+                Log.d("TAG_UI", "태그 추가됨 (종류): $it")
+                addTagToContainer(it, "종류")
+            }
+
+            //  "조리방식" 태그 추가 (1개만 선택 가능)
+            selectedCategory["조리방식"]?.let {
+                Log.d("TAG_UI", "태그 추가됨 (조리방식): $it")
+                addTagToContainer(it, "조리방식")
+            }
+
+            //  "재료" 태그 추가 (여러 개 선택 가능)
+            selectedIngredients.forEach { ingredient ->
+                Log.d("TAG_UI", "태그 추가됨 (재료): $ingredient")
+                addTagToContainer(ingredient, "재료")
+            }
+
+            Log.d("TAG_UI", "태그 UI 업데이트 완료")
+        }
+    }
+
+
+
+    //  태그를 `FlexboxLayout`에 추가하는 함수
+    private fun addTagToContainer(tagText: String, categoryType: String) {
+        val tagView = TextView(this).apply {
+            text = "#$tagText"
+            setPadding(20, 10, 20, 10)
+            setBackgroundResource(R.drawable.tag_background)
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            layoutParams = FlexboxLayout.LayoutParams(
+                FlexboxLayout.LayoutParams.WRAP_CONTENT,
+                FlexboxLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(8, 8, 8, 8)  //  태그 간격 조정
+            }
+            setOnClickListener {
+                removeTag(tagText, categoryType)
+            }
+        }
+
+        tagContainer.addView(tagView)
+        Log.d("TAG_UI", "태그 추가됨: #$tagText ($categoryType)")
+    }
+
+
+
+    //  태그 제거 함수
+    private fun removeTag(tagText: String, categoryType: String) {
+        when (categoryType) {
+            "종류" -> selectedCategory["종류"] = null  //  "종류" 선택 해제
+            "조리방식" -> selectedCategory["조리방식"] = null  //  "조리방식" 선택 해제
+            "재료" -> selectedIngredients.remove(tagText)  //  "재료"는 여러 개 선택 가능하므로 개별 삭제
+        }
+
+        Log.d("TAG_UI", "태그 삭제됨: $tagText ($categoryType)")
+        updateTagDisplay()  //  UI 업데이트
+    }
+
+
+
 }
