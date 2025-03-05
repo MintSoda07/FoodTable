@@ -35,10 +35,12 @@
             android:exported="false" />
         <activity
             android:name=".AI.AiHelperActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustPan"/>
         <activity
             android:name=".AI.AiChattingActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustPan"/>
         <activity
             android:name=".AI.AiRecommendationActivity"
             android:exported="false"
