@@ -3,6 +3,7 @@ package com.bcu.foodtable
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.widget.Button
@@ -13,7 +14,12 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bcu.foodtable.useful.ActivityTransition
+import com.bcu.foodtable.useful.FireStoreHelper.addCategoriesToFirestore
 import com.bcu.foodtable.useful.ViewAnimator
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.ktx.firestore
 
 class MainActivity : AppCompatActivity() {
     // Icons by FlatIcon :: https://www.flaticon.com/kr/ //
@@ -26,6 +32,8 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var mainBoxLayout: View
 
+    private val db: FirebaseFirestore = Firebase.firestore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
@@ -36,6 +44,7 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
 
         // 사용할 레이아웃 초기화
         titleText = findViewById(R.id.titleText)
@@ -80,5 +89,22 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+        checkAndAddFirebase()
+    }
+    // Firestore에서 카테고리 존재 여부 확인
+    private fun checkAndAddFirebase() {
+
+        val categoriesRef = db.collection("C_categories")
+        categoriesRef.get()
+            .addOnSuccessListener { document ->
+                if (document.isEmpty) { // 카테고리 없으면 추가
+                    addCategoriesToFirestore()
+                }
+                else {
+                    Log.d("Firestore", "이미 카테고리 존재")
+                }
+
+            }
+            .addOnFailureListener   { e -> Log.e("Firestore", " 카테고리 조회 실패",e)}
     }
 }

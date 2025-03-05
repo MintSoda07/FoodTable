@@ -125,7 +125,7 @@ class RecipeViewActivity : AppCompatActivity() {
                 placeholder_tags.layoutManager = layoutManager2
 
                 placeholder_note.text = it.note
-                placeholder_categories.adapter = FlexAdaptor(it.categories)
+                placeholder_categories.adapter = FlexAdaptor(it.C_categories)
                 placeholder_tags.adapter = FlexAdaptor(it.tags)
             } ?: run {
                 Log.d("Recipe", "No recipe found for the provided ID.")

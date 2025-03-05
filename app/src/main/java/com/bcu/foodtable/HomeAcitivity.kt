@@ -25,6 +25,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
 import com.bcu.foodtable.useful.*
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Source
 
 
 class HomeAcitivity : AppCompatActivity() {
@@ -41,10 +43,11 @@ class HomeAcitivity : AppCompatActivity() {
     private var searchBarHidden = false
     private var categoryBarHidden = true
 
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance()  // Firestore 초기화
 
     // 여기 아래로 다음 주석까지의 부분은 모두 임시로 지정된 데이터임. DB와 연결 시 수정해야 할 부분.
     private val dataListBig: MutableList<String> =
-        mutableListOf("한식", "양식", "일식", "중식", "기타")
+        mutableListOf("종류", "조리방식", "재료")
     private val dataListMed: MutableList<String> =
         mutableListOf("밥", "빵", "면", "국/찌개", "나물", "볶음", "구이", "찜", "튀김", "디저트", "음료", "기타")
     private val dataListSmall: MutableList<String> =
@@ -84,8 +87,9 @@ class HomeAcitivity : AppCompatActivity() {
         // 클릭 리스너
         CategoryAdapterBig = CategoryAdapter(
             dataListBig
-        ) { item ->
-            println("Clicked: $item")
+        ) { selectedCategory ->
+            fetchCategoryData(selectedCategory) //Firebase 데이터 불러오기
+            println("Clicked: $selectedCategory")
         }
         CategoryAdapterMed = CategoryAdapter(
             dataListMed
@@ -191,6 +195,51 @@ class HomeAcitivity : AppCompatActivity() {
             }
         }
         resetHideSearchBarTimer() // 검색창 타이머 초기화 ( 검색창이 위에 있지 않으면 5초 후 사라지는 함수 호출 )
+    }
+    // 카테고리 가져오기
+    private fun fetchCategoryData(category: String) {
+        val documentPath = when (category) {
+            "종류" -> "C_food_types"
+            "조리방식" -> "C_cooking_methods"
+            "재료" -> "C_ingredients"
+            else -> return
+        }
+
+        db.collection("C_categories").document(documentPath)
+            .addSnapshotListener { document, error ->
+                if (error != null) {
+                    Log.e("Firestore", "데이터 불러오기 실패", error)
+                    return@addSnapshotListener
+                }
+
+                if (document != null && document.exists()) {
+                    val list = document.get("list") as? List<String>
+                    if (list != null) {
+                        updateCategoryList(list)
+                    }
+                }
+            }
+    }
+
+    // Firestore에서 최신 데이터 가져오기
+    private fun fetchFromFirestore(documentPath: String) {
+        db.collection("C_categories").document(documentPath)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    val list = document.get("list") as? List<String>
+                    if (list != null) {
+                        updateCategoryList(list)
+                    }
+                }
+            }
+    }
+    private fun updateCategoryList(newData: List<String>) {
+        runOnUiThread {  //  UI 업데이트를 메인 스레드에서 실행
+            dataListMed.clear()
+            dataListMed.addAll(newData)
+            CategoryAdapterMed.notifyDataSetChanged()
+        }
     }
 
     // 카테고리를 표시한다
