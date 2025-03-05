@@ -134,6 +134,7 @@
                             android:fontFamily="@font/the_jamsil"
                             android:padding="2dp"
                             android:text="자기소개를 입력하세요"
+                            android:textSize="14sp"
                             android:visibility="gone" />
                     </LinearLayout>
 
@@ -185,8 +186,9 @@
                         android:layout_weight="4"
                         android:fontFamily="@font/the_jamsil_bold"
                         android:gravity="center"
+                        android:paddingLeft="4dp"
                         android:text="@string/have_salt"
-                        android:textAlignment="center" />
+                        android:textAlignment="viewStart" />
 
                     <TextView
                         android:id="@+id/ProfileMySalt"
@@ -195,6 +197,7 @@
                         android:layout_weight="2"
                         android:fontFamily="@font/the_jamsil"
                         android:gravity="center"
+                        android:paddingEnd="4dp"
                         android:text="15000"
                         android:textAlignment="textEnd"
                         android:textSize="20sp" />
