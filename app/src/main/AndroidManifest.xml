@@ -25,6 +25,9 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
+            android:name=".ui.subscribeNavMenu.WriteActivity"
+            android:exported="false" />
+        <activity
             android:name=".PuchasePage"
             android:exported="false"/>
         <activity

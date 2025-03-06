@@ -1,7 +1,9 @@
 package com.bcu.foodtable.ui.subscribeNavMenu
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -36,6 +38,11 @@ class ChannelViewPage : AppCompatActivity() {
         val backgroundImg = findViewById<ImageView>(R.id.channelBackground)
         val channelImg = findViewById<ImageView>(R.id.channelImage)
         val channelNameText = findViewById<TextView>(R.id.channelName)
+        val writeButton: Button = findViewById(R.id.btn_write)
+        writeButton.setOnClickListener {
+            val intent = Intent(this, WriteActivity::class.java)
+            startActivity(intent)
+        }
 
 
         CoroutineScope(Dispatchers.Main).launch {

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".ui.subscribeNavMenu.WriteActivity">
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="#FFFFFF">
+
+        <EditText
+            android:id="@+id/editTextTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="제목을 입력하세요"
+            android:textSize="18sp"
+            android:padding="10dp"
+            android:contentDescription="제목 입력란"/>
+
+        <EditText
+            android:id="@+id/editTextPost"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:hint="글을 작성하세요..."
+            android:inputType="textMultiLine|textCapSentences"
+            android:gravity="top|start"
+            android:padding="10dp"
+            android:scrollbars="vertical"></EditText>
+
+
+        <!-- 이미지를 추가할 ImageView -->
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginTop="16dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:contentDescription="선택된 이미지"
+            android:scaleType="centerCrop" />
+
+        <!-- 이미지 선택 버튼 -->
+        <Button
+            android:id="@+id/buttonSelectImage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="이미지 선택"
+            android:layout_marginTop="16dp"/>
+
+        <!-- 업로드 버튼 -->
+        <Button
+            android:id="@+id/buttonUpload"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="업로드"
+            android:layout_marginTop="16dp"/>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
