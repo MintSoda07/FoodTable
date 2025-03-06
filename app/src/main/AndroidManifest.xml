@@ -25,6 +25,9 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
+            android:name=".Setting"
+            android:exported="false" />
+        <activity
             android:name=".ui.subscribeNavMenu.ChannelViewPage"
             android:exported="false" />
         <activity
@@ -36,11 +39,11 @@
         <activity
             android:name=".AI.AiHelperActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustPan"/>
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".AI.AiChattingActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustPan"/>
+            android:windowSoftInputMode="adjustPan" />
         <activity
             android:name=".AI.AiRecommendationActivity"
             android:exported="false"
@@ -68,6 +71,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".setting_home" />
     </application>
 
 </manifest>
