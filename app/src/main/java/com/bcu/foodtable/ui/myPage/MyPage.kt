@@ -159,7 +159,7 @@ class MyPage : Fragment() {
                 loadImageFromUrl(imageUrl, binding.ProfileMyImage)
             }
             .addOnFailureListener {
-                Toast.makeText(context, "❌ 프로필 이미지 저장 실패.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "프로필 이미지 저장 실패.", Toast.LENGTH_SHORT).show()
             }
     }
 
