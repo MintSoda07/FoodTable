@@ -26,6 +26,9 @@
         tools:targetApi="35">
         <activity
             android:name=".PuchasePage"
+            android:exported=".Setting" />
+        <activity
+            android:name=".Setting"
             android:exported="false" />
         <activity
             android:name=".ui.subscribeNavMenu.ChannelViewPage"
@@ -71,6 +74,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".setting_home" />
     </application>
 
 </manifest>
