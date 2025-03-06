@@ -28,6 +28,12 @@
             android:name=".ui.subscribeNavMenu.WriteActivity"
             android:exported="false" />
         <activity
+            android:name=".PuchasePage"
+            android:exported=".Setting" />
+        <activity
+            android:name=".Setting"
+            android:exported="false" />
+        <activity
             android:name=".ui.subscribeNavMenu.ChannelViewPage"
             android:exported="false" />
         <activity
@@ -71,6 +77,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".setting_home" />
     </application>
 
 </manifest>
