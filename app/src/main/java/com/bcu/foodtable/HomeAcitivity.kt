@@ -89,8 +89,7 @@ class HomeAcitivity : AppCompatActivity() {
 
         categoryMenuBar = findViewById(R.id.CategoryMenuBar)
 
-        tagContainer = findViewById(R.id.tagContainer) // 태그 컨테이너 초기화
-
+        tagContainer = findViewById(R.id.tagContainer) //태그 컨테이너 초기화
         // 클릭 리스너
         CategoryAdapterBig = CategoryAdapter(
             dataListBig
@@ -322,101 +321,114 @@ class HomeAcitivity : AppCompatActivity() {
     }
     // 선택한 항목을 태그에 추가
     private fun handleCategorySelection(selectedItem: String) {
+        Log.d("CATEGORY_SELECTION_BEFORE", "selectedCategory: $selectedCategory")
+        Log.d("CATEGORY_SELECTION_BEFORE", "selectedIngredients: $selectedIngredients")
+
         when {
-            //  "종류" 선택 (한 개만 가능)
+            // "종류" 선택 (한 개만 유지)
             dataListBig.contains(selectedItem) -> {
-                selectedCategory["종류"] = selectedItem
-                Log.d("TAG_SELECTION", "종류 선택됨: $selectedItem")
+                selectedCategory["종류"] = selectedItem // 항상 하나만 유지
             }
 
-            //  "조리방식" 선택 (한 개만 가능)
+            // "조리방식" 선택 (한 개만 유지)
             dataListMed.contains(selectedItem) -> {
-                selectedCategory["조리방식"] = selectedItem
-                Log.d("TAG_SELECTION", "조리방식 선택됨: $selectedItem")
+                selectedCategory["조리방식"] = selectedItem // 한 개만 유지
             }
 
-            //  "재료" 선택 (여러 개 가능)
+            // "재료" 선택 (여러 개 가능)
             dataListSmall.contains(selectedItem) -> {
                 if (selectedIngredients.contains(selectedItem)) {
                     selectedIngredients.remove(selectedItem) // 이미 선택된 재료는 제거
-                    Log.d("TAG_SELECTION", "재료 제거됨: $selectedItem")
                 } else {
                     selectedIngredients.add(selectedItem) // 새로운 재료 추가
-                    Log.d("TAG_SELECTION", "재료 추가됨: $selectedItem")
                 }
             }
         }
 
-        updateTagDisplay()  //  UI 업데이트
+        Log.d("CATEGORY_SELECTION_AFTER", "selectedCategory: $selectedCategory")
+        Log.d("CATEGORY_SELECTION_AFTER", "selectedIngredients: $selectedIngredients")
+
+        updateTagDisplay()  // 태그 UI 업데이트
     }
 
 
+
     private fun updateTagDisplay() {
+        if (!::tagContainer.isInitialized) {
+            Log.e("UI_ERROR", "태그 컨테이너가 초기화되지 않음")
+            return
+        }
+
         runOnUiThread {
-            tagContainer.removeAllViews()  //  기존 태그 삭제
+            tagContainer.removeAllViews()  // 기존 태그 삭제
 
-            Log.d("TAG_UI", "태그 UI 업데이트 시작")
+            Log.d("TAG_UPDATE", "selectedCategory: $selectedCategory")
+            Log.d("TAG_UPDATE", "selectedIngredients: $selectedIngredients")
 
-            //  "종류" 태그 추가 (1개만 선택 가능)
-            selectedCategory["종류"]?.let {
-                Log.d("TAG_UI", "태그 추가됨 (종류): $it")
-                addTagToContainer(it, "종류")
-            }
+            // "종류" 태그 추가 (한 개만)
+            selectedCategory["종류"]?.let { addTagToContainer(it) }
 
-            //  "조리방식" 태그 추가 (1개만 선택 가능)
-            selectedCategory["조리방식"]?.let {
-                Log.d("TAG_UI", "태그 추가됨 (조리방식): $it")
-                addTagToContainer(it, "조리방식")
-            }
+            // "조리방식" 태그 추가 (한 개만)
+            selectedCategory["조리방식"]?.let { addTagToContainer(it) }
 
-            //  "재료" 태그 추가 (여러 개 선택 가능)
+            // "재료" 태그 추가 (여러 개 가능)
             selectedIngredients.forEach { ingredient ->
-                Log.d("TAG_UI", "태그 추가됨 (재료): $ingredient")
-                addTagToContainer(ingredient, "재료")
+                addTagToContainer(ingredient)
             }
-
-            Log.d("TAG_UI", "태그 UI 업데이트 완료")
         }
     }
 
 
 
+
+
     //  태그를 `FlexboxLayout`에 추가하는 함수
-    private fun addTagToContainer(tagText: String, categoryType: String) {
+    private fun addTagToContainer(tagText: String) {
         val tagView = TextView(this).apply {
             text = "#$tagText"
-            setPadding(20, 10, 20, 10)
-            setBackgroundResource(R.drawable.tag_background)
+            setPadding(16, 8, 16, 8)
+            setBackgroundResource(R.drawable.tag_background)  //  태그 스타일 추가 필요
             setTextColor(Color.WHITE)
             textSize = 14f
             layoutParams = FlexboxLayout.LayoutParams(
                 FlexboxLayout.LayoutParams.WRAP_CONTENT,
                 FlexboxLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                setMargins(8, 8, 8, 8)  //  태그 간격 조정
+                setMargins(8, 8, 8, 8)
             }
             setOnClickListener {
-                removeTag(tagText, categoryType)
+                removeTag(tagText)
             }
         }
 
         tagContainer.addView(tagView)
-        Log.d("TAG_UI", "태그 추가됨: #$tagText ($categoryType)")
     }
-
 
 
     //  태그 제거 함수
-    private fun removeTag(tagText: String, categoryType: String) {
-        when (categoryType) {
-            "종류" -> selectedCategory["종류"] = null  //  "종류" 선택 해제
-            "조리방식" -> selectedCategory["조리방식"] = null  //  "조리방식" 선택 해제
-            "재료" -> selectedIngredients.remove(tagText)  //  "재료"는 여러 개 선택 가능하므로 개별 삭제
+    private fun removeTag(tagText: String) {
+        Log.d("TAG_REMOVE_BEFORE", "selectedCategory: $selectedCategory")
+        Log.d("TAG_REMOVE_BEFORE", "selectedIngredients: $selectedIngredients")
+
+        when {
+            // "종류" 삭제
+            selectedCategory["종류"] == tagText -> selectedCategory.remove("종류")
+
+            // "조리방식" 삭제
+            selectedCategory["조리방식"] == tagText -> selectedCategory.remove("조리방식")
+
+            // "재료" 삭제
+            selectedIngredients.contains(tagText) -> {
+                selectedIngredients.remove(tagText)
+            }
         }
 
-        Log.d("TAG_UI", "태그 삭제됨: $tagText ($categoryType)")
-        updateTagDisplay()  //  UI 업데이트
+        Log.d("TAG_REMOVE_AFTER", "selectedCategory: $selectedCategory")
+        Log.d("TAG_REMOVE_AFTER", "selectedIngredients: $selectedIngredients")
+
+        updateTagDisplay() // UI 업데이트
     }
+
 
 
 

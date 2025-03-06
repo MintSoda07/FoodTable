@@ -70,10 +70,17 @@
             app:layout_constraintTop_toBottomOf="@+id/appbar">
 
             <TextView
-            android:id="@+id/textView3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/category" />
+                android:id="@+id/textView3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/category" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:background="#B71C1C">
+
+            </FrameLayout>
 
             <com.google.android.flexbox.FlexboxLayout
                 android:id="@+id/tagContainer"
@@ -82,13 +89,6 @@
                 android:padding="4dp"
                 app:flexWrap="wrap"
                 app:justifyContent="flex_start"/>
-
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="2dp"
-                android:background="#B71C1C">
-
-            </FrameLayout>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/RecyclerViewCategoryBig"
