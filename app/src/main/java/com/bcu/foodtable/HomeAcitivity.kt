@@ -14,6 +14,8 @@ import android.view.View
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
+import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.SearchView
@@ -58,6 +60,7 @@ class HomeAcitivity : AppCompatActivity() {
         private val dataListSmall: MutableList<String> =
         mutableListOf("단맛", "짠맛", "신맛", "쓴맛", "감칠맛", "매운맛", "기타")
 
+
     // 여기까지.
 
     private val hideSearchBarDelay = 5000L // 5초
@@ -80,6 +83,12 @@ class HomeAcitivity : AppCompatActivity() {
 
         val navView: BottomNavigationView = binding.navView
         val navController = findNavController(R.id.nav_host_fragment_activity_home_acitivity)
+
+        // 버튼 클릭 시 fragment_mypage로 이동
+        val myPageBtn = findViewById<ImageButton>(R.id.UserImageView)
+        myPageBtn.setOnClickListener {
+            navView.selectedItemId = R.id.navigation_mypage
+        }
 
         homeSearchBarAppMenu = findViewById(R.id.appbar)
         homeSearchBar = findViewById(R.id.searchViewBar)
@@ -110,6 +119,14 @@ class HomeAcitivity : AppCompatActivity() {
         }
 
         fetchCategoryData("종류")
+
+        //환경설정 버튼 찾기
+        val setting_Btn = findViewById<ImageButton>(R.id.setting_btn)
+
+        //환경설정 페이지 이동
+        setting_Btn.setOnClickListener {
+            s_btn() // 클릭하면 s_btn() 실행
+        }
 
         // 리사이클러 뷰
         recyclerViewSearchBig = findViewById(R.id.RecyclerViewCategoryBig)
@@ -164,6 +181,14 @@ class HomeAcitivity : AppCompatActivity() {
         }
         Log.d("Home_Activity","LOGGED IN WITH ${FirebaseAuth.getInstance().currentUser}")
 
+    }
+
+    // 환결설정 이동 함수
+    fun s_btn(){
+        ActivityTransition.startStatic(
+            this@HomeAcitivity,
+            Setting::class.java
+        )
     }
 
     // 화면 클릭시 발생하는 이벤트를 재정의
