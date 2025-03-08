@@ -11,7 +11,7 @@
         android:layout_height="35dp"
         android:layout_margin="5dp"
         android:autoText="true"
-        android:background="@drawable/round_login_button"
+        android:background="@drawable/rounded_button"
         android:fontFamily="@font/the_jamsil"
         android:text="Button"
         android:textColor="#FFFFFF"

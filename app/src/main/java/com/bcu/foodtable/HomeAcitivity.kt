@@ -48,9 +48,16 @@ class HomeAcitivity : AppCompatActivity() {
     private var categoryBarHidden = true
 
     private lateinit var tagContainer: FlexboxLayout  //  태그를 담을 뷰
-    private val selectedCategory = mutableMapOf<String, String?>()  //  "종류" & "조리방식" 단일 선택
-    private val selectedIngredients = mutableSetOf<String>()  //  "재료" 다중 선택
+
+
+
     private val db: FirebaseFirestore = FirebaseFirestore.getInstance()  // Firestore 초기화
+
+
+    private var selectedCategory: String? = null  // 현재 선택한 카테고리 (종류, 조리방식, 재료)
+    private var selectedFoodType: String? = null  // "종류" 선택값 (한 개만)
+    private var selectedCookingMethod: String? = null  // "조리방식" 선택값 (한 개만)
+    private val selectedIngredients = mutableSetOf<String>()  // "재료" 선택값 (여러 개 가능)
 
     // 여기 아래로 다음 주석까지의 부분은 모두 임시로 지정된 데이터임. DB와 연결 시 수정해야 할 부분.
     private val dataListBig: MutableList<String> =
@@ -118,8 +125,19 @@ class HomeAcitivity : AppCompatActivity() {
             println("Clicked: $item")
         }
 
-        fetchCategoryData("종류")
 
+
+        // 버튼 클릭 시 해당 카테고리를 설정하고 데이터를 불러옴
+        CategoryAdapterBig = CategoryAdapter(
+            mutableListOf("종류", "조리방식", "재료")
+        ) { category ->
+            selectedCategory = category // 현재 선택된 카테고리 설정
+            fetchCategoryData(category) // Firestore에서 데이터 불러오기
+            Log.d("CATEGORY_SELECTED", "현재 선택된 카테고리: $category")
+        }
+
+        selectedCategory = "종류"
+        fetchCategoryData("종류")
         //환경설정 버튼 찾기
         val setting_Btn = findViewById<ImageButton>(R.id.setting_btn)
 
@@ -240,21 +258,40 @@ class HomeAcitivity : AppCompatActivity() {
             else -> return
         }
 
-        db.collection("C_categories").document(documentPath)
-            .addSnapshotListener { document, error ->
-                if (error != null) {
-                    Log.e("Firestore", "데이터 불러오기 실패", error)
-                    return@addSnapshotListener
-                }
+        //  1. 버튼을 누르면 즉시 RecyclerView를 갱신하여 반응 속도 향상
+        dataListMed.clear()  // 기존 데이터 삭제
+        CategoryAdapterMed.notifyDataSetChanged()  // 즉시 UI 반영 (빈 화면이 표시됨)
 
-                if (document != null && document.exists()) {
+        //  2. Firestore에서 데이터를 빠르게 가져오기
+        db.collection("C_categories").document(documentPath)
+            .get(Source.CACHE)  //  캐시에서 먼저 가져옴 (더 빠름)
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
                     val list = document.get("list") as? List<String>
                     if (list != null) {
-                        updateCategoryList(list)
+                        dataListMed.addAll(list)
+                        CategoryAdapterMed.notifyDataSetChanged() // UI 업데이트
                     }
                 }
             }
+            .addOnFailureListener {
+                //  캐시에서 가져오기 실패 시 네트워크에서 다시 가져옴
+                db.collection("C_categories").document(documentPath)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        if (document.exists()) {
+                            val list = document.get("list") as? List<String>
+                            if (list != null) {
+                                dataListMed.addAll(list)
+                                CategoryAdapterMed.notifyDataSetChanged()
+                            }
+                        }
+                    }
+            }
     }
+
+
+
 
     // Firestore에서 최신 데이터 가져오기
     private fun fetchFromFirestore(documentPath: String) {
@@ -345,36 +382,51 @@ class HomeAcitivity : AppCompatActivity() {
         searchBarHidden = true
     }
     // 선택한 항목을 태그에 추가
+
+
     private fun handleCategorySelection(selectedItem: String) {
-        Log.d("CATEGORY_SELECTION_BEFORE", "selectedCategory: $selectedCategory")
-        Log.d("CATEGORY_SELECTION_BEFORE", "selectedIngredients: $selectedIngredients")
+        Log.d("CATEGORY_SELECTION_BEFORE", "Category: $selectedCategory, FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
 
-        when {
-            // "종류" 선택 (한 개만 유지)
-            dataListBig.contains(selectedItem) -> {
-                selectedCategory["종류"] = selectedItem // 항상 하나만 유지
-            }
-
-            // "조리방식" 선택 (한 개만 유지)
-            dataListMed.contains(selectedItem) -> {
-                selectedCategory["조리방식"] = selectedItem // 한 개만 유지
-            }
-
-            // "재료" 선택 (여러 개 가능)
-            dataListSmall.contains(selectedItem) -> {
-                if (selectedIngredients.contains(selectedItem)) {
-                    selectedIngredients.remove(selectedItem) // 이미 선택된 재료는 제거
+        when (selectedCategory) {
+            "종류" -> {
+                if (selectedFoodType == selectedItem) {
+                    selectedFoodType = null
                 } else {
-                    selectedIngredients.add(selectedItem) // 새로운 재료 추가
+                    selectedFoodType = selectedItem
+                }
+            }
+
+            "조리방식" -> {
+                if (selectedCookingMethod == selectedItem) {
+                    selectedCookingMethod = null
+                } else {
+                    selectedCookingMethod = selectedItem
+                }
+            }
+
+            "재료" -> {
+                if (selectedIngredients.contains(selectedItem)) {
+                    selectedIngredients.remove(selectedItem)
+                } else {
+                    selectedIngredients.add(selectedItem)
                 }
             }
         }
 
-        Log.d("CATEGORY_SELECTION_AFTER", "selectedCategory: $selectedCategory")
-        Log.d("CATEGORY_SELECTION_AFTER", "selectedIngredients: $selectedIngredients")
+        Log.d("CATEGORY_SELECTION_AFTER", "FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
 
         updateTagDisplay()  // 태그 UI 업데이트
+
+        //  RecyclerView 전체 갱신 대신 변경된 항목만 업데이트
+        recyclerViewSearchMed.adapter?.notifyItemChanged(dataListMed.indexOf(selectedItem))
     }
+
+
+
+
+
+
+
 
 
 
@@ -387,32 +439,35 @@ class HomeAcitivity : AppCompatActivity() {
         runOnUiThread {
             tagContainer.removeAllViews()  // 기존 태그 삭제
 
-            Log.d("TAG_UPDATE", "selectedCategory: $selectedCategory")
-            Log.d("TAG_UPDATE", "selectedIngredients: $selectedIngredients")
+            Log.d("TAG_UPDATE", "FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
+
+            val selectedTags = mutableListOf<String>()
 
             // "종류" 태그 추가 (한 개만)
-            selectedCategory["종류"]?.let { addTagToContainer(it) }
+            selectedFoodType?.let { selectedTags.add("$it") }
 
             // "조리방식" 태그 추가 (한 개만)
-            selectedCategory["조리방식"]?.let { addTagToContainer(it) }
+            selectedCookingMethod?.let { selectedTags.add("$it") }
 
             // "재료" 태그 추가 (여러 개 가능)
-            selectedIngredients.forEach { ingredient ->
-                addTagToContainer(ingredient)
+            selectedTags.addAll(selectedIngredients.map { "$it" })  // 태그 형태로 저장
+
+            Log.d("TAG_UPDATE_FINAL", "Selected Tags: $selectedTags")
+
+            // UI에 태그 표시
+            selectedTags.forEach { tag ->
+                addTagToContainer(tag)
             }
         }
     }
 
-
-
-
-
     //  태그를 `FlexboxLayout`에 추가하는 함수
+
     private fun addTagToContainer(tagText: String) {
         val tagView = TextView(this).apply {
             text = "#$tagText"
             setPadding(16, 8, 16, 8)
-            setBackgroundResource(R.drawable.tag_background)  //  태그 스타일 추가 필요
+            setBackgroundResource(R.drawable.tag_background)  // 태그 스타일 추가 필요
             setTextColor(Color.WHITE)
             textSize = 14f
             layoutParams = FlexboxLayout.LayoutParams(
@@ -430,17 +485,17 @@ class HomeAcitivity : AppCompatActivity() {
     }
 
 
+
     //  태그 제거 함수
     private fun removeTag(tagText: String) {
-        Log.d("TAG_REMOVE_BEFORE", "selectedCategory: $selectedCategory")
-        Log.d("TAG_REMOVE_BEFORE", "selectedIngredients: $selectedIngredients")
+        Log.d("TAG_REMOVE_BEFORE", "FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
 
         when {
             // "종류" 삭제
-            selectedCategory["종류"] == tagText -> selectedCategory.remove("종류")
+            selectedFoodType == tagText -> selectedFoodType = null
 
             // "조리방식" 삭제
-            selectedCategory["조리방식"] == tagText -> selectedCategory.remove("조리방식")
+            selectedCookingMethod == tagText -> selectedCookingMethod = null
 
             // "재료" 삭제
             selectedIngredients.contains(tagText) -> {
@@ -448,11 +503,11 @@ class HomeAcitivity : AppCompatActivity() {
             }
         }
 
-        Log.d("TAG_REMOVE_AFTER", "selectedCategory: $selectedCategory")
-        Log.d("TAG_REMOVE_AFTER", "selectedIngredients: $selectedIngredients")
+        Log.d("TAG_REMOVE_AFTER", "FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
 
         updateTagDisplay() // UI 업데이트
     }
+
 
 
 

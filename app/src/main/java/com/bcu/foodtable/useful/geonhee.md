@@ -125,3 +125,5 @@ class MyPage : Fragment() {
         _binding = null
     }
 }
+
+pf.kakao.com/_emcbn

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 선택된 상태 (진한 빨간색) -->
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" /> <!--  모서리 둥글게 -->
+            <solid android:color="#FF0000" /> <!-- 진한 빨간색 -->
+            <padding android:left="12dp" android:top="8dp" android:right="12dp" android:bottom="8dp"/>
+        </shape>
+    </item>
+
+    <!-- 기본 상태 (연한 빨간색) -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" /> <!--  모서리 둥글게 -->
+            <solid android:color="#FFB3B3" /> <!-- 연한 빨간색 -->
+            <padding android:left="12dp" android:top="8dp" android:right="12dp" android:bottom="8dp"/>
+        </shape>
+    </item>
+</selector>

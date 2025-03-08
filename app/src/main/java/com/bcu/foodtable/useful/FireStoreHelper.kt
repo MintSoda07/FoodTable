@@ -156,7 +156,7 @@ object FireStoreHelper {
             "C_food_types" to mapOf("list" to listOf("한식", "양식", "중식", "일식", "퓨전식","채식","패스트푸드","건강식","아메리카음식","아프리카음식","디저트")),
             "C_cooking_methods" to mapOf("list" to listOf("볶음", "튀김", "찜", "구이", "국/찌개","조림")),
             "C_ingredients" to mapOf("list" to listOf("소고기", "돼지고기", "닭고기", "오리고기", "새우","연아","게","오징어","감자","고구마","양파","당근","계란","두부","버섯","치즈"))
-            // 해당 안됌 "situations" to mapOf("list" to listOf("다이어트", "술안주", "혼밥", "아이들 반찬", "야식"))
+
         )
 
         val batch = db.batch()
