@@ -10,7 +10,9 @@ import android.view.ViewGroup
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import com.bcu.foodtable.PuchasePage
 import com.bcu.foodtable.databinding.FragmentMypageBinding
+import com.bcu.foodtable.useful.ActivityTransition
 import com.bcu.foodtable.useful.FireStoreHelper.loadImageFromUrl
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.auth.FirebaseAuth
@@ -60,6 +62,13 @@ class MyPage : Fragment() {
 
         binding.ProfileCameraIcon.setOnClickListener {
             pickImageFromGallery()
+        }
+
+        binding.ProfileSaltPurchaseBtn.setOnClickListener{
+            ActivityTransition.startStaticInFragment(
+                context,
+                PuchasePage::class.java
+            )
         }
 
         return root
