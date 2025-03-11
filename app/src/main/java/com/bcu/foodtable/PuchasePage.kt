@@ -1,5 +1,6 @@
 package com.bcu.foodtable
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -98,7 +99,9 @@ class PuchasePage : AppCompatActivity() {
             moneyTotal.text = formattedValue
         }
         purchaseBtn.setOnClickListener{
-
+            val intent = Intent(this@PuchasePage, purchaseCheckPage::class.java)
+            intent.putExtra("price", moneyValue)  // Firestore 문서 ID 전달
+            this.startActivity(intent)  // 새로운 액티비티로 전환
         }
     }
 }

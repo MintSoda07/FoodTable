@@ -58,6 +58,7 @@ dependencies {
     // HTTP 요청 라이브러리
     implementation(libs.okhttp) 
     implementation(libs.logging.interceptor)
+    implementation(libs.converter.gson)  // JSON 변환
 
     // 플랙스 레이아웃 사용을 위한 라이브러리
     implementation(libs.flexbox)
