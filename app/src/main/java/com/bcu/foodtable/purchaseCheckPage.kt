@@ -33,7 +33,7 @@ class purchaseCheckPage : AppCompatActivity() {
 
 
 
-        requestPayment()
+        // requestPayment()
     }
 }
 
