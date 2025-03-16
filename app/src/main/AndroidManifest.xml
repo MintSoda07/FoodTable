@@ -25,11 +25,14 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
+            android:name=".purchaseCheckPage"
+            android:exported="false" />
+        <activity
             android:name=".ui.subscribeNavMenu.WriteActivity"
             android:exported="false" />
         <activity
             android:name=".PuchasePage"
-            android:exported="false"/>
+            android:exported="false" />
         <activity
             android:name=".Setting"
             android:exported="false" />

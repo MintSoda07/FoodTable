@@ -111,10 +111,10 @@ class SubscribeFragment : Fragment() {
         )
         fetchRecommendedChannels(
             onSuccess = { items->
-                bottomAllChannel= binding.SubscribeMyChannelGrid
+                bottomAllChannel= binding.SubscribeAllChannelGrid
                 Log.d(
                     "FB_Subscribe",
-                    "Items Loaded with Size : ${items.size}"
+                    "Items Loaded with items : ${items}"
                 )
                 val subscribeMyChannelRoundAdaptor = SubscribedChannelGridView(
                     context = requireContext(),
