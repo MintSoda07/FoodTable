@@ -69,15 +69,16 @@ class HomeFragment : Fragment() {
         cardGridView.adapter = cardGridAdapter
 
         cardGridView.setOnItemClickListener { _, _, position, _ ->
-            val clickedRecipe = cardGridAdapter.getItem(position)
+            val clickedRecipe = cardGridAdapter.getItem(position) as? RecipeItem // 안전한 캐스팅 추가
             clickedRecipe?.let {
-                val id=cardGridAdapter.recipes[position].id
+                val id = it.id //  이제 안전하게 접근 가능
                 Log.d("HomeFragment", "RecipeClicked : ${id}")
                 val intent = Intent(context, RecipeViewActivity::class.java)
                 intent.putExtra("recipe_id", id)  // Firestore 문서 ID 전달
                 context?.startActivity(intent)  // 새로운 액티비티로 전환
             }
         }
+
         cardGridView.setOnScrollListener(object : AbsListView.OnScrollListener {
             override fun onScroll(
                 view: AbsListView?,

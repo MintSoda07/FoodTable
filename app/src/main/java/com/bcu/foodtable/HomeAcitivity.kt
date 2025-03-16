@@ -2,6 +2,7 @@ package com.bcu.foodtable
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
@@ -15,6 +16,7 @@ import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.GridView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ScrollView
@@ -31,6 +33,7 @@ import com.google.android.flexbox.FlexboxLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
+import com.google.firebase.firestore.toObject
 
 
 class HomeAcitivity : AppCompatActivity() {
@@ -81,6 +84,7 @@ class HomeAcitivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHomeAcitivityBinding
 
+    private  lateinit var recipeAdapter: RecipeAdapter
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,6 +94,21 @@ class HomeAcitivity : AppCompatActivity() {
 
         val navView: BottomNavigationView = binding.navView
         val navController = findNavController(R.id.nav_host_fragment_activity_home_acitivity)
+
+        //  ExpandedGridView 가져오기
+        val gridView = findViewById<ExpandedGridView>(R.id.cardGridView)
+
+        //  Adapter 초기화 및 설정
+        recipeAdapter = RecipeAdapter(this, mutableListOf())
+
+        gridView.adapter = recipeAdapter
+
+        //  SearchView 설정
+        setupSearchView()
+        val query = intent.getStringExtra("SEARCH_QUERY") ?: ""
+        if (query.isNotBlank()) {
+            searchRecipes(query)
+        }
 
         // 버튼 클릭 시 fragment_mypage로 이동
         val myPageBtn = findViewById<ImageButton>(R.id.UserImageView)
@@ -506,6 +525,45 @@ class HomeAcitivity : AppCompatActivity() {
         Log.d("TAG_REMOVE_AFTER", "FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
 
         updateTagDisplay() // UI 업데이트
+    }
+
+    private fun searchRecipes(query: String) {
+        if (query.isBlank()) return
+
+        db.collection("recipe")
+            .whereGreaterThanOrEqualTo("name", query)
+            .whereLessThanOrEqualTo("name", query + "\uf8ff")
+            .get()
+            .addOnSuccessListener { documents ->
+                val recipeList = documents.toObjects(RecipeItem::class.java) //  더 간결한 변환
+                updateRecyclerView(recipeList)
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FirestoreSearch", "검색 중 오류 발생: ", exception)
+            }
+    }
+    private fun setupSearchView() {
+        binding.searchViewBar.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                if (!query.isNullOrBlank()) { //  null 또는 빈 문자열 방지
+                    val intent = Intent(this@HomeAcitivity, SearchResultActivity::class.java)
+                    intent.putExtra("SEARCH_QUERY", query)
+                    startActivity(intent)
+                } else {
+                    Log.e("HomeActivity", "검색어가 비어 있음")
+                }
+                return false
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                return false
+            }
+        })
+    }
+
+
+    private fun updateRecyclerView(recipeList: List<RecipeItem>) {
+        recipeAdapter.updateRecipes(recipeList) // Adapter에 새 데이터 적용
     }
 
 
