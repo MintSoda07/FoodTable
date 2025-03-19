@@ -100,6 +100,7 @@ class LoginActivity : AppCompatActivity() {
                                 userData.description
                             )
                             Log.i("LOGIN", "Log In Success. USER INFO: ${userData.name}, UID: ${userData.uid}")
+                            Log.i("LOGIN", "Log In Success. USER INFO: ${userData}")
                             Toast.makeText(this, R.string.login_success, Toast.LENGTH_LONG).show()
                             ActivityTransition.startStatic(
                                 this@LoginActivity,
@@ -139,6 +140,7 @@ class LoginActivity : AppCompatActivity() {
                         if (user != null) {
                             user.uid = uid
                             onSuccess(user)
+                            Log.i("LOGIN", "User Data is Successfully gathered")
                         } else {
                             onFailure(Exception("사용자 데이터 변환 실패"))
                         }
