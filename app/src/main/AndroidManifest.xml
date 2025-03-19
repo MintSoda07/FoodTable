@@ -25,6 +25,9 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
+            android:name=".PurchaseConfirmActivity"
+            android:exported="false" />
+        <activity
             android:name=".purchaseCheckPage"
             android:exported="false" />
         <activity
