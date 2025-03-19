@@ -28,9 +28,6 @@
             android:name=".PurchaseConfirmActivity"
             android:exported="false" />
         <activity
-            android:name=".purchaseCheckPage"
-            android:exported="false" />
-        <activity
             android:name=".ui.subscribeNavMenu.WriteActivity"
             android:exported="false" />
         <activity

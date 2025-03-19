@@ -99,7 +99,7 @@ class PuchasePage : AppCompatActivity() {
             moneyTotal.text = formattedValue
         }
         purchaseBtn.setOnClickListener{
-            val intent = Intent(this@PuchasePage, purchaseCheckPage::class.java)
+            val intent = Intent(this@PuchasePage, PurchaseConfirmActivity::class.java)
             intent.putExtra("price", moneyValue)  // Firestore 문서 ID 전달
             this.startActivity(intent)  // 새로운 액티비티로 전환
         }
