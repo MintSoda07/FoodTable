@@ -48,6 +48,7 @@ class RecipeViewMakingActivity : AppCompatActivity() {
     lateinit var itemImageView : ImageView
     lateinit var ingredientsList:List<String>
 
+
     lateinit var recipeItemAdaptor : RecipeDetailRecyclerAdaptor
     private lateinit var imagePickerLauncher: ActivityResultLauncher<Intent>
     override fun onCreate(savedInstanceState: Bundle?) {
