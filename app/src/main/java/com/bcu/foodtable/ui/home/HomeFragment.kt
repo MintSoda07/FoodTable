@@ -141,9 +141,13 @@ class HomeFragment : Fragment() {
                     viewModel.recipes.value = newRecipes
                 } else {
                     val currentRecipes = viewModel.recipes.value ?: mutableListOf()
+
                     currentRecipes.addAll(newRecipes)
+
                     viewModel.recipes.value = currentRecipes
+                    Log.d("Recipe_Check","Recipes2 : ${currentRecipes}")
                 }
+
 
                 if (querySnapshot.documents.isNotEmpty()) {
                     viewModel.lastDocument = querySnapshot.documents.last()
@@ -161,4 +165,6 @@ class HomeViewModel : ViewModel() {
     val recipes = MutableLiveData<MutableList<RecipeItem>>()
     var lastDocument: DocumentSnapshot? = null
     var isLoading = false
+
+
 }

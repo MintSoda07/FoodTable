@@ -3,15 +3,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    >
 
-    <GridView
-        android:id="@+id/searchResultGridView"
+    <com.bcu.foodtable.useful.ExpandedGridView
+        android:id="@+id/cardGridView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="150dp"
+        android:columnWidth="500dp"
+        android:horizontalSpacing="5dp"
         android:numColumns="2"
-        android:verticalSpacing="8dp"
-        android:horizontalSpacing="8dp"
         android:stretchMode="columnWidth"
-        android:padding="8dp"/>
+        android:verticalSpacing="5dp"/>
+
 </LinearLayout>

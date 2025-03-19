@@ -28,6 +28,7 @@ import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
+import com.bcu.foodtable.ui.home.HomeFragment
 import com.bcu.foodtable.useful.*
 import com.google.android.flexbox.FlexboxLayout
 import com.google.firebase.auth.FirebaseAuth
@@ -37,6 +38,7 @@ import com.google.firebase.firestore.toObject
 
 
 class HomeAcitivity : AppCompatActivity() {
+
 
     lateinit var contentScrollView: ScrollView
     lateinit var homeSearchBar: SearchView
@@ -61,6 +63,7 @@ class HomeAcitivity : AppCompatActivity() {
     private var selectedFoodType: String? = null  // "종류" 선택값 (한 개만)
     private var selectedCookingMethod: String? = null  // "조리방식" 선택값 (한 개만)
     private val selectedIngredients = mutableSetOf<String>()  // "재료" 선택값 (여러 개 가능)
+
 
     // 여기 아래로 다음 주석까지의 부분은 모두 임시로 지정된 데이터임. DB와 연결 시 수정해야 할 부분.
     private val dataListBig: MutableList<String> =
@@ -103,12 +106,15 @@ class HomeAcitivity : AppCompatActivity() {
 
         gridView.adapter = recipeAdapter
 
-        //  SearchView 설정
+
+        //  SearchView  설정
         setupSearchView()
         val query = intent.getStringExtra("SEARCH_QUERY") ?: ""
         if (query.isNotBlank()) {
+            Log.d("HomeActivity", " 검색 실행: $query")
             searchRecipes(query)
         }
+
 
         // 버튼 클릭 시 fragment_mypage로 이동
         val myPageBtn = findViewById<ImageButton>(R.id.UserImageView)
@@ -528,20 +534,32 @@ class HomeAcitivity : AppCompatActivity() {
     }
 
     private fun searchRecipes(query: String) {
-        if (query.isBlank()) return
-
         db.collection("recipe")
-            .whereGreaterThanOrEqualTo("name", query)
-            .whereLessThanOrEqualTo("name", query + "\uf8ff")
-            .get()
+            .get() //  Firestore에서 모든 레시피 데이터를 가져옴
             .addOnSuccessListener { documents ->
-                val recipeList = documents.toObjects(RecipeItem::class.java) //  더 간결한 변환
-                updateRecyclerView(recipeList)
+                val recipeList = mutableListOf<RecipeItem>()
+                for (document in documents) {
+                    val recipe = document.toObject(RecipeItem::class.java)
+
+                    //  `name` 필드를 개별 단어로 분리
+                    val words = splitWords(recipe.name)
+
+                    //  검색어(query)가 단어 리스트에 포함되면 결과 리스트에 추가
+                    if (words.any { it.contains(query, ignoreCase = true) }) {
+                        recipeList.add(recipe)
+                    }
+                }
+                recipeAdapter.updateRecipes(recipeList) //  UI 업데이트
             }
             .addOnFailureListener { exception ->
                 Log.e("FirestoreSearch", "검색 중 오류 발생: ", exception)
             }
     }
+
+    private fun splitWords(name: String): List<String> {
+        return name.split(" ", "-", "_") //  띄어쓰기, 하이픈(-), 밑줄(_) 기준으로 단어 분리
+    }
+
     private fun setupSearchView() {
         binding.searchViewBar.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
