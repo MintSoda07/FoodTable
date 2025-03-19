@@ -2,6 +2,7 @@
     <string name="app_name">밥상친구</string>
     <string name="app_name_sub">지금 건강한 식단과 다양한 레시피를 만나보세요.</string>
     <string name="login_button">로그인</string>
+    <string name="logout_button">로그아웃</string>
     <string name="signup_button">계정이 없으신가요? 여기를 눌러 회원가입하세요.</string>
     <string name="login_id">아이디</string>
     <string name="login_password">비밀번호</string>

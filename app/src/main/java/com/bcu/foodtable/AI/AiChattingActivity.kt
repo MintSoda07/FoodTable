@@ -99,7 +99,6 @@ class AiChattingActivity : AppCompatActivity() {
         saltView.text = "${userData.point} 소금"
 
         // Firestore에서 데이터 가져오기
-
         chatCollection
             .whereEqualTo("uid", userData.uid) // 특정 UID로 필터링
             .orderBy("chatDate", Query.Direction.ASCENDING)
@@ -138,6 +137,9 @@ class AiChattingActivity : AppCompatActivity() {
                     "${getString(R.string.ai_no_salt)} ${getString(R.string.ai_cost, aiUseCost)}",
                     Toast.LENGTH_SHORT
                 ).show()
+                return@setOnClickListener
+            }
+            if(userInputBox.text.isNullOrEmpty()){
                 return@setOnClickListener
             }
             if (!isSending) {

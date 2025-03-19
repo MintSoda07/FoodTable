@@ -69,15 +69,16 @@ class HomeFragment : Fragment() {
         cardGridView.adapter = cardGridAdapter
 
         cardGridView.setOnItemClickListener { _, _, position, _ ->
-            val clickedRecipe = cardGridAdapter.getItem(position)
+            val clickedRecipe = cardGridAdapter.getItem(position) as? RecipeItem // 안전한 캐스팅 추가
             clickedRecipe?.let {
-                val id=cardGridAdapter.recipes[position].id
+                val id = it.id //  이제 안전하게 접근 가능
                 Log.d("HomeFragment", "RecipeClicked : ${id}")
                 val intent = Intent(context, RecipeViewActivity::class.java)
                 intent.putExtra("recipe_id", id)  // Firestore 문서 ID 전달
                 context?.startActivity(intent)  // 새로운 액티비티로 전환
             }
         }
+
         cardGridView.setOnScrollListener(object : AbsListView.OnScrollListener {
             override fun onScroll(
                 view: AbsListView?,
@@ -111,6 +112,23 @@ class HomeFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // 🔥 LiveData를 먼저 observe하여 UI 즉시 반영
+        viewModel.recipes.observe(viewLifecycleOwner) { recipes ->
+            Log.d("HomeFragment", " 레시피 업데이트됨: ${recipes.size}개")
+            cardGridAdapter.updateRecipes(recipes)
+        }
+
+        // 🔥 UI 반영을 보장하기 위해 강제 데이터 로드 실행
+        if (viewModel.recipes.value.isNullOrEmpty()) {
+            Log.d("HomeFragment", " 레시피가 비어있음 -> 강제 로드 실행")
+            loadMoreRecipes(isInitialLoad = true) { newRecipes ->
+                cardGridAdapter.updateRecipes(newRecipes)
+            }
+        }
+    }
     fun loadMoreRecipes(
         isInitialLoad: Boolean,
         onRecipesLoaded: (List<RecipeItem>) -> Unit
@@ -140,9 +158,13 @@ class HomeFragment : Fragment() {
                     viewModel.recipes.value = newRecipes
                 } else {
                     val currentRecipes = viewModel.recipes.value ?: mutableListOf()
+
                     currentRecipes.addAll(newRecipes)
+
                     viewModel.recipes.value = currentRecipes
+                    Log.d("Recipe_Check","Recipes2 : ${currentRecipes}")
                 }
+
 
                 if (querySnapshot.documents.isNotEmpty()) {
                     viewModel.lastDocument = querySnapshot.documents.last()
@@ -160,4 +182,34 @@ class HomeViewModel : ViewModel() {
     val recipes = MutableLiveData<MutableList<RecipeItem>>()
     var lastDocument: DocumentSnapshot? = null
     var isLoading = false
+
+    fun loadRecipes() {
+        if (isLoading) return
+        isLoading = true
+
+        val db = FirebaseFirestore.getInstance()
+        val recipesCollection = db.collection("recipe")
+
+        recipesCollection
+            .orderBy("clicked")
+            .limit(20)
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val newRecipes = querySnapshot.documents.mapNotNull { document ->
+                    val recipe = document.toObject(RecipeItem::class.java)
+                    recipe?.copy(id = document.id)
+                }.toMutableList()
+
+                recipes.value = newRecipes //  동기 UI 업데이트
+
+                if (querySnapshot.documents.isNotEmpty()) {
+                    lastDocument = querySnapshot.documents.last()
+                }
+
+                isLoading = false
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
 }

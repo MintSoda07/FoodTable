@@ -98,6 +98,9 @@ class AiRecommendationActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
+            if(userInputBox.text.isNullOrEmpty()){
+                return@setOnClickListener
+            }
             if (!isSending && userData.point >= aiUseCost) {
                 isSending = true
                 ViewAnimator.alphaChange(BackgroundText, 200, false, AccelerateInterpolator(2.0f),{
