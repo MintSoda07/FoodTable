@@ -29,13 +29,14 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.databinding.ActivityHomeAcitivityBinding
 import com.bcu.foodtable.ui.home.HomeFragment
+import com.bcu.foodtable.ui.home.HomeViewModel
 import com.bcu.foodtable.useful.*
 import com.google.android.flexbox.FlexboxLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.google.firebase.firestore.toObject
-
+import androidx.activity.viewModels
 
 class HomeAcitivity : AppCompatActivity() {
 
@@ -51,6 +52,9 @@ class HomeAcitivity : AppCompatActivity() {
 
     private var searchBarHidden = false
     private var categoryBarHidden = true
+
+    private val viewModel: HomeViewModel by viewModels()
+
 
     private lateinit var tagContainer: FlexboxLayout  //  태그를 담을 뷰
 
@@ -106,7 +110,16 @@ class HomeAcitivity : AppCompatActivity() {
 
         gridView.adapter = recipeAdapter
 
+        viewModel.recipes.observe(this) { recipes ->
+            Log.d("HomeActivity", "🔥 HomeActivity에서 레시피 업데이트: ${recipes.size}개")
+            recipeAdapter.updateRecipes(recipes) // 레시피 목록 즉시 반영
+        }
 
+        // 🔥 앱이 실행될 때 즉시 데이터 로드
+        if (viewModel.recipes.value.isNullOrEmpty()) {
+            Log.d("HomeActivity", "📢 레시피가 비어있음 -> 강제 로드 실행")
+            viewModel.loadRecipes() // 데이터 로드 실행
+        }
         //  SearchView  설정
         setupSearchView()
         val query = intent.getStringExtra("SEARCH_QUERY") ?: ""

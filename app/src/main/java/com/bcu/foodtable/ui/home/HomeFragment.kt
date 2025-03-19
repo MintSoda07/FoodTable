@@ -112,6 +112,23 @@ class HomeFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // 🔥 LiveData를 먼저 observe하여 UI 즉시 반영
+        viewModel.recipes.observe(viewLifecycleOwner) { recipes ->
+            Log.d("HomeFragment", " 레시피 업데이트됨: ${recipes.size}개")
+            cardGridAdapter.updateRecipes(recipes)
+        }
+
+        // 🔥 UI 반영을 보장하기 위해 강제 데이터 로드 실행
+        if (viewModel.recipes.value.isNullOrEmpty()) {
+            Log.d("HomeFragment", " 레시피가 비어있음 -> 강제 로드 실행")
+            loadMoreRecipes(isInitialLoad = true) { newRecipes ->
+                cardGridAdapter.updateRecipes(newRecipes)
+            }
+        }
+    }
     fun loadMoreRecipes(
         isInitialLoad: Boolean,
         onRecipesLoaded: (List<RecipeItem>) -> Unit
@@ -166,5 +183,33 @@ class HomeViewModel : ViewModel() {
     var lastDocument: DocumentSnapshot? = null
     var isLoading = false
 
+    fun loadRecipes() {
+        if (isLoading) return
+        isLoading = true
 
+        val db = FirebaseFirestore.getInstance()
+        val recipesCollection = db.collection("recipe")
+
+        recipesCollection
+            .orderBy("clicked")
+            .limit(20)
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                val newRecipes = querySnapshot.documents.mapNotNull { document ->
+                    val recipe = document.toObject(RecipeItem::class.java)
+                    recipe?.copy(id = document.id)
+                }.toMutableList()
+
+                recipes.value = newRecipes //  동기 UI 업데이트
+
+                if (querySnapshot.documents.isNotEmpty()) {
+                    lastDocument = querySnapshot.documents.last()
+                }
+
+                isLoading = false
+            }
+            .addOnFailureListener {
+                isLoading = false
+            }
+    }
 }
