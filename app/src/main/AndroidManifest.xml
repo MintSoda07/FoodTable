@@ -25,7 +25,7 @@
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
         <activity
-            android:name=".purchaseCheckPage"
+            android:name=".PurchaseConfirmActivity"
             android:exported="false" />
         <activity
             android:name=".ui.subscribeNavMenu.WriteActivity"
