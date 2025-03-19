@@ -11,62 +11,69 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="#FFFFFF"
         android:orientation="vertical"
         android:padding="16dp"
-        android:background="#FFFFFF">
+        tools:layout_editor_absoluteX="-16dp"
+        tools:layout_editor_absoluteY="-151dp">
 
         <!-- 제목 입력 -->
         <EditText
             android:id="@+id/editTextTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:contentDescription="제목 입력란"
             android:hint="제목을 입력하세요"
-            android:textSize="18sp"
             android:padding="10dp"
-            android:contentDescription="제목 입력란"/>
-
-        <!-- 상세 설명 입력 추가 -->
-        <EditText
-            android:id="@+id/editTextDescription"
-            android:layout_width="match_parent"
-            android:layout_height="150dp"
-            android:hint="상세 설명을 입력하세요..."
-            android:inputType="textMultiLine|textCapSentences"
-            android:gravity="top|start"
-            android:padding="10dp"
-            android:scrollbars="vertical"/>
-
+            android:textSize="18sp" />
         <!-- 이미지 미리보기 -->
         <ImageView
             android:id="@+id/imageView22"
             android:layout_width="match_parent"
             android:layout_height="200dp"
             android:layout_marginTop="16dp"
-            android:src="@android:drawable/ic_menu_camera"
             android:contentDescription="선택된 이미지"
-            android:scaleType="centerCrop" />
+            android:scaleType="centerCrop"
+            android:src="@android:drawable/ic_menu_camera" />
 
+        <!-- 카테고리 드롭다운(Spinner) -->
+        <Spinner
+            android:id="@+id/categorySpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" />
+        <!-- 상세 설명 입력 추가 -->
+        <EditText
+            android:id="@+id/editTextDescription"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:gravity="top|start"
+            android:hint="상세 설명을 입력하세요..."
+            android:inputType="textMultiLine|textCapSentences"
+            android:padding="10dp"
+            android:scrollbars="vertical" />
         <!-- 이미지 선택 버튼 -->
         <Button
             android:id="@+id/buttonSelectImage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="이미지 선택"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp"
+            android:text="이미지 선택" />
 
         <!-- 업로드 버튼 -->
         <Button
             android:id="@+id/buttonUpload"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="업로드"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp"
+            android:text="업로드" />
         <!-- 뒤로 가기 버튼 -->
         <Button
             android:id="@+id/buttonBack"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="뒤로 가기"
-            android:layout_marginTop="16dp"/>
+            android:layout_marginTop="16dp"
+            android:text="뒤로 가기" />
+
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
