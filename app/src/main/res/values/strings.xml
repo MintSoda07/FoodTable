@@ -32,6 +32,8 @@
     <string name="ai_recipe">AI 추천</string>
     <string name="ai_assistant">AI 도우미</string>
     <string name="start">시작</string>
+    <string name="stop">정지</string>
+    <string name="skip">스킵</string>
     <string name="done">완료</string>
     <string name="cooking_order">조리과정</string>
     <string name="recommend_AI_output">AI의 추천 결과</string>

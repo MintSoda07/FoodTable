@@ -88,8 +88,9 @@
                 android:id="@+id/ItemTimerFrame"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:visibility="gone">
+                android:visibility="visible">
 
+                <!-- 타이머 제목 -->
                 <TextView
                     android:id="@+id/ItemTimerTitle"
                     android:layout_width="match_parent"
@@ -100,6 +101,7 @@
                     android:text="TextView"
                     android:textAlignment="center" />
 
+                <!-- 타이머 시간 -->
                 <TextView
                     android:id="@+id/ItemTimerTime"
                     android:layout_width="match_parent"
@@ -110,29 +112,21 @@
                     android:textAlignment="center"
                     android:textSize="24sp" />
 
+                <!-- 타이머 프로그레스바 -->
                 <ProgressBar
                     android:id="@+id/ItemTimerProgress"
                     style="@style/Widget.AppCompat.ProgressBar"
                     android:layout_width="200dp"
                     android:layout_height="200dp"
-                    android:layout_centerInParent="true"
                     android:layout_gravity="center"
                     android:background="@drawable/progress_ring_in"
                     android:indeterminate="false"
                     android:indeterminateDrawable="@drawable/progress_ring_out"
                     android:max="100"
-                    android:maxWidth="100dp"
-                    android:maxHeight="100dp"
-                    android:minWidth="50dp"
-                    android:minHeight="50dp"
                     android:progress="100"
-                    android:rotation="-90"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintVertical_bias="0.25" />
+                    android:rotation="-90" />
 
+                <!-- 시작 버튼 -->
                 <Button
                     android:id="@+id/ItemStartButton"
                     android:layout_width="wrap_content"
@@ -141,7 +135,31 @@
                     android:layout_marginTop="50dp"
                     android:background="@drawable/round_button_alpha"
                     android:text="@string/start" />
+
+                <!-- 스탑 버튼 (왼쪽 배치) -->
+                <Button
+                    android:id="@+id/ItemStopButton"
+                    android:text="@string/stop"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="20dp"
+                    android:visibility="gone"
+                    android:background="@drawable/round_button_alpha" />
+
+                <!-- 스킵 버튼 (오른쪽 배치) -->
+                <Button
+                    android:id="@+id/ItemSkipButton"
+                    android:text="@string/skip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="20dp"
+                    android:visibility="gone"
+                    android:background="@drawable/round_button_alpha" />
+
             </FrameLayout>
+
 
             <Button
                 android:id="@+id/itemDoneButton"

@@ -23,6 +23,11 @@ class RecipeDetailRecyclerAdaptor(
         val timerProgress: ProgressBar = itemView.findViewById(R.id.ItemTimerProgress) // 프로그레스바
         val startButton: Button = itemView.findViewById(R.id.ItemStartButton) // 타이머 시작 버튼
         val doneButton: Button = itemView.findViewById(R.id.itemDoneButton) // 완료 버튼
+        val stopButton: Button = itemView.findViewById(R.id.ItemStopButton) // 타이머 중지 버튼
+        val skipButton: Button = itemView.findViewById(R.id.ItemSkipButton) // 타이머 스킵 버튼
+
+        var timer: CountDownTimer? = null // 타이머 객체
+        var isTimerRunning = false // 타이머 상태 추적
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -85,9 +90,9 @@ class RecipeDetailRecyclerAdaptor(
             holder.timerProgress.progress = 0
 
             // 타이머 함수
-            fun startTimer(holder: ViewHolder, timeLeft: Int) {
+            fun startTimer(holder: ViewHolder, timeLeft: Int, totalTimeInSeconds: Int, method: String) {
                 val notificationHelper = NotificationHelper(context)
-                val timer = object : CountDownTimer((timeLeft * 1000).toLong(), 1000) {
+                holder.timer = object : CountDownTimer((timeLeft * 1000).toLong(), 1000) {
                     override fun onTick(millisUntilFinished: Long) {
                         val secondsLeft = millisUntilFinished / 1000
                         holder.timerProgress.progress = (totalTimeInSeconds - secondsLeft).toInt()
@@ -98,7 +103,7 @@ class RecipeDetailRecyclerAdaptor(
                         val seconds = secondsLeft % 60
                         holder.timerTime.text =
                             String.format("%02d:%02d:%02d", hours, minutes, seconds)
-                        notificationHelper.showTimerNotification(String.format("%02d:%02d:%02d", hours, minutes, seconds),method)
+                        notificationHelper.showTimerNotification(String.format("%02d:%02d:%02d", hours, minutes, seconds), method)
                     }
 
                     override fun onFinish() {
@@ -110,19 +115,44 @@ class RecipeDetailRecyclerAdaptor(
                 }
 
                 // 타이머 시작
-                timer.start()
+                holder.timer?.start()
             }
+            var timer: CountDownTimer? = null // 여기서 timer를 선언
 
-            // 타이머 시작 버튼
+            // 타이머 시작 버튼 클릭 리스너
             holder.startButton.setOnClickListener {
-                if (!isTimerRunning) {
-                    // 타이머 시작
-                    isTimerRunning = true
-                    startTimer(holder, timeLeft)
-                    holder.startButton.isClickable = false
+                if (!holder.isTimerRunning) {
+                    holder.isTimerRunning = true
+                    startTimer(holder, timeLeft, totalTimeInSeconds, method)
                     holder.startButton.visibility = View.GONE
+                    holder.stopButton.visibility = View.VISIBLE
+                    holder.skipButton.visibility = View.VISIBLE
                 }
             }
+
+            holder.stopButton.setOnClickListener {
+                if (holder.isTimerRunning) {
+                    holder.timer?.cancel() // 타이머 멈추기
+                    holder.isTimerRunning = false
+                    holder.startButton.visibility = View.VISIBLE
+                    holder.stopButton.visibility = View.GONE
+                    holder.skipButton.visibility = View.GONE
+                }
+            }
+
+            holder.skipButton.setOnClickListener {
+                if (holder.isTimerRunning) {
+                    holder.timer?.cancel() // 타이머 멈추기
+                    holder.isTimerRunning = false
+                    holder.timerProgress.progress = totalTimeInSeconds
+                    holder.timerTime.text = "00:00:00"
+                    holder.doneButton.visibility = View.VISIBLE
+                    holder.startButton.visibility = View.GONE
+                    holder.stopButton.visibility = View.GONE
+                    holder.skipButton.visibility = View.GONE
+                }
+            }
+
 
         } else {
             // 타이머가 존재하지 않는 경우
