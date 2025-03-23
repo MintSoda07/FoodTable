@@ -205,19 +205,30 @@
                     android:hint="@string/recipe_add_inner"
                     android:inputType="textMultiLine" />
 
-                <Button
-                    android:id="@+id/AddPageStageAddBtn"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:fontFamily="@font/the_jamsil"
-                    android:text="@string/recipe_stage_add" />
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:orientation="horizontal">
+
+                    <Switch
+                        android:id="@+id/timerSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0"
+                        android:fontFamily="@font/the_jamsil_bold"
+                        android:text="@string/recipe_timer_add"
+                        android:textColor="#000000" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/timerStage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
@@ -259,14 +270,15 @@
                             android:hint="@string/second" />
                     </com.google.android.material.textfield.TextInputLayout>
 
-                    <Button
-                        android:id="@+id/AddPageStageTimerBtn"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:fontFamily="@font/the_jamsil"
-                        android:text="@string/recipe_timer_add" />
                 </LinearLayout>
+
+                <Button
+                    android:id="@+id/AddPageStageAddBtn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/the_jamsil"
+                    android:text="@string/recipe_stage_add" />
 
             </LinearLayout>
 

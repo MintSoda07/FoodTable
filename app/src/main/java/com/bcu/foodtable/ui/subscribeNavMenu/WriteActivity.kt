@@ -9,11 +9,15 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Spinner
+import android.widget.Switch
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 import com.bumptech.glide.Glide
+import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.firestore.FirebaseFirestore
 
@@ -26,7 +30,12 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var spinner2: Spinner
     private lateinit var buttonUpload: Button
     private lateinit var itemImageView: ImageView
-    private lateinit var buttonBack: Button
+
+    private lateinit var addpageRecyclerViewStage : RecyclerView
+    private lateinit var addpageStageNumber : TextView
+    private lateinit var addpageTitleText : TextInputEditText
+    private lateinit var addpageDescription : EditText
+    private lateinit var addpageSwitchTimer : Switch
 
     private var selectedImageUri: Uri? = null
     var isMainImageUploaded = false
@@ -57,13 +66,19 @@ class WriteActivity : AppCompatActivity() {
         buttonSelectImage = findViewById(R.id.buttonSelectImage)
 
         // 스피너 ID 가져오기
-        spinner1 = findViewById<Spinner>(R.id.categorySpinner) // Food Types
-        spinner2 = findViewById<Spinner>(R.id.categorySpinner2) // Cooking Methods
+        spinner1 = findViewById(R.id.categorySpinner) // Food Types
+        spinner2 = findViewById(R.id.categorySpinner2) // Cooking Methods
         buttonUpload = findViewById(R.id.buttonUpload)
         itemImageView = findViewById(R.id.imageView22)
         // 버튼 활성화
         buttonSelectImage.isEnabled = true
 
+        addpageRecyclerViewStage = findViewById(R.id.AddPageStageListRecyclerView)
+        addpageStageNumber = findViewById(R.id.AddPageStageNum)
+        addpageDescription = findViewById(R.id.AddPageStageDescriptionText)
+
+        addpageSwitchTimer = findViewById(R.id.timerSwitch)
+        addpageTitleText = findViewById(R.id.AddPageStageTitleText)
         // 갤러리로 이동
         buttonSelectImage.setOnClickListener {
             openGallery()
