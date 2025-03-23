@@ -111,22 +111,18 @@ class HomeAcitivity : AppCompatActivity() {
         gridView.adapter = recipeAdapter
 
         viewModel.recipes.observe(this) { recipes ->
-            Log.d("HomeActivity", "🔥 HomeActivity에서 레시피 업데이트: ${recipes.size}개")
+            Log.d("HomeActivity", " HomeActivity에서 레시피 업데이트: ${recipes.size}개")
             recipeAdapter.updateRecipes(recipes) // 레시피 목록 즉시 반영
         }
 
-        // 🔥 앱이 실행될 때 즉시 데이터 로드
+        //  앱이 실행될 때 즉시 데이터 로드
         if (viewModel.recipes.value.isNullOrEmpty()) {
-            Log.d("HomeActivity", "📢 레시피가 비어있음 -> 강제 로드 실행")
+            Log.d("HomeActivity", " 레시피가 비어있음 -> 강제 로드 실행")
             viewModel.loadRecipes() // 데이터 로드 실행
         }
         //  SearchView  설정
         setupSearchView()
-        val query = intent.getStringExtra("SEARCH_QUERY") ?: ""
-        if (query.isNotBlank()) {
-            Log.d("HomeActivity", " 검색 실행: $query")
-            searchRecipes(query)
-        }
+
 
 
         // 버튼 클릭 시 fragment_mypage로 이동
@@ -457,6 +453,7 @@ class HomeAcitivity : AppCompatActivity() {
 
         //  RecyclerView 전체 갱신 대신 변경된 항목만 업데이트
         recyclerViewSearchMed.adapter?.notifyItemChanged(dataListMed.indexOf(selectedItem))
+
     }
 
 
@@ -544,46 +541,31 @@ class HomeAcitivity : AppCompatActivity() {
         Log.d("TAG_REMOVE_AFTER", "FoodType: $selectedFoodType, CookingMethod: $selectedCookingMethod, Ingredients: $selectedIngredients")
 
         updateTagDisplay() // UI 업데이트
+
+
     }
 
-    private fun searchRecipes(query: String) {
-        db.collection("recipe")
-            .get() //  Firestore에서 모든 레시피 데이터를 가져옴
-            .addOnSuccessListener { documents ->
-                val recipeList = mutableListOf<RecipeItem>()
-                for (document in documents) {
-                    val recipe = document.toObject(RecipeItem::class.java)
-
-                    //  `name` 필드를 개별 단어로 분리
-                    val words = splitWords(recipe.name)
-
-                    //  검색어(query)가 단어 리스트에 포함되면 결과 리스트에 추가
-                    if (words.any { it.contains(query, ignoreCase = true) }) {
-                        recipeList.add(recipe)
-                    }
-                }
-                recipeAdapter.updateRecipes(recipeList) //  UI 업데이트
-            }
-            .addOnFailureListener { exception ->
-                Log.e("FirestoreSearch", "검색 중 오류 발생: ", exception)
-            }
-    }
-
-    private fun splitWords(name: String): List<String> {
-        return name.split(" ", "-", "_") //  띄어쓰기, 하이픈(-), 밑줄(_) 기준으로 단어 분리
-    }
 
     private fun setupSearchView() {
         binding.searchViewBar.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                if (!query.isNullOrBlank()) { //  null 또는 빈 문자열 방지
-                    val intent = Intent(this@HomeAcitivity, SearchResultActivity::class.java)
-                    intent.putExtra("SEARCH_QUERY", query)
-                    startActivity(intent)
-                } else {
-                    Log.e("HomeActivity", "검색어가 비어 있음")
+                val tagList = mutableListOf<String>().apply {
+                    selectedFoodType?.let { add(it) }
+                    selectedCookingMethod?.let { add(it) }
+                    addAll(selectedIngredients)
                 }
-                return false
+
+                val intent = Intent(this@HomeAcitivity, SearchResultActivity::class.java).apply {
+                    putExtra("SEARCH_QUERY", query ?: "")
+                    putStringArrayListExtra("TAG_LIST", ArrayList(tagList))
+                }
+                startActivity(intent)
+
+                // 키보드 내리기
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.hideSoftInputFromWindow(binding.searchViewBar.windowToken, 0)
+
+                return true
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
@@ -591,12 +573,6 @@ class HomeAcitivity : AppCompatActivity() {
             }
         })
     }
-
-
-    private fun updateRecyclerView(recipeList: List<RecipeItem>) {
-        recipeAdapter.updateRecipes(recipeList) // Adapter에 새 데이터 적용
-    }
-
 
 
 

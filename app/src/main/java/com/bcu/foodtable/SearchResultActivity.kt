@@ -27,11 +27,9 @@ class SearchResultActivity : AppCompatActivity() {
 
         //  검색어 가져오기
         val query: String = intent.getStringExtra("SEARCH_QUERY") ?: ""
-        if (query.isNotBlank()) {
-            searchRecipes(query)
-        } else {
-            Log.e("SearchResultActivity", "검색어가 없음")
-        }
+        val tagList: List<String> = intent.getStringArrayListExtra("TAG_LIST") ?: emptyList()
+        searchRecipesWithFilters(query, tagList)
+
         //  검색 결과 클릭 시 상세 보기로 이동
         expandedGridView.setOnItemClickListener { _, _, position, _ ->
             val clickedRecipe = recipeAdapter.getItem(position) as? RecipeItem
@@ -46,26 +44,35 @@ class SearchResultActivity : AppCompatActivity() {
         }
     }
 
-    private fun searchRecipes(query: String) {
+    private fun searchRecipesWithFilters(query: String?, tags: List<String>) {
+
+        if (query.isNullOrBlank()) {
+            Log.d("SearchResultActivity", "검색어가 비어 있어서 검색 중단됨")
+            return
+        }
+
         db.collection("recipe")
-            .get() //  Firestore에서 모든 레시피 데이터를 가져옴
+            .get()
             .addOnSuccessListener { documents ->
-                val recipeList = mutableListOf<RecipeItem>()
+                val filteredRecipes = mutableListOf<RecipeItem>()
                 for (document in documents) {
                     val recipe = document.toObject(RecipeItem::class.java)
                     recipe.id = document.id
-                    //  `name` 필드를 개별 단어로 분리
-                    val words = splitWords(recipe.name)
 
-                    //  검색어(query)가 단어 리스트에 포함되면 결과 리스트에 추가
-                    if (words.any { it.contains(query, ignoreCase = true) }) {
-                        recipeList.add(recipe)
+                    val categories = document.get("C_categories") as? List<String> ?: emptyList()
+                    val nameMatches = query.isNullOrBlank() || recipe.name.contains(query, ignoreCase = true)
+                    val tagsMatch = tags.isEmpty() || tags.all { tag ->
+                        categories.any { it.contains(tag, ignoreCase = true) }
+                    }
+
+                    if ((query.isNullOrBlank() && tagsMatch) || (nameMatches && tagsMatch)) {
+                        filteredRecipes.add(recipe)
                     }
                 }
-                recipeAdapter.updateRecipes(recipeList) //  UI 업데이트
+                recipeAdapter.updateRecipes(filteredRecipes)
             }
-            .addOnFailureListener { exception ->
-                Log.e("FirestoreSearch", "검색 중 오류 발생: ", exception)
+            .addOnFailureListener {
+                Log.e("FirestoreSearch", "검색 실패: ${it.message}")
             }
     }
 
