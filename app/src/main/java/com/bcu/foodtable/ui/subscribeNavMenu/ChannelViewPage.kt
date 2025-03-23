@@ -3,6 +3,7 @@ package com.bcu.foodtable.ui.subscribeNavMenu
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -49,17 +50,23 @@ class ChannelViewPage : AppCompatActivity() {
         // 유저 UID 불러오기 (현재 유저)
         val user = UserManager.getUser()!!.uid
 
-        //유저 UID와 채널주인 UID가 같은지 확인 (String)
-        if( user.equals(channelitem.owner)){
-            //이곳에 코드를 작성
-            //채널 주인과 사용자가 같으면 writeButton VISIBLE,아니면 GONE
-            //구독하기 버튼은 채널 주인과 사용자가 같으면 subscribeButton GONE, 아니면 VISIBLE
-        }
+
+
         CoroutineScope(Dispatchers.Main).launch {
             channelitem = getChannelByName(channelName)!!
             FireStoreHelper.loadImageFromUrl(channelitem.BackgroundResId,backgroundImg)
             FireStoreHelper.loadImageFromUrl(channelitem.imageResId,channelImg)
             channelNameText.text = channelitem.name
+            //유저 UID와 채널주인 UID가 같은지 확인 (String)
+            if (user.equals(channelitem.owner)) {
+                // 채널 주인일 경우
+                writeButton.visibility = View.VISIBLE
+                subscribeButton.visibility = View.GONE
+            } else {
+                // 일반 사용자일 경우
+                writeButton.visibility = View.GONE
+                subscribeButton.visibility = View.VISIBLE
+            }
         }
     }
     suspend fun getChannelByName(channelName: String): Channel? {
