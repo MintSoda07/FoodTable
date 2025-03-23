@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -16,7 +17,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
+import com.bcu.foodtable.useful.FlexAdaptor
+import com.bcu.foodtable.useful.RecipeDetailRecyclerAdaptor
 import com.bumptech.glide.Glide
+import com.google.android.flexbox.FlexDirection
+import com.google.android.flexbox.FlexWrap
+import com.google.android.flexbox.FlexboxLayoutManager
+import com.google.android.flexbox.JustifyContent
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.firestore.FirebaseFirestore
@@ -40,6 +47,8 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var addpageTimer1 : TextInputEditText
     private lateinit var addpageTimer2 : TextInputEditText
     private lateinit var addpageTimer3 : TextInputEditText
+
+    private lateinit var addpageTimerBox : View
 
     private var selectedImageUri: Uri? = null
     var isMainImageUploaded = false
@@ -84,11 +93,35 @@ class WriteActivity : AppCompatActivity() {
         addpageSwitchTimer = findViewById(R.id.timerSwitch)
         addpageTitleText = findViewById(R.id.AddPageStageTitleText)
 
+
         addpageTimer1 = findViewById(R.id.AddPageStageTimerHour)
         addpageTimer2 = findViewById(R.id.AddPageStageTimerMinute)
         addpageTimer3 = findViewById(R.id.AddPageStageTimerSecond)
 
+        addpageTimerBox = findViewById(R.id.timerStage)
 
+        // Switch 상태 변경 리스너 설정
+        addpageSwitchTimer.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                addpageTimerBox.visibility = View.VISIBLE  // Switch가 켜지면 보이기
+            } else {
+                addpageTimerBox.visibility = View.GONE     // Switch가 꺼지면 숨기기
+            }
+        }
+
+        val layoutManager = FlexboxLayoutManager(this).apply {
+            flexDirection = FlexDirection.ROW   // 행(row) 방향으로 아이템 배치
+            justifyContent = JustifyContent.FLEX_START // 아이템을 왼쪽 정렬
+            flexWrap = FlexWrap.WRAP           // 줄바꿈 허용 (자동으로 아이템 크기 맞추기)
+        }
+
+        addpageRecyclerViewStage.layoutManager = layoutManager
+        var recipeItemAdaptor = RecipeDetailRecyclerAdaptor(
+            mutableListOf(),
+            this@WriteActivity
+        ){ clickedPosition ->
+        }
+        addpageRecyclerViewStage.adapter = recipeItemAdaptor
         // 갤러리로 이동
         buttonSelectImage.setOnClickListener {
             openGallery()
