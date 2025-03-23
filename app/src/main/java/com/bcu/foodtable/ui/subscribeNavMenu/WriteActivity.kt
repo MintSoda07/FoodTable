@@ -37,6 +37,10 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var addpageDescription : EditText
     private lateinit var addpageSwitchTimer : Switch
 
+    private lateinit var addpageTimer1 : TextInputEditText
+    private lateinit var addpageTimer2 : TextInputEditText
+    private lateinit var addpageTimer3 : TextInputEditText
+
     private var selectedImageUri: Uri? = null
     var isMainImageUploaded = false
 
@@ -79,6 +83,12 @@ class WriteActivity : AppCompatActivity() {
 
         addpageSwitchTimer = findViewById(R.id.timerSwitch)
         addpageTitleText = findViewById(R.id.AddPageStageTitleText)
+
+        addpageTimer1 = findViewById(R.id.AddPageStageTimerHour)
+        addpageTimer2 = findViewById(R.id.AddPageStageTimerMinute)
+        addpageTimer3 = findViewById(R.id.AddPageStageTimerSecond)
+
+
         // 갤러리로 이동
         buttonSelectImage.setOnClickListener {
             openGallery()
