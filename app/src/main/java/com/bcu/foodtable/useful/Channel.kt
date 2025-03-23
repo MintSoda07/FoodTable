@@ -9,4 +9,5 @@ data class Channel(
     var subscribers:Int=0,
     var BackgroundResId:String="",
     val date: Timestamp = Timestamp.now(),
+    val owner : String = "",
 )
