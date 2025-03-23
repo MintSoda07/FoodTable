@@ -74,6 +74,8 @@
     <string name="ad">추가</string>
     <string name="sub">제거</string>
     <string name="won">원</string>
+    <string name="enter_des">상세 설명을 입력하세요..</string>
+    <string name="enter_image">사진 선택</string>
     <!-- 회원가입 Warnings -->
     <string name="email_empty_warning">이메일을 입력하세요.</string>
     <string name="nickname_empty_warning">닉네임을 입력하세요.</string>

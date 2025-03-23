@@ -22,7 +22,8 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var editTextTitle: EditText
     private lateinit var editTextDescription: EditText
     private lateinit var buttonSelectImage: Button
-    private lateinit var categorySpinner: Spinner // Spinner 추가
+    private lateinit var spinner1: Spinner // Spinner 추가
+    private lateinit var spinner2: Spinner
     private lateinit var buttonUpload: Button
     private lateinit var itemImageView: ImageView
     private lateinit var buttonBack: Button
@@ -52,18 +53,14 @@ class WriteActivity : AppCompatActivity() {
 
         // UI 요소 초기화
         editTextTitle = findViewById(R.id.editTextTitle) // 제목 입력칸
-        editTextDescription = findViewById(R.id.editTextDescription) // 상세 설명 입력칸
+        editTextDescription = findViewById(R.id.making_des) // 상세 설명 입력칸
         buttonSelectImage = findViewById(R.id.buttonSelectImage)
-        categorySpinner = findViewById(R.id.categorySpinner) // Spinner 초기화
+
+        // 스피너 ID 가져오기
+        spinner1 = findViewById<Spinner>(R.id.categorySpinner) // Food Types
+        spinner2 = findViewById<Spinner>(R.id.categorySpinner2) // Cooking Methods
         buttonUpload = findViewById(R.id.buttonUpload)
         itemImageView = findViewById(R.id.imageView22)
-        buttonBack = findViewById(R.id.buttonBack)
-
-        // 뒤로 가기 버튼 클릭 이벤트 (제대로 닫음)
-        buttonBack.setOnClickListener {
-            finish() // 현재 액티비티 종료하고 이전 화면으로 돌아감
-        }
-
         // 버튼 활성화
         buttonSelectImage.isEnabled = true
 
@@ -106,37 +103,36 @@ class WriteActivity : AppCompatActivity() {
                 Toast.makeText(this, "업로드 실패", Toast.LENGTH_SHORT).show()
             }
     }
-
     private fun getCategoriesFromFirestore() {
         val firestore = FirebaseFirestore.getInstance()
 
-        // "C_categories" 컬렉션에서 카테고리 목록 가져오기
-        firestore.collection("C_categories")
-            .get()
-            .addOnSuccessListener { result ->
-                val categoriesList = mutableListOf<String>()
+        // 가져올 문서 목록 (문서 이름과 해당 데이터를 적용할 스피너 매핑)
+        val categoryMapping = mapOf(
+            "C_food_types" to spinner1,      // Food Types → Spinner 1
+            "C_cooking_methods" to spinner2  // Cooking Methods → Spinner 2
+        )
 
-                // Firestore에서 가져온 데이터로 카테고리 목록 생성
-                for (document in result) {
-                    // 'name' 필드가 있는지 확인
-                    val category = document.getString("name")
-                    category?.let {
-                        categoriesList.add(it)
+        for ((doc, spinner) in categoryMapping) {
+            firestore.collection("C_categories")
+                .document(doc)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val list = document.get("list") as? List<String>
+                        if (!list.isNullOrEmpty()) {
+                            // ArrayAdapter 생성 및 스피너에 적용
+                            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, list)
+                            spinner.adapter = adapter
+                        } else {
+                            Toast.makeText(this, "$doc 데이터가 없습니다.", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
-
-                // 카테고리가 있으면 Spinner에 설정
-                if (categoriesList.isNotEmpty()) {
-                    val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, categoriesList)
-                    categorySpinner.adapter = adapter
-                } else {
-                    Toast.makeText(this, "카테고리 데이터가 없습니다.", Toast.LENGTH_SHORT).show()
+                .addOnFailureListener { exception ->
+                    Log.e("Firestore", "$doc 로드 실패", exception)
+                    Toast.makeText(this, "$doc 로드 실패: ${exception.message}", Toast.LENGTH_SHORT).show()
                 }
-            }
-            .addOnFailureListener { exception ->
-                Log.e("Firestore", "카테고리 로드 실패", exception)
-                Toast.makeText(this, "카테고리 로드 실패: ${exception.message}", Toast.LENGTH_SHORT).show()
-            }
+        }
     }
 
     private fun saveRecipeToFirestore(imageUrl: String) {
@@ -144,7 +140,8 @@ class WriteActivity : AppCompatActivity() {
 
         val title = editTextTitle.text.toString().trim() // 사용자가 입력한 제목
         val description = editTextDescription.text.toString().trim() // 사용자가 입력한 상세 설명
-        val category = categorySpinner.selectedItem.toString() // 선택한 카테고리
+        val category1 = spinner1.selectedItem.toString() // 선택한 카테고리
+        val category2 = spinner2.selectedItem.toString() // 선택한 카테고리
 
         if (title.isEmpty()) {
             Toast.makeText(this, "레시피 제목을 입력해주세요!", Toast.LENGTH_SHORT).show()
@@ -159,7 +156,7 @@ class WriteActivity : AppCompatActivity() {
         val recipeData = hashMapOf(
             "title" to title,  // 입력한 제목
             "description" to description, // 입력한 상세 설명
-            "category" to category, // 선택한 카테고리
+            "category" to category1, // 선택한 카테고리
             "imageUrl" to imageUrl, // 업로드된 이미지 URL
             "timestamp" to System.currentTimeMillis() // 시간 기록
         )
