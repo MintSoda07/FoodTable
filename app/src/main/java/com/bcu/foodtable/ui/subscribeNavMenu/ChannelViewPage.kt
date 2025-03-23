@@ -16,6 +16,7 @@ import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FirebaseHelper
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.RecipeItem
+import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,12 +40,21 @@ class ChannelViewPage : AppCompatActivity() {
         val channelImg = findViewById<ImageView>(R.id.channelImage)
         val channelNameText = findViewById<TextView>(R.id.channelName)
         val writeButton: Button = findViewById(R.id.btn_write)
+        val subscribeButton : Button = findViewById(R.id.subbtn)
+
         writeButton.setOnClickListener {
             val intent = Intent(this, WriteActivity::class.java)
             startActivity(intent)
         }
+        // 유저 UID 불러오기 (현재 유저)
+        val user = UserManager.getUser()!!.uid
 
-
+        //유저 UID와 채널주인 UID가 같은지 확인 (String)
+        if( user.equals(channelitem.owner)){
+            //이곳에 코드를 작성
+            //채널 주인과 사용자가 같으면 writeButton VISIBLE,아니면 GONE
+            //구독하기 버튼은 채널 주인과 사용자가 같으면 subscribeButton GONE, 아니면 VISIBLE
+        }
         CoroutineScope(Dispatchers.Main).launch {
             channelitem = getChannelByName(channelName)!!
             FireStoreHelper.loadImageFromUrl(channelitem.BackgroundResId,backgroundImg)
