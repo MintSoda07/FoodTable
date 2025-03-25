@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
 
     id("com.google.gms.google-services")
+
 }
 
 android {
@@ -80,4 +81,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation ("com.google.android.flexbox:flexbox:3.0.0")
+    //헬스 커넥터 라이브러리
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
 }

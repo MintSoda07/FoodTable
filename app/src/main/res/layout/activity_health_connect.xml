@@ -1,0 +1,27 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/txtStepResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="걸음 수를 확인하세요"
+        android:textSize="18sp"
+        android:paddingBottom="12dp" />
+
+    <Button
+        android:id="@+id/btnRequestPermission"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="권한 요청하기" />
+
+    <Button
+        android:id="@+id/btnReadSteps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="오늘 걸음 수 가져오기"
+        android:layout_marginTop="8dp" />
+</LinearLayout>

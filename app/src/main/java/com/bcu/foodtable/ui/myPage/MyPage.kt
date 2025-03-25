@@ -7,11 +7,13 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.bcu.foodtable.PuchasePage
 import com.bcu.foodtable.databinding.FragmentMypageBinding
+import com.bcu.foodtable.ui.health.HealthConnectActivity
 import com.bcu.foodtable.useful.ActivityTransition
 import com.bcu.foodtable.useful.FireStoreHelper.loadImageFromUrl
 import com.bcu.foodtable.useful.UserManager
@@ -69,6 +71,11 @@ class MyPage : Fragment() {
                 context,
                 PuchasePage::class.java
             )
+        }
+        // 헬스 커넥트 액티비티 연결
+        binding.ProfileStepButton.setOnClickListener {
+            val intent = Intent(requireContext(), HealthConnectActivity::class.java)
+            startActivity(intent)
         }
 
         return root

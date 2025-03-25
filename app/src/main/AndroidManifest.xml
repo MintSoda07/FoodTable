@@ -8,6 +8,13 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <uses-permission android:name="android.permission.health.READ_STEPS" /> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" /> <!-- 헬스 커넥트 권한-->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
@@ -67,13 +74,18 @@
             android:name=".SearchResultActivity"
             android:exported="false"/>
         <activity
+            android:name=".ui.health.HealthConnectActivity"
+            android:exported="false"/>
+        <activity
             android:name=".HomeAcitivity"
             android:exported="false"
             android:label="@string/title_activity_home_acitivity" />
+
         <activity
             android:name=".LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
