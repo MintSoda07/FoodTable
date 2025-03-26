@@ -14,5 +14,6 @@ data class RecipeItem(
     var C_categories : List<String> = listOf(),
     var note : String="",
     var tags : List<String> = listOf(),
-    var ingredients : List<String> = listOf()
+    var ingredients : List<String> = listOf(),
+    val contained_channel : String=""
 )

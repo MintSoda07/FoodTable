@@ -7,7 +7,8 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 
-class FlexAdaptor(private val items: List<String>) : RecyclerView.Adapter<FlexAdaptor.ViewHolder>() {
+class FlexAdaptor(private val items: MutableList<String>) : RecyclerView.Adapter<FlexAdaptor.ViewHolder>() {
+
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val textView: TextView = view.findViewById(R.id.itemTextInTag)
     }
@@ -30,4 +31,10 @@ class FlexAdaptor(private val items: List<String>) : RecyclerView.Adapter<FlexAd
     }
 
     override fun getItemCount() = items.size
+
+    // 새로운 아이템 추가
+    fun addItem(newItem: String) {
+        items.add(newItem)
+        notifyItemInserted(items.size - 1)
+    }
 }

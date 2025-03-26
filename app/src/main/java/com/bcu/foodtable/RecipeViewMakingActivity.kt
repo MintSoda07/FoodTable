@@ -130,7 +130,7 @@ class RecipeViewMakingActivity : AppCompatActivity() {
                     Log.i("AI_Helper","response :$response")
                     // 재료 추출: {재료} 형태 찾기
                     val ingredientRegex = """\{(.*?)\}""".toRegex()
-                    val ingredients = ingredientRegex.findAll(response).map { it.groupValues[1] }.toList()
+                    val ingredients = ingredientRegex.findAll(response).map { it.groupValues[1] }.toMutableList()
 
                     // 레시피 추출: 레시피 형태 찾기
 
@@ -187,13 +187,11 @@ class RecipeViewMakingActivity : AppCompatActivity() {
 
     private fun uploadImage(imageUri: Uri) {
         val imageName = "uploaded_${System.currentTimeMillis()}.jpg"
-        val collectionName = "images"
         val folderName = "uploads"
 
         FireStoreHelper.uploadImage(
             imageUri = imageUri,
             imageName = imageName,
-            collectionName = collectionName,
             folderName = folderName,
             onSuccess = { imageUrl ->
                 Log.d("Upload", "업로드 성공: $imageUrl")

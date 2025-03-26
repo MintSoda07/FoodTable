@@ -23,29 +23,18 @@ object FireStoreHelper {
     fun uploadImage(
         imageUri: Uri,
         imageName: String,
-        collectionName: String,
         folderName: String,
         onSuccess: (String) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
         val storageRef = storage.reference.child("$folderName/$imageName")
-        val firestore = getFirestoreInstance()
 
         storageRef.putFile(imageUri)
             .addOnSuccessListener {
                 storageRef.downloadUrl.addOnSuccessListener { uri ->
                     val imageUrl = uri.toString()
+                    onSuccess(imageUrl)
 
-                    // Firestore에 URL 저장
-                    val imageData = hashMapOf("image" to imageUrl)
-                    firestore.collection(collectionName).document(imageName)
-                        .set(imageData)
-                        .addOnSuccessListener {
-                            onSuccess(imageUrl)
-                        }
-                        .addOnFailureListener { exception ->
-                            onFailure(exception)
-                        }
                 }.addOnFailureListener { exception ->
                     onFailure(exception)
                 }

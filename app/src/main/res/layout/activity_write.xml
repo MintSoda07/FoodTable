@@ -131,7 +131,36 @@
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/AddPageIngredientsItemList"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                    android:layout_height="wrap_content" >
+
+                </androidx.recyclerview.widget.RecyclerView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_weight="10">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/ingre_textField"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="@string/ingredient_add" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <Button
+                        android:id="@+id/ingre_btn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="0.1"
+                        android:backgroundTint="#C62828"
+                        android:text="@string/ingredient_add"
+                        android:textColor="#FFFFFF" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView
@@ -155,12 +184,22 @@
                 android:id="@+id/AddPageStageListRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:nestedScrollingEnabled="true" />
+                android:nestedScrollingEnabled="true" >
+
+            </androidx.recyclerview.widget.RecyclerView>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginVertical="12dp"
+                android:background="#D32F2F"
+                android:padding="2dp">
+
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#D0D0D0"
                 android:orientation="vertical">
 
                 <LinearLayout
@@ -236,6 +275,19 @@
                         android:layout_weight="1">
 
                         <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/addpageCookingMethod"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/the_jamsil_bold"
+                            android:hint="@string/method" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1">
+
+                        <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/AddPageStageTimerHour"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -277,10 +329,41 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:fontFamily="@font/the_jamsil"
-                    android:text="@string/recipe_stage_add" />
+                    android:backgroundTint="#C62828"
+                    android:fontFamily="@font/the_jamsil_bold"
+                    android:text="@string/recipe_stage_add"
+                    android:textColor="#FFFFFF" />
 
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/textView36"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="@string/note"
+                android:textColor="#D32F2F"
+                android:textSize="20sp" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="12dp"
+                android:background="#D32F2F"
+                android:padding="2dp">
+
+            </FrameLayout>
+
+            <EditText
+                android:id="@+id/note_des"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:gravity="top|start"
+                android:hint="상세 설명을 입력하세요..."
+                android:inputType="textMultiLine|textCapSentences"
+                android:padding="10dp"
+                android:scrollbars="vertical" />
 
             <TextView
                 android:id="@+id/textView31"
@@ -309,12 +392,46 @@
 
             </androidx.recyclerview.widget.RecyclerView>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_weight="10">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/tags_inputTextField"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="10"
+                        android:hint="@string/enter_des" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <Button
+                    android:id="@+id/tags_inputButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:backgroundTint="#C62828"
+                    android:text="@string/tags"
+                    android:textColor="#FFFFFF" />
+
+            </LinearLayout>
+
             <Button
                 android:id="@+id/buttonUpload"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="업로드" />
+                android:layout_marginBottom="50dp"
+                android:backgroundTint="#C62828"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="@string/add"
+                android:textColor="#FFFFFF" />
 
             <!-- 뒤로 가기 버튼 -->
 
