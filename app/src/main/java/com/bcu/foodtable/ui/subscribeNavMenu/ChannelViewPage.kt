@@ -3,6 +3,7 @@ package com.bcu.foodtable.ui.subscribeNavMenu
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
@@ -16,6 +17,7 @@ import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FirebaseHelper
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.RecipeItem
+import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,10 +41,15 @@ class ChannelViewPage : AppCompatActivity() {
         val channelImg = findViewById<ImageView>(R.id.channelImage)
         val channelNameText = findViewById<TextView>(R.id.channelName)
         val writeButton: Button = findViewById(R.id.btn_write)
+        val subscribeButton : Button = findViewById(R.id.subbtn)
+
         writeButton.setOnClickListener {
             val intent = Intent(this, WriteActivity::class.java)
             startActivity(intent)
         }
+        // 유저 UID 불러오기 (현재 유저)
+        val user = UserManager.getUser()!!.uid
+
 
 
         CoroutineScope(Dispatchers.Main).launch {
@@ -50,6 +57,16 @@ class ChannelViewPage : AppCompatActivity() {
             FireStoreHelper.loadImageFromUrl(channelitem.BackgroundResId,backgroundImg)
             FireStoreHelper.loadImageFromUrl(channelitem.imageResId,channelImg)
             channelNameText.text = channelitem.name
+            //유저 UID와 채널주인 UID가 같은지 확인 (String)
+            if (user.equals(channelitem.owner)) {
+                // 채널 주인일 경우
+                writeButton.visibility = View.VISIBLE
+                subscribeButton.visibility = View.GONE
+            } else {
+                // 일반 사용자일 경우
+                writeButton.visibility = View.GONE
+                subscribeButton.visibility = View.VISIBLE
+            }
         }
     }
     suspend fun getChannelByName(channelName: String): Channel? {

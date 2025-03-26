@@ -21,6 +21,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.google.firebase.storage.FirebaseStorage
+import com.bcu.foodtable.ui.myPage.ChannelCreationActivity
 
 class MyPage : Fragment() {
 
@@ -41,6 +42,17 @@ class MyPage : Fragment() {
 
         fetchUserDataFromFirestore()
         toggleEditMode(false)
+        // 채널 존재 여부 체크
+        checkIfChannelExists()
+        // "채널 생성하기" 버튼 클릭 리스너 추가
+        binding.ProfileCreateChannelBtn.setOnClickListener {
+            // 채널 생성 페이지로 이동
+            binding.ProfileCreateChannelBtn.setOnClickListener {
+                // 채널 생성 페이지로 이동
+                val intent = Intent(context, ChannelCreationActivity::class.java)
+                startActivity(intent)
+            }
+        }
 
         binding.ProfileEditBtn.setOnClickListener {
             toggleEditMode(true)
@@ -176,6 +188,26 @@ class MyPage : Fragment() {
             }
             .addOnFailureListener {
                 Toast.makeText(context, "프로필 이미지 저장 실패.", Toast.LENGTH_SHORT).show()
+            }
+    }
+    private fun checkIfChannelExists() {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        // Firebase Firestore에서 채널 정보 가져오기
+        FirebaseFirestore.getInstance().collection("channel")
+            .whereEqualTo("userId", uid) // 사용자의 채널이 있는지 확인
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+                if (querySnapshot.isEmpty) {
+                    // 채널이 존재하지 않으면 버튼 보이기
+                    binding.ProfileCreateChannelBtn.visibility = View.VISIBLE
+                } else {
+                    // 채널이 이미 존재하면 버튼 숨기기
+                    binding.ProfileCreateChannelBtn.visibility = View.GONE
+                }
+            }
+            .addOnFailureListener {
+                Toast.makeText(context, "채널 존재 여부 확인 실패", Toast.LENGTH_SHORT).show()
             }
     }
 

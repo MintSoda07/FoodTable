@@ -3,6 +3,9 @@ package com.bcu.foodtable.ui.subscribeNavMenu
 import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.InputType
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.ArrayAdapter
@@ -43,7 +46,9 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var addpageTitleText : TextInputEditText
     private lateinit var addpageDescription : EditText
     private lateinit var addpageSwitchTimer : Switch
+    private lateinit var addpageStageButton :Button
 
+    private lateinit var addpageCookingMethod : TextInputEditText
     private lateinit var addpageTimer1 : TextInputEditText
     private lateinit var addpageTimer2 : TextInputEditText
     private lateinit var addpageTimer3 : TextInputEditText
@@ -92,23 +97,52 @@ class WriteActivity : AppCompatActivity() {
 
         addpageSwitchTimer = findViewById(R.id.timerSwitch)
         addpageTitleText = findViewById(R.id.AddPageStageTitleText)
-
-
+        addpageStageButton = findViewById(R.id.AddPageStageAddBtn)
+        addpageCookingMethod = findViewById(R.id.addpageCookingMethod)
         addpageTimer1 = findViewById(R.id.AddPageStageTimerHour)
         addpageTimer2 = findViewById(R.id.AddPageStageTimerMinute)
         addpageTimer3 = findViewById(R.id.AddPageStageTimerSecond)
 
         addpageTimerBox = findViewById(R.id.timerStage)
+        fun setupNumberLimit(editText: TextInputEditText, maxValue: Int) {
+            editText.inputType = InputType.TYPE_CLASS_NUMBER // 숫자 입력만 허용
 
-        // Switch 상태 변경 리스너 설정
-        addpageSwitchTimer.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                addpageTimerBox.visibility = View.VISIBLE  // Switch가 켜지면 보이기
-            } else {
-                addpageTimerBox.visibility = View.GONE     // Switch가 꺼지면 숨기기
-            }
+            editText.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    s?.toString()?.let { text ->
+                        if (text.isNotEmpty()) {
+                            val num = text.toIntOrNull() ?: 0
+                            if (num > maxValue) {
+                                editText.setText(maxValue.toString()) // 최대값으로 설정
+                                editText.setSelection(editText.text!!.length) // 커서 이동
+                            }
+                        }
+                    }
+                }
+
+                override fun afterTextChanged(s: Editable?) {}
+            })
         }
 
+        setupNumberLimit(addpageTimer1, 23)  // 최대 23
+        setupNumberLimit(addpageTimer2, 59)  // 최대 59
+        setupNumberLimit(addpageTimer3, 59)  // 최대 59
+
+        fun getFormattedTime(): String {
+            val hour = addpageTimer1.text?.toString()?.padStart(2, '0') ?: "00"
+            val minute = addpageTimer2.text?.toString()?.padStart(2, '0') ?: "00"
+            val second = addpageTimer3.text?.toString()?.padStart(2, '0') ?: "00"
+
+            return "$hour:$minute:$second"
+        }
+        fun formatCookingStep(stepNumber: Int, title: String, description: String, cookingMethod: String?, time: String?): String {
+            val timePart = if (cookingMethod != null && time != null) " ($cookingMethod,$time)" else ""
+            return "$stepNumber.($title) $description$timePart"
+        }
+        val recipeSteps = mutableListOf<String>()
+        var indexOfStage = 1
         val layoutManager = FlexboxLayoutManager(this).apply {
             flexDirection = FlexDirection.ROW   // 행(row) 방향으로 아이템 배치
             justifyContent = JustifyContent.FLEX_START // 아이템을 왼쪽 정렬
@@ -122,6 +156,44 @@ class WriteActivity : AppCompatActivity() {
         ){ clickedPosition ->
         }
         addpageRecyclerViewStage.adapter = recipeItemAdaptor
+        // Switch 상태 변경 리스너 설정
+        addpageSwitchTimer.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                addpageTimerBox.visibility = View.VISIBLE  // Switch가 켜지면 보이기
+            } else {
+                addpageTimerBox.visibility = View.GONE     // Switch가 꺼지면 숨기기
+            }
+        }
+        addpageStageButton.setOnClickListener{
+            if(!addpageTitleText.text.isNullOrEmpty() && !addpageDescription.text.isNullOrEmpty() ){
+                if(addpageSwitchTimer.isChecked)
+                {
+                    recipeSteps.add(formatCookingStep(
+                        stepNumber = indexOfStage,
+                        title = sanitizeInput(addpageTitleText.text.toString()),
+                        description = sanitizeInput(addpageDescription.text.toString()),
+                        cookingMethod = sanitizeInput(addpageCookingMethod.text.toString()),
+                        time = getFormattedTime()
+                    ))
+                    Log.d("RecipeStage",recipeSteps[indexOfStage-1])
+                    recipeItemAdaptor.updateItems(recipeSteps)
+                    Log.d("RecipeStage","Adaptor items  : ${recipeItemAdaptor.itemCount}, ItemList : $recipeSteps")
+                }else{
+                    recipeSteps.add(formatCookingStep(
+                        stepNumber = indexOfStage,
+                        title = sanitizeInput(addpageTitleText.text.toString()),
+                        description = sanitizeInput(addpageDescription.text.toString()),
+                        cookingMethod = null,
+                        time = null
+                    ))
+                    Log.d("RecipeStage",recipeSteps[indexOfStage-1])
+                    recipeItemAdaptor.updateItems(recipeSteps)
+                    Log.d("RecipeStage","Adaptor items  : ${recipeItemAdaptor.itemCount}, ItemList : $recipeSteps")
+                }
+
+            }
+        }
+
         // 갤러리로 이동
         buttonSelectImage.setOnClickListener {
             openGallery()
@@ -130,7 +202,7 @@ class WriteActivity : AppCompatActivity() {
         // 업로드 버튼 클릭 시 실행
         buttonUpload.setOnClickListener {
             selectedImageUri?.let { uri ->
-                uploadImage(uri)
+                // TODO() 업로드 함수를 작성해야 하는 부분
             } ?: run {
                 Toast.makeText(this, "이미지를 선택해 주세요.", Toast.LENGTH_SHORT).show()
             }
@@ -143,23 +215,9 @@ class WriteActivity : AppCompatActivity() {
     private fun openGallery() {
         pickImageLauncher.launch("image/*")
     }
-
-    private fun uploadImage(imageUri: Uri) {
-        val storageReference = FirebaseStorage.getInstance().reference
-        val imageName = "uploaded_${System.currentTimeMillis()}.jpg"
-        val imageRef = storageReference.child("recipe_image/$imageName")
-
-        imageRef.putFile(imageUri)
-            .addOnSuccessListener {
-                imageRef.downloadUrl.addOnSuccessListener { uri ->
-                    saveRecipeToFirestore(uri.toString())  // 이미지 URL을 Firestore에 저장
-                }
-                Toast.makeText(this, "이미지 업로드 성공!", Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener { exception ->
-                Log.e("Upload", "업로드 실패", exception)
-                Toast.makeText(this, "업로드 실패", Toast.LENGTH_SHORT).show()
-            }
+    fun sanitizeInput(inputStr: String): String {
+        return inputStr
+        //return inputStr.replace(Regex("[()○]"), "")
     }
     private fun getCategoriesFromFirestore() {
         val firestore = FirebaseFirestore.getInstance()
@@ -223,7 +281,7 @@ class WriteActivity : AppCompatActivity() {
             .add(recipeData)
             .addOnSuccessListener {
                 Toast.makeText(this, "레시피 Firestore 저장 완료!", Toast.LENGTH_SHORT).show()
-                finish() // ✅ Firestore 저장도 성공하면 이전 화면으로 이동
+                finish() //  Firestore 저장도 성공하면 이전 화면으로 이동
             }
             .addOnFailureListener { exception ->
                 Log.e("Firestore", "Firestore 저장 실패", exception)

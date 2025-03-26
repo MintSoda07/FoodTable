@@ -108,6 +108,7 @@ class RecipeViewActivity : AppCompatActivity() {
                 }
                 // ○를 기준으로 문자열을 나눔 (
                 items = inputString.split("○").filter { it.isNotBlank() }
+                Log.d("Recipe","현재 분리된 레시피 단계 : ${items}")
                 // 리스트 어댑터
                 RecipeAdaptor = RecipeDetailRecyclerAdaptor(
                     mutableListOf(),
