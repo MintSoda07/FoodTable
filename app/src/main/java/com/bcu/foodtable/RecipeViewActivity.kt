@@ -89,7 +89,7 @@ class RecipeViewActivity : AppCompatActivity() {
 
                 val placeholder_ingredients = findViewById<RecyclerView>(R.id.itemIngredientsRecycler)
                 placeholder_ingredients.layoutManager  = LinearLayoutManager(this@RecipeViewActivity)
-                placeholder_ingredients.adapter = IngredientAdapter(it.ingredients)
+                placeholder_ingredients.adapter = IngredientAdapter(it.ingredients.toMutableList())
 
                 val placeholder_categories = findViewById<RecyclerView>(R.id.categories)
                 val placeholder_tags = findViewById<RecyclerView>(R.id.ItemTags)
@@ -126,8 +126,8 @@ class RecipeViewActivity : AppCompatActivity() {
                 placeholder_tags.layoutManager = layoutManager2
 
                 placeholder_note.text = it.note
-                placeholder_categories.adapter = FlexAdaptor(it.C_categories)
-                placeholder_tags.adapter = FlexAdaptor(it.tags)
+                placeholder_categories.adapter = FlexAdaptor(it.C_categories.toMutableList())
+                placeholder_tags.adapter = FlexAdaptor(it.tags.toMutableList())
             } ?: run {
                 Log.d("Recipe", "No recipe found for the provided ID.")
             }
@@ -173,8 +173,7 @@ class RecipeViewActivity : AppCompatActivity() {
     }
 
 }
-
-class IngredientAdapter(private val ingredients: List<String>) :
+class IngredientAdapter(private val ingredients: MutableList<String>) :
     RecyclerView.Adapter<IngredientAdapter.IngredientViewHolder>() {
 
     // ViewHolder 클래스 정의
@@ -193,4 +192,10 @@ class IngredientAdapter(private val ingredients: List<String>) :
     }
 
     override fun getItemCount(): Int = ingredients.size
+
+    // 새로운 아이템 추가 함수
+    fun addItem(newItem: String) {
+        ingredients.add(newItem) // 리스트에 추가
+        notifyItemInserted(ingredients.size - 1) // UI 갱신
+    }
 }

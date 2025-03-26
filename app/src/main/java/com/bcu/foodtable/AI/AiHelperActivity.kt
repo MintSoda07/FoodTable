@@ -205,7 +205,7 @@ class AiHelperActivity : AppCompatActivity() {
 
                         // 재료 추출: {재료} 형태 찾기
                         val ingredientRegex = """\{(.*?)\}""".toRegex()
-                        val ingredients = ingredientRegex.findAll(aiResponse).map { it.groupValues[1] }.toList()
+                        val ingredients = ingredientRegex.findAll(aiResponse).map { it.groupValues[1] }.toMutableList()
 
                         // 레시피 추출: ◆레시피◆ 형태 찾기
                         val recipeRegex = """◆(.*?)◆""".toRegex()

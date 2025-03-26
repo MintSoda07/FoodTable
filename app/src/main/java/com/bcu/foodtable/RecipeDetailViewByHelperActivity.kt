@@ -42,23 +42,27 @@ class RecipeDetailViewByHelperActivity : AppCompatActivity() {
         itemOrder = findViewById(R.id.itemOrder)
 
 
-        var ingredientsList:List<String>;
+        var ingredientsList: MutableList<String> // MutableList로 변경
 
         val description = findViewById<TextView>(R.id.recipeDescription)
         val OpenAI = OpenAIClient()
         val itemName = findViewById<TextView>(R.id.recipeName)
 
         val recipeName = intent.getStringExtra("RecipeName") ?: ""
-        val list : List<String>? = intent.getStringExtra("Ingredients")?.removeSurrounding("{", "}")?.split(",")
-        if(list!=null){
-            ingredientsList =  list
+        val list: List<String>? = intent.getStringExtra("Ingredients")
+            ?.removeSurrounding("{", "}")?.split(",")
+
+        if (list != null) {
+            ingredientsList = list.toMutableList() // MutableList로 변환
+
             val layoutManager = FlexboxLayoutManager(this).apply {
                 flexDirection = FlexDirection.ROW   // 행(row) 방향으로 아이템 배치
                 justifyContent = JustifyContent.FLEX_START // 아이템을 왼쪽 정렬
                 flexWrap = FlexWrap.WRAP           // 줄바꿈 허용 (자동으로 아이템 크기 맞추기)
             }
+
             itemIngredient.layoutManager = layoutManager
-            itemIngredient.adapter = FlexAdaptor(ingredientsList)
+            itemIngredient.adapter = FlexAdaptor(ingredientsList) // MutableList로 전달
         }
         itemName.text = recipeName
 

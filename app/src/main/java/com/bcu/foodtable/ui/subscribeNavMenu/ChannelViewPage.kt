@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bcu.foodtable.R
+import com.bcu.foodtable.RecipeViewActivity
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FirebaseHelper
@@ -45,7 +46,8 @@ class ChannelViewPage : AppCompatActivity() {
 
         writeButton.setOnClickListener {
             val intent = Intent(this, WriteActivity::class.java)
-            startActivity(intent)
+            intent.putExtra("channel_name", channelitem.name)  // Firestore 문서 ID 전달
+            this.startActivity(intent)  // 새로운 액티비티로 전환
         }
         // 유저 UID 불러오기 (현재 유저)
         val user = UserManager.getUser()!!.uid
