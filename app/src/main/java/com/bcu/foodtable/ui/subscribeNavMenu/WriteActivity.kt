@@ -1,6 +1,7 @@
 package com.bcu.foodtable.ui.subscribeNavMenu
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
@@ -67,6 +68,7 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var addpageTagsInputTextField : TextInputEditText
     private lateinit var addpageTagsButton : Button
 
+    private lateinit var note : TextInputEditText
     private var selectedImageUri: Uri? = null
     var isMainImageUploaded = false
 
@@ -118,6 +120,8 @@ class WriteActivity : AppCompatActivity() {
         addpageIngredientsBtn = findViewById(R.id.ingre_btn)
         addpageIngredientsText = findViewById(R.id.ingre_textField)
         addpageIngredientsRecyclerView = findViewById(R.id.AddPageIngredientsItemList)
+
+        note = findViewById(R.id.note_des)
 
         addpageTagsListFlexBoxRecyclerView = findViewById(R.id.AddPageItemTags)
         addpageTagsInputTextField = findViewById(R.id.tags_inputTextField)
@@ -265,7 +269,7 @@ class WriteActivity : AppCompatActivity() {
                 Toast.makeText(this, "제목과 설명을 입력해 주세요.", Toast.LENGTH_SHORT).show()
                 return
             }
-            val orderString = recipeSteps.joinToString("○")
+            val orderString = "○"+recipeSteps.joinToString("○")
             val recipeItem = RecipeItem(
                 name = title,
                 description = description,
@@ -275,8 +279,8 @@ class WriteActivity : AppCompatActivity() {
                 order = orderString, // ○가 포함된 문자열로 저장
                 id = "", // Firestore 저장 후 자동 설정 가능
                 C_categories = categoryList, // 카테고리는 비어있는 리스트로 초기화
-                note = "", // 무시됨
-                tags = listOf(), // 태그는 비어있는 리스트로 초기화
+                note = note.text.toString(), // 무시됨
+                tags = tagList, // 태그는 비어있는 리스트로 초기화
                 ingredients = ingredientsList, // 재료 리스트도 비어있는 리스트로 초기화
                 contained_channel = channelName!!
             )
@@ -295,6 +299,7 @@ class WriteActivity : AppCompatActivity() {
 
         // 업로드 버튼 클릭 시 실행
         buttonUpload.setOnClickListener {
+            buttonUpload.isActivated=false
             selectedImageUri?.let { uri ->
                 FireStoreHelper.uploadImage(
                     imageUri = uri,
@@ -303,13 +308,18 @@ class WriteActivity : AppCompatActivity() {
                     onSuccess = { imageUrl ->
                         saveRecipeToFirestore(imageUrl) // 이미지 업로드 이후 레시피를 저장
                         Toast.makeText(this, "업로드 성공!", Toast.LENGTH_SHORT).show()
+                        val intent = Intent(this, ChannelViewPage::class.java)
+                        intent.putExtra("channel_name", channelName)  // Firestore 문서 ID 전달
+                        this.startActivity(intent)  // 새로운 액티비티로 전환
                     },
                     onFailure = { exception ->
                         Toast.makeText(this, "업로드 실패: ${exception.message}", Toast.LENGTH_SHORT).show()
+                        buttonUpload.isActivated=true
                     }
                 )
             } ?: run {
                 Toast.makeText(this, "이미지를 선택해 주세요.", Toast.LENGTH_SHORT).show()
+                buttonUpload.isActivated=true
             }
         }
         
