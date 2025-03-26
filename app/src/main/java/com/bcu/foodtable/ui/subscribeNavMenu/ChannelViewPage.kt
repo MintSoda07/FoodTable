@@ -11,11 +11,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FirebaseHelper
-import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
+import com.bcu.foodtable.useful.RecipeAdapter
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
@@ -26,71 +28,111 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 class ChannelViewPage : AppCompatActivity() {
-    lateinit var channelitem: Channel
+
+    private var recipeList: MutableList<RecipeItem> = mutableListOf()
+    private lateinit var recipeAdapter: RecipeAdapter
+    private lateinit var channelitem: Channel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_channel_view_page)
+
+        // 윈도우 인셋 적용
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        // 채널명과 관련된 UI 요소들 초기화
         val channelName = intent.getStringExtra("channel_name") ?: ""
         val backgroundImg = findViewById<ImageView>(R.id.channelBackground)
         val channelImg = findViewById<ImageView>(R.id.channelImage)
         val channelNameText = findViewById<TextView>(R.id.channelName)
         val writeButton: Button = findViewById(R.id.btn_write)
-        val subscribeButton : Button = findViewById(R.id.subbtn)
+        val subscribeButton: Button = findViewById(R.id.subbtn)
+        val recyclerView = findViewById<RecyclerView>(R.id.channelItem)
 
+        // RecyclerView 설정
+        recyclerView.layoutManager = LinearLayoutManager(this)
+
+        // Adapter 초기화
+      //  recipeAdapter = RecipeAdapter(recipeList)
+       // recyclerView.adapter = recipeAdapter
+
+        // Write 버튼 클릭 리스너
         writeButton.setOnClickListener {
             val intent = Intent(this, WriteActivity::class.java)
             startActivity(intent)
         }
-        // 유저 UID 불러오기 (현재 유저)
-        val user = UserManager.getUser()!!.uid
 
+        // 현재 로그인된 사용자 ID
+        val user = UserManager.getUser()?.uid ?: ""
 
-
+        // 채널 정보 로드
         CoroutineScope(Dispatchers.Main).launch {
-            channelitem = getChannelByName(channelName)!!
-            FireStoreHelper.loadImageFromUrl(channelitem.BackgroundResId,backgroundImg)
-            FireStoreHelper.loadImageFromUrl(channelitem.imageResId,channelImg)
+            channelitem = getChannelByName(channelName) ?: return@launch
+
+            // Firestore에서 이미지 로드
+            FireStoreHelper.loadImageFromUrl(channelitem.BackgroundResId, backgroundImg)
+            FireStoreHelper.loadImageFromUrl(channelitem.imageResId, channelImg)
+
+            // 채널 이름 텍스트 설정
             channelNameText.text = channelitem.name
-            //유저 UID와 채널주인 UID가 같은지 확인 (String)
-            if (user.equals(channelitem.owner)) {
-                // 채널 주인일 경우
+
+            // 작성자와 비교하여 버튼 설정
+            if (user == channelitem.owner) {
                 writeButton.visibility = View.VISIBLE
                 subscribeButton.visibility = View.GONE
             } else {
-                // 일반 사용자일 경우
                 writeButton.visibility = View.GONE
                 subscribeButton.visibility = View.VISIBLE
             }
+
+            // 레시피 목록 불러오기
+            loadRecipes(channelitem.owner)
         }
     }
-    suspend fun getChannelByName(channelName: String): Channel? {
+
+    // Firestore에서 채널 정보 가져오기
+    private suspend fun getChannelByName(channelName: String): Channel? {
         return withContext(Dispatchers.IO) {
             try {
                 val db = FirebaseFirestore.getInstance()
-
-                // "channel" 컬렉션에서 name 필드가 channelName과 일치하는 문서 찾기
                 val query = db.collection("channel")
                     .whereEqualTo("name", channelName)
                     .get()
                     .await()
 
-                // 쿼리 결과에서 문서를 가져와 Channel 객체로 변환
-                if (query.isEmpty) {
-                    null
-                } else {
-                    val channelItem = query.documents[0].toObject(Channel::class.java)
-                    channelItem
+                if (query.isEmpty) null else query.documents[0].toObject(Channel::class.java)
+            } catch (e: Exception) {
+                Log.e("Firestore", "채널 가져오기 실패: ${e.message}")
+                null
+            }
+        }
+    }
+
+    // 레시피 목록을 Firestore에서 불러오기
+    private fun loadRecipes(ownerUid: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = FirebaseFirestore.getInstance()
+            try {
+                val querySnapshot = db.collection("recipes")
+                    .whereEqualTo("author", ownerUid)
+                    .get()
+                    .await()
+
+                val recipes = querySnapshot.documents.mapNotNull { it.toObject(RecipeItem::class.java) }
+
+                withContext(Dispatchers.Main) {
+                    // 레시피 목록 업데이트
+                    recipeList.clear()
+                    recipeList.addAll(recipes)
+                    recipeAdapter.notifyDataSetChanged()
                 }
             } catch (e: Exception) {
-                // 오류 발생 시 null 반환
-                e.printStackTrace()
-                null
+                Log.e("Firestore", "레시피 불러오기 실패: ${e.message}")
             }
         }
     }
