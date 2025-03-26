@@ -68,7 +68,7 @@ class WriteActivity : AppCompatActivity() {
     private lateinit var addpageTagsInputTextField : TextInputEditText
     private lateinit var addpageTagsButton : Button
 
-    private lateinit var note : TextInputEditText
+    private lateinit var note : TextView
     private var selectedImageUri: Uri? = null
     var isMainImageUploaded = false
 
