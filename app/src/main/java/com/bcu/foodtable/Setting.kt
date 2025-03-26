@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import android.widget.Button
+import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.auth.FirebaseAuth
 
 class Setting : AppCompatActivity() {
@@ -23,6 +24,9 @@ class Setting : AppCompatActivity() {
 
         // 로그아웃 버튼 클릭 리스너
         val btnLogout = findViewById<Button>(R.id.btn_logout)
+
+        val user = UserManager.getUser()!!.name
+        val img = UserManager.getUser()!!.image
 
         btnLogout.setOnClickListener {
             // 현재 사용자가 로그인되어 있는지 확인
