@@ -290,6 +290,9 @@ class WriteActivity : AppCompatActivity() {
             recipeRef.set(recipeItem)
                 .addOnSuccessListener {
                     Toast.makeText(this, "레시피가 업로드되었습니다!", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, ChannelViewPage::class.java)
+                    intent.putExtra("channel_name", channelName)  // Firestore 문서 ID 전달
+                    this.startActivity(intent)  // 새로운 액티비티로 전환
                 }
                 .addOnFailureListener { exception ->
                     Toast.makeText(this, "업로드 실패: ${exception.message}", Toast.LENGTH_SHORT).show()
@@ -303,14 +306,10 @@ class WriteActivity : AppCompatActivity() {
             selectedImageUri?.let { uri ->
                 FireStoreHelper.uploadImage(
                     imageUri = uri,
-                    imageName = "RecipeImage",  // 원하는 이미지 파일명 설정
-                    folderName = "Recipe_Images", // Firebase Storage 폴더명
+                    imageName = "",  // 원하는 이미지 파일명 설정
+                    folderName = "recipe_image", // Firebase Storage 폴더명
                     onSuccess = { imageUrl ->
                         saveRecipeToFirestore(imageUrl) // 이미지 업로드 이후 레시피를 저장
-                        Toast.makeText(this, "업로드 성공!", Toast.LENGTH_SHORT).show()
-                        val intent = Intent(this, ChannelViewPage::class.java)
-                        intent.putExtra("channel_name", channelName)  // Firestore 문서 ID 전달
-                        this.startActivity(intent)  // 새로운 액티비티로 전환
                     },
                     onFailure = { exception ->
                         Toast.makeText(this, "업로드 실패: ${exception.message}", Toast.LENGTH_SHORT).show()
