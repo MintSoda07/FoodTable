@@ -97,6 +97,9 @@
             android:windowSoftInputMode="adjustPan" />
 
         <activity
+            android:name="com.bcu.foodtable.ui.myPage.ChannelCreationActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>

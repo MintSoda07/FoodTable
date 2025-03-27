@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.myPage
 
+import com.bcu.foodtable.ui.myPage.ChannelCreationActivity
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -21,7 +22,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.google.firebase.storage.FirebaseStorage
-import com.bcu.foodtable.ui.myPage.ChannelCreationActivity
+
 
 class MyPage : Fragment() {
 
@@ -46,12 +47,12 @@ class MyPage : Fragment() {
         checkIfChannelExists()
         // "채널 생성하기" 버튼 클릭 리스너 추가
         binding.ProfileCreateChannelBtn.setOnClickListener {
-            // 채널 생성 페이지로 이동
-            binding.ProfileCreateChannelBtn.setOnClickListener {
+
                 // 채널 생성 페이지로 이동
-                val intent = Intent(context, ChannelCreationActivity::class.java)
+                val intent = Intent(requireContext(), ChannelCreationActivity::class.java)
                 startActivity(intent)
-            }
+
+
         }
 
         binding.ProfileEditBtn.setOnClickListener {
