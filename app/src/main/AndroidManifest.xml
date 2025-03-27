@@ -11,10 +11,19 @@
 
     <uses-permission android:name="android.permission.health.READ_STEPS" /> <!-- 헬스 커넥트 권한-->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permisson.health.WRTITE_SETPS"/> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" /> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE"/> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
+    <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
+
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
+
+
 
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
@@ -96,6 +105,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity-alias
+            android:name=".AndroidURationaleActivity"
+            android:exported="true"
+            android:targetActivity=".ui.health.HealthConnectActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
     </application>
 
 </manifest>

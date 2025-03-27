@@ -24,4 +24,6 @@
         android:layout_height="wrap_content"
         android:text="오늘 걸음 수 가져오기"
         android:layout_marginTop="8dp" />
+
+
 </LinearLayout>

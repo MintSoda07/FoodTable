@@ -105,7 +105,7 @@ class MyPage : Fragment() {
                 toggleEditMode(false)
             }
             .addOnFailureListener {
-                Toast.makeText(context, "❌ 프로필 업데이트 실패.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, " 프로필 업데이트 실패.", Toast.LENGTH_SHORT).show()
             }
     }
 
