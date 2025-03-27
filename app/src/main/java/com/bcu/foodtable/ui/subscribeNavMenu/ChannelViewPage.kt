@@ -93,7 +93,7 @@ class ChannelViewPage : AppCompatActivity() {
             }
 
             // 레시피 목록 불러오기
-            loadRecipes(channelitem.owner)
+            loadRecipes()
         }
     }
 
@@ -116,15 +116,14 @@ class ChannelViewPage : AppCompatActivity() {
     }
 
     // 레시피 목록을 Firestore에서 불러오기
-    private fun loadRecipes(ownerUid: String) {
+    private fun loadRecipes() {
         CoroutineScope(Dispatchers.IO).launch {
             val db = FirebaseFirestore.getInstance()
             try {
-                val querySnapshot = db.collection("recipes")
-                    .whereEqualTo("author", ownerUid)
+                val querySnapshot = db.collection("recipe")
+                    .whereEqualTo("contained_channel", channelitem.name)
                     .get()
                     .await()
-
                 val recipes =
                     querySnapshot.documents.mapNotNull { it.toObject(RecipeItem::class.java) }
 
