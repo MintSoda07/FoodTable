@@ -83,4 +83,5 @@ dependencies {
     implementation ("com.google.android.flexbox:flexbox:3.0.0")
     //헬스 커넥터 라이브러리
     implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
+    implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }

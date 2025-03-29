@@ -1,8 +1,19 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    tools:context=".ui.health.HealthConnectActivity">
+
+    <com.bcu.foodtable.ui.health.StepProgressView
+        android:id="@+id/stepProgressView"
+        android:layout_width="match_parent"
+        android:layout_height="360dp"
+        android:layout_marginBottom="16dp"/>
+
+
 
     <TextView
         android:id="@+id/txtStepResult"
@@ -24,6 +35,4 @@
         android:layout_height="wrap_content"
         android:text="오늘 걸음 수 가져오기"
         android:layout_marginTop="8dp" />
-
-
 </LinearLayout>
