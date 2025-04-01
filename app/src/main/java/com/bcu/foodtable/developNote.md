@@ -65,3 +65,32 @@
 - 레시피 내부에서 구독 여부, 클릭수 확인 가능하도록 하기
 - 레시피 내용 PDF로 출력하기 // PDF 출력 시 import android.provider.MediaStore 가 필요할 것으로 예상함.
 - 결제하기 기능 만들기
+
+----04/01----
+- 리워드 구현 ( 완료 )
+- 헬스 커넥터 권한 여부
+- 설정에 헬스 커넥터 권한 부여
+- 로그인 기능 ( 수정 x )
+- Jetpack Compose - UI
+- 권한 요청하기 걸음수 불러오면 안됌
+- 
+
+- 5000걸음 마다 포인트 지급 50 -> 50~100 랜덤 함수 부여
+
+// DB 구조 바꾸기
+- 파이어베이스
+- user > step_rewards
+-      > channel > recipe > recipe_follow
+-      > channel_subscribe
+- API_KEY
+- Ai_chat_Session
+- C_categories
+
+- 검색 알고리즘 구현 ( Synonym DB, Levenshtein Distance )
+- AR 기능 (카메라 이용하여 재료 및 음식)
+- 웹페이지 기능 
+- 채널 구독 및 댓글 기능
+- 결제 기능
+- 재료 마켓 연동
+- 헬스 커넥터 기능
+----04/01----

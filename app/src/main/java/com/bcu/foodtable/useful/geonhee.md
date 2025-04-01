@@ -1,3 +1,43 @@
+// 리워드 구현 ( 완료 )
+설정에 헬스 커넥터 권한 부여
+로그인 기능 ( 수정 )
+Jetpack Compose - UI
+권한 요청하기 걸음수 불러오면 안됌
+
+포인트 지급 50 -> 50~100 랜덤 함수 부여
+
+파이어베이스
+user > step_rewards 
+     > channel > recipe > recipe_follow 
+     > channel_subscribe
+API_KEY
+Ai_chat_Session
+C_categories
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 private fun isValidEmail(): Boolean {
 val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}") // 이메일형식인지 정규표현식
 return emailRegex.matches(_idText.value)

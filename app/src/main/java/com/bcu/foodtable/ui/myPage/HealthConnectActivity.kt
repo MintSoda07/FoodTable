@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -33,12 +34,13 @@ class HealthConnectActivity : AppCompatActivity() {
     private lateinit var healthConnectClient: HealthConnectClient
     private lateinit var txtResult: TextView
     private lateinit var customStepView: StepProgressView
-
+    private lateinit var btnRewardBox: Button
 
     private val stepGoals = listOf(5000, 10000, 15000, 20000)
     private val caloriesPerStep = 0.04
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
+    private var rewardableCount = 0
 
     private val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -51,10 +53,14 @@ class HealthConnectActivity : AppCompatActivity() {
         setContentView(R.layout.activity_health_connect)
 
         txtResult = findViewById(R.id.txtStepResult)
-
         customStepView = findViewById(R.id.stepProgressView)
         val btnPermission = findViewById<Button>(R.id.btnRequestPermission)
         val btnReadSteps = findViewById<Button>(R.id.btnReadSteps)
+        btnRewardBox = findViewById(R.id.btnRewardBox)
+
+        btnRewardBox.setOnClickListener {
+            claimReward()
+        }
 
         if (!isHealthConnectInstalled()) {
             showInstallDialog()
@@ -78,8 +84,10 @@ class HealthConnectActivity : AppCompatActivity() {
         btnReadSteps.setOnClickListener {
             loadHealthData()
         }
-    }
 
+        loadHealthData()
+    }
+    // 헬스 데이터 로드
     private fun loadHealthData() {
         lifecycleScope.launch {
             try {
@@ -91,7 +99,7 @@ class HealthConnectActivity : AppCompatActivity() {
                 val steps = healthConnectClient.readRecords(
                     ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startTime, endTime))
                 ).records.sumOf { it.count }
-
+//                val steps = 25000L
                 val totalCalories = healthConnectClient.readRecords(
                     ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(startTime, endTime))
                 ).records.sumOf { it.energy.inKilocalories }
@@ -113,47 +121,63 @@ class HealthConnectActivity : AppCompatActivity() {
             }
         }
     }
-
+    // 리워드 횟수 체크해주는거?
     private fun rewardUserIfNeeded(currentSteps: Long) {
         val user = auth.currentUser ?: return
         val uid = user.uid
         val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-        val rewardRef = db.collection("users").document(uid)
+        val rewardRef = db.collection("user").document(uid)
             .collection("step_rewards").document(today)
 
         rewardRef.get().addOnSuccessListener { doc ->
-            val currentLevel = doc.getLong("rewardStep")?.toInt() ?: 0
-            val nextGoalIndex = currentLevel.coerceAtLeast(0)
+            val receivedCount = doc.getLong("rewardStep")?.toInt() ?: 0
+            rewardableCount = stepGoals.count { currentSteps >= it } - receivedCount
+            updateRewardBoxUI()
+        }
+    }
+    // 리워드 알고리즘
+    private fun claimReward() {
+        if (rewardableCount <= 0) return
+        val user = auth.currentUser ?: return
+        val uid = user.uid
+        val today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+        val rewardRef = db.collection("user").document(uid)
+            .collection("step_rewards").document(today)
 
-            if (nextGoalIndex >= stepGoals.size) return@addOnSuccessListener
+        db.runTransaction { transaction ->
+            val userRef = db.collection("user").document(uid)
+            val userSnap = transaction.get(userRef)
+            val currentPoint = userSnap.getLong("point") ?: 0
+            val newPoint = currentPoint + 50
+            val prevReward = transaction.get(rewardRef).getLong("rewardStep")?.toInt() ?: 0
 
-            val nextGoal = stepGoals[nextGoalIndex]
-            if (currentSteps >= nextGoal) {
-                db.runTransaction { transaction ->
-                    val userRef = db.collection("user").document(uid)
-                    val userSnap = transaction.get(userRef)
-                    val currentPoint = userSnap.getLong("point") ?: 0
-                    val newPoint = currentPoint + 50
-                    transaction.update(userRef, "point", newPoint)
-                    transaction.set(rewardRef, mapOf("rewardStep" to nextGoalIndex + 1))
-                    newPoint
-                }.addOnSuccessListener { newPoint ->
-                    Toast.makeText(this, "${nextGoal}걸음 달성!  50포인트 지급!", Toast.LENGTH_SHORT).show()
-                    animatePointReward(newPoint - 50, newPoint)
-                }
-            }
+            transaction.update(userRef, "point", newPoint)
+            transaction.set(rewardRef, mapOf("rewardStep" to prevReward + 1))
+            newPoint
+        }.addOnSuccessListener { newPoint ->
+            rewardableCount--
+            updateRewardBoxUI()
+            Toast.makeText(this, " 보상 수령! +50P", Toast.LENGTH_SHORT).show()
+            animatePointReward(newPoint - 50, newPoint)
+        }
+    }
+    // 리워드 ui 업데이트
+    private fun updateRewardBoxUI() {
+        if (rewardableCount > 0) {
+            btnRewardBox.visibility = View.VISIBLE
+            btnRewardBox.text = "🎁 $rewardableCount"
+        } else {
+            btnRewardBox.visibility = View.GONE
         }
     }
 
     private fun animatePointReward(from: Long, to: Long) {
         val animator = ValueAnimator.ofInt(from.toInt(), to.toInt())
         animator.duration = 1000
-        animator.addUpdateListener {
-
-        }
+        animator.addUpdateListener {}
         animator.start()
     }
-
+    // 헬스 커넥터 다운로드 다이어로그
     private fun showInstallDialog() {
         AlertDialog.Builder(this)
             .setTitle("Health Connect 필요")
@@ -166,7 +190,7 @@ class HealthConnectActivity : AppCompatActivity() {
             .setNegativeButton("취소", null)
             .show()
     }
-
+    // 헬스 커넥트 세팅 오픈
     private fun openHealthConnectSettings() {
         try {
             startActivity(Intent("android.health.connect.action.HEALTH_CONNECT_SETTINGS"))
@@ -175,6 +199,7 @@ class HealthConnectActivity : AppCompatActivity() {
         }
     }
 
+    // 헬스 커넥터 다운 확인
     private fun isHealthConnectInstalled(): Boolean {
         return try {
             packageManager.getPackageInfo("com.google.android.apps.healthdata", 0)
