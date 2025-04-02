@@ -41,8 +41,9 @@ class PurchaseConfirmActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val cost = intent.getStringExtra("price")
-        Log.d("Purchase", "COST : $cost")
+        val costStr = intent.getStringExtra("price")
+        val cost: Long = costStr?.toLongOrNull() ?: 0L
+        Log.d("Purchase", "BEFORE STR : $costStr , AFTER LONG : $cost")
 
         PortOne.requestPayment(
             this,
@@ -51,7 +52,7 @@ class PurchaseConfirmActivity : AppCompatActivity() {
                 channelKey = "channel-key-14ab4c31-cba3-447a-9543-941396495fd9",
                 paymentId = "babsang-${UUID.randomUUID()}",
                 orderName = "밥상친구 소금 $cost 개",
-                amount = Amount(total = cost!!.toLong(), currency = Currency.KRW), // 금액
+                amount = Amount(total = cost , currency = Currency.KRW), // 금액
                 method = PaymentMethod.Card() // 결제수단 관련 정보
             ),
             resultLauncher = paymentActivityResultLauncher

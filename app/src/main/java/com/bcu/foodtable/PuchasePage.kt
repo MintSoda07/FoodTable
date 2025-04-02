@@ -2,6 +2,7 @@ package com.bcu.foodtable
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
@@ -100,8 +101,11 @@ class PuchasePage : AppCompatActivity() {
         }
         purchaseBtn.setOnClickListener{
             val intent = Intent(this@PuchasePage, PurchaseConfirmActivity::class.java)
-            intent.putExtra("price", moneyValue)  // Firestore 문서 ID 전달
+            intent.putExtra("price", moneyValue.toString())
+            Log.d("Purchase","SEND COST STRING $moneyValue ")
             this.startActivity(intent)  // 새로운 액티비티로 전환
+            purchaseBtn.isClickable = false
+            purchaseBtn.isActivated = false
         }
     }
 }
