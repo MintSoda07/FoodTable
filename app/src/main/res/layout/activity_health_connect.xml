@@ -13,8 +13,6 @@
         android:layout_height="360dp"
         android:layout_marginBottom="16dp"/>
 
-
-
     <TextView
         android:id="@+id/txtStepResult"
         android:layout_width="match_parent"
@@ -35,4 +33,24 @@
         android:layout_height="wrap_content"
         android:text="오늘 걸음 수 가져오기"
         android:layout_marginTop="8dp" />
+
+
+    <Button
+        android:id="@+id/btnRewardBox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🎁"
+        android:textSize="20sp"
+        android:visibility="gone"
+        android:layout_gravity="center"
+        android:layout_marginTop="12dp"
+        android:background="@android:color/white"
+        android:textColor="@android:color/black"
+        android:elevation="4dp"
+        android:padding="12dp"
+        android:drawablePadding="4dp"
+        android:minWidth="80dp"
+        android:minHeight="48dp"
+        android:backgroundTint="@android:color/white" />
+
 </LinearLayout>
