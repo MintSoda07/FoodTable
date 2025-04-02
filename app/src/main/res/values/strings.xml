@@ -78,6 +78,8 @@
     <string name="enter_image">사진 선택</string>
     <string name="ingredient_add">재료 추가</string>
     <string name="method">조리방식</string>
+    <string name="buy">구매하기</string>
+    <string name="des_buy">아래의 재료를 누르면 구매 링크로 이동합니다.</string>
     <!-- 회원가입 Warnings -->
     <string name="email_empty_warning">이메일을 입력하세요.</string>
     <string name="nickname_empty_warning">닉네임을 입력하세요.</string>

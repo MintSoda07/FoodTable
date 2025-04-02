@@ -1,12 +1,16 @@
 package com.bcu.foodtable
 
+import android.content.Context
+import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.GridView
 import android.widget.ImageView
 import android.widget.TextView
@@ -89,8 +93,14 @@ class RecipeViewActivity : AppCompatActivity() {
 
                 val placeholder_ingredients = findViewById<RecyclerView>(R.id.itemIngredientsRecycler)
                 placeholder_ingredients.layoutManager  = LinearLayoutManager(this@RecipeViewActivity)
-                placeholder_ingredients.adapter = IngredientAdapter(it.ingredients.toMutableList())
-
+                val adaptor_ingre =  IngredientAdapter(
+                    it.ingredients.toMutableList(),
+                    this@RecipeViewActivity,
+                    onButtonClick = { click ->
+                        Log.d("Log_LINK","CLICKED")
+                    },
+                )
+                placeholder_ingredients.adapter = adaptor_ingre
                 val placeholder_categories = findViewById<RecyclerView>(R.id.categories)
                 val placeholder_tags = findViewById<RecyclerView>(R.id.ItemTags)
 
@@ -172,13 +182,17 @@ class RecipeViewActivity : AppCompatActivity() {
 
     }
 
-}
-class IngredientAdapter(private val ingredients: MutableList<String>) :
-    RecyclerView.Adapter<IngredientAdapter.IngredientViewHolder>() {
 
-    // ViewHolder 클래스 정의
+}
+class IngredientAdapter(
+    private val ingredients: MutableList<String>,
+    private val context: Context,
+    private val onButtonClick: (String) -> Unit // 버튼 클릭 시 실행할 함수 전달
+) : RecyclerView.Adapter<IngredientAdapter.IngredientViewHolder>() {
+
     class IngredientViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val ingredientText: TextView = itemView.findViewById(R.id.textIngre)
+        val ingredientButton: Button = itemView.findViewById(R.id.purchase)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): IngredientViewHolder {
@@ -188,14 +202,32 @@ class IngredientAdapter(private val ingredients: MutableList<String>) :
     }
 
     override fun onBindViewHolder(holder: IngredientViewHolder, position: Int) {
-        holder.ingredientText.text = ingredients[position]
+        val ingredient = ingredients[position]
+        holder.ingredientText.text = ingredient
+        holder.ingredientButton.visibility = View.GONE
+        // 버튼 클릭 이벤트 추가
+        holder.ingredientText.setOnClickListener{
+            val encodedQuery = Uri.encode(ingredient) // 검색어 URL 인코딩
+            val searchUrl = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
+
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl))
+            context.startActivity(intent)
+        }
+        holder.ingredientButton.setOnClickListener {
+//            onButtonClick(ingredient) // 클릭 시 외부에서 전달된 함수 실행
+//            val encodedQuery = Uri.encode(ingredient) // 검색어 URL 인코딩
+//            val searchUrl = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
+//
+//            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl))
+//            context.startActivity(intent)
+        }
     }
 
     override fun getItemCount(): Int = ingredients.size
 
     // 새로운 아이템 추가 함수
     fun addItem(newItem: String) {
-        ingredients.add(newItem) // 리스트에 추가
-        notifyItemInserted(ingredients.size - 1) // UI 갱신
+        ingredients.add(newItem)
+        notifyItemInserted(ingredients.size - 1)
     }
 }
