@@ -2,44 +2,86 @@ package com.bcu.foodtable
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
+import android.widget.Button
+import android.widget.Switch
+import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import android.widget.Button
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.*
+import androidx.lifecycle.lifecycleScope
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 class Setting : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth
+    private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
+    private lateinit var permissions: Set<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_setting)
 
-        // FirebaseAuth 인스턴스 초기화
         auth = FirebaseAuth.getInstance()
-
-        // 로그아웃 버튼 클릭 리스너
         val btnLogout = findViewById<Button>(R.id.btn_logout)
+        val healthClient = HealthConnectClient.getOrCreate(this)
+        val healthPermissionSwitch = findViewById<Switch>(R.id.switch_health_permission)
 
-        val user = UserManager.getUser()!!.name
-        val img = UserManager.getUser()!!.image
+        //  요청할 권한 명시
+        permissions = setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getWritePermission(StepsRecord::class),
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+            HealthPermission.getWritePermission(ActiveCaloriesBurnedRecord::class),
+            HealthPermission.getReadPermission(HeartRateRecord::class)
+        )
 
-        btnLogout.setOnClickListener {
-            // 현재 사용자가 로그인되어 있는지 확인
-            val currentUser = auth.currentUser
-            if (currentUser != null) {
-                // 사용자가 로그인 되어 있으면 로그아웃 처리
-                auth.signOut()
+        // 권한 런처 등록
+        permissionLauncher = registerForActivityResult(
+            PermissionController.createRequestPermissionResultContract()
+        ) { grantedPermissions: Set<String> ->
+            lifecycleScope.launch {
+                val alreadyGranted = healthClient.permissionController.getGrantedPermissions()
+                val allPermissions = grantedPermissions + alreadyGranted
+
+                val allGranted = permissions.all { it in allPermissions }
+
+                if (allGranted) {
+                    Toast.makeText(this@Setting, " 모든 권한이 승인되었습니다", Toast.LENGTH_SHORT).show()
+                    healthPermissionSwitch.isChecked = true
+                } else {
+                    Toast.makeText(this@Setting, "️ 일부 권한이 거부되었습니다", Toast.LENGTH_SHORT).show()
+                    healthPermissionSwitch.isChecked = false
+                }
             }
+        }
 
-            // 로그인 화면으로 이동
-            val intent = Intent(this, LoginActivity::class.java)
-            startActivity(intent)
-            finish() // 현재 Activity 종료
+        //  스위치 ON -> 권한 요청
+        healthPermissionSwitch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                lifecycleScope.launch {
+                    val granted = healthClient.permissionController.getGrantedPermissions()
+                    val needed = permissions - granted
+                    if (needed.isNotEmpty()) {
+                        permissionLauncher.launch(needed)
+                    } else {
+                        Toast.makeText(this@Setting, "이미 권한이 부여되어 있습니다", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
+        // 로그아웃 처리
+        btnLogout.setOnClickListener {
+            auth.currentUser?.let { auth.signOut() }
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
