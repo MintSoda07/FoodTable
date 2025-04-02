@@ -163,7 +163,12 @@ class WriteActivity : AppCompatActivity() {
         val tagList = mutableListOf<String>()
         val ingredientsList = mutableListOf<String>()
         val adapter = FlexAdaptor(tagList)
-        val adapter2 = IngredientAdapter(ingredientsList)
+        val adapter2 = IngredientAdapter(
+            ingredientsList, this@WriteActivity,
+            onButtonClick = {
+
+            }
+        )
         addpageTagsListFlexBoxRecyclerView.layoutManager = layoutManager2
         addpageTagsListFlexBoxRecyclerView.adapter = adapter
 

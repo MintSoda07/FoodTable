@@ -55,14 +55,28 @@
 
             </FrameLayout>
 
-            <TextView
-                android:id="@+id/itemIngredients"
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/the_jamsil_bold"
-                android:text="@string/ingredients"
-                android:textColor="#D32F2F"
-                android:textSize="20sp" />
+                android:layout_height="match_parent">
+
+                <TextView
+                    android:id="@+id/itemIngredients"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/the_jamsil_bold"
+                    android:text="@string/ingredients"
+                    android:textColor="#D32F2F"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:id="@+id/textView38"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|end"
+                    android:fontFamily="@font/the_jamsil"
+                    android:text="@string/des_buy"
+                    android:textSize="12sp" />
+            </FrameLayout>
 
             <FrameLayout
                 android:layout_width="match_parent"
