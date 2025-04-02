@@ -12,22 +12,26 @@ class RecipeDetailRecyclerAdaptor(
     private val context: Context,
     private val onDoneButtonClick: (Int) -> Unit
 ) : RecyclerView.Adapter<RecipeDetailRecyclerAdaptor.ViewHolder>() {
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val itemListNumber: TextView = itemView.findViewById(R.id.ItemListNumber) // 순번
-        val itemListName: TextView = itemView.findViewById(R.id.itemListName) // 텍스트
-        val itemTitleNameText : TextView = itemView.findViewById(R.id.itemListTitleName) // 순번 옆 타이틀
-        val checkBox: CheckBox = itemView.findViewById(R.id.checkBox2) // 체크박스
-        val timerFrame: FrameLayout = itemView.findViewById(R.id.ItemTimerFrame) // 타이머 프레임
-        val timerTitle: TextView = itemView.findViewById(R.id.ItemTimerTitle) // 타이머 제목
-        val timerTime: TextView = itemView.findViewById(R.id.ItemTimerTime) // 타이머 시간
-        val timerProgress: ProgressBar = itemView.findViewById(R.id.ItemTimerProgress) // 프로그레스바
-        val startButton: Button = itemView.findViewById(R.id.ItemStartButton) // 타이머 시작 버튼
-        val doneButton: Button = itemView.findViewById(R.id.itemDoneButton) // 완료 버튼
-        val stopButton: Button = itemView.findViewById(R.id.ItemStopButton) // 타이머 중지 버튼
-        val skipButton: Button = itemView.findViewById(R.id.ItemSkipButton) // 타이머 스킵 버튼
 
-        var timer: CountDownTimer? = null // 타이머 객체
-        var isTimerRunning = false // 타이머 상태 추적
+    private var completedSteps = BooleanArray(items.size) { false }
+
+    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val itemListNumber: TextView = itemView.findViewById(R.id.ItemListNumber)
+        val itemListName: TextView = itemView.findViewById(R.id.itemListName)
+        val itemTitleNameText: TextView = itemView.findViewById(R.id.itemListTitleName)
+        val checkBox: CheckBox = itemView.findViewById(R.id.checkBox2)
+        val timerFrame: FrameLayout = itemView.findViewById(R.id.ItemTimerFrame)
+        val timerTitle: TextView = itemView.findViewById(R.id.ItemTimerTitle)
+        val timerTime: TextView = itemView.findViewById(R.id.ItemTimerTime)
+        val timerProgress: ProgressBar = itemView.findViewById(R.id.ItemTimerProgress)
+        val startButton: Button = itemView.findViewById(R.id.ItemStartButton)
+        val doneButton: Button = itemView.findViewById(R.id.itemDoneButton)
+        val stopButton: Button = itemView.findViewById(R.id.ItemStopButton)
+        val skipButton: Button = itemView.findViewById(R.id.ItemSkipButton)
+        var timer: CountDownTimer? = null
+        var isTimerRunning = false
+        var isTimerFinished = false
+        var hasTimer = false
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -38,159 +42,128 @@ class RecipeDetailRecyclerAdaptor(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
-
-        // 순번 설정
         holder.itemListNumber.text = "${position + 1}."
+
         val regexSimple = Regex("^\\d+\\.\\s*\\(([^)]+)\\)\\s*(.*)")
         val matchResultSimple = regexSimple.find(item)
         if (matchResultSimple != null) {
-            val category = matchResultSimple.groupValues[1]
-            val content = matchResultSimple.groupValues[2]
-            holder.itemTitleNameText.text=category
-            holder.itemListName.text=content
+            holder.itemTitleNameText.text = matchResultSimple.groupValues[1]
+            holder.itemListName.text = matchResultSimple.groupValues[2]
         }
 
-
-        // 추가적인 로직 (타이머 등) GONE 상태이기 때문에 이후 타이머 문자열이 포함되어 있으면 VISIBLE로 전환
-        holder.checkBox.isChecked = false // 체크박스 초기화
-
-        // 정규식을 통해 타이머가 존재하는지 확인
+        holder.checkBox.isChecked = false
         val regex = Regex("(.*)\\s*\\((.*),(\\d{2}:\\d{2}:\\d{2})\\)")
         val matchResult = regex.find(item)
 
+        holder.hasTimer = matchResult != null
 
-        if (matchResult != null) {
-            if (position == 0) {
-                holder.timerFrame.visibility = View.VISIBLE
-            }
-
-            val action = matchResult.groupValues[1].trim() // 앞의 문자열
-            val method = matchResult.groupValues[2].trim() // 조리방식 문자열
-            val timeStr = matchResult.groupValues[3].trim() // "hh:mm:ss" 의 시간 비슷한 문자열
-
-            // 시간 문자열을 초로 변환
+        if (holder.hasTimer) {
+            val method = matchResult!!.groupValues[2].trim()
+            val timeStr = matchResult.groupValues[3].trim()
             val totalTimeInSeconds = convertTimeToSeconds(timeStr)
 
-            // 타이머 시작/중지 버튼 클릭 리스너
-            var isTimerRunning = false
-            val timeLeft = totalTimeInSeconds
-
-            if (matchResultSimple != null) {
-                val category = matchResultSimple.groupValues[1]
-                val contentMatch =  Regex("^(.*?)\\s*\\(").find(matchResultSimple.groupValues[2])
-
-                holder.itemTitleNameText.text=category
-                holder.itemListName.text=contentMatch!!.groupValues[1].trim()
-            }
-            // 타이머 아이템 초기화
-            // 텍스트 설정
             holder.timerTitle.text = method
-            // 프로그레스바 초기화
             holder.timerProgress.max = totalTimeInSeconds
             holder.timerProgress.progress = 0
 
-            // 타이머 함수
-            fun startTimer(holder: ViewHolder, timeLeft: Int, totalTimeInSeconds: Int, method: String) {
-                val notificationHelper = NotificationHelper(context)
-                holder.timer = object : CountDownTimer((timeLeft * 1000).toLong(), 1000) {
+            // 첫 번째 단계는 항상 표시, 그 외에는 이전 단계 완료 여부 확인
+            holder.timerFrame.visibility = if (position == 0 || completedSteps.getOrElse(position - 1) { false }) View.VISIBLE else View.GONE
+
+            holder.doneButton.visibility = View.GONE // 처음에는 완료 버튼 숨김
+
+            fun startTimer() {
+                holder.timer = object : CountDownTimer((totalTimeInSeconds * 1000).toLong(), 1000) {
                     override fun onTick(millisUntilFinished: Long) {
                         val secondsLeft = millisUntilFinished / 1000
                         holder.timerProgress.progress = (totalTimeInSeconds - secondsLeft).toInt()
-
-                        // 남은 시간 계산
-                        val hours = secondsLeft / 3600
-                        val minutes = (secondsLeft % 3600) / 60
-                        val seconds = secondsLeft % 60
-                        holder.timerTime.text =
-                            String.format("%02d:%02d:%02d", hours, minutes, seconds)
-                        notificationHelper.showTimerNotification(String.format("%02d:%02d:%02d", hours, minutes, seconds), method)
+                        holder.timerTime.text = String.format(
+                            "%02d:%02d:%02d",
+                            secondsLeft / 3600,
+                            (secondsLeft % 3600) / 60,
+                            secondsLeft % 60
+                        )
                     }
 
                     override fun onFinish() {
                         holder.timerProgress.progress = totalTimeInSeconds
                         holder.timerTime.text = "00:00:00"
-                        holder.doneButton.visibility = View.VISIBLE
-                        notificationHelper.cancelNotification()
+                        holder.doneButton.visibility = View.VISIBLE // 타이머가 끝나면 완료 버튼 표시
+                        holder.isTimerFinished = true
                     }
-                }
-
-                // 타이머 시작
-                holder.timer?.start()
+                }.start()
+                holder.isTimerRunning = true
+                holder.isTimerFinished = false
+                holder.startButton.visibility = View.GONE
+                holder.stopButton.visibility = View.VISIBLE
+                holder.skipButton.visibility = View.VISIBLE
             }
-            var timer: CountDownTimer? = null // 여기서 timer를 선언
 
-            // 타이머 시작 버튼 클릭 리스너
             holder.startButton.setOnClickListener {
-                if (!holder.isTimerRunning) {
-                    holder.isTimerRunning = true
-                    startTimer(holder, timeLeft, totalTimeInSeconds, method)
-                    holder.startButton.visibility = View.GONE
-                    holder.stopButton.visibility = View.VISIBLE
-                    holder.skipButton.visibility = View.VISIBLE
-                }
+                if (!holder.isTimerRunning) startTimer()
             }
 
             holder.stopButton.setOnClickListener {
-                if (holder.isTimerRunning) {
-                    holder.timer?.cancel() // 타이머 멈추기
-                    holder.isTimerRunning = false
-                    holder.startButton.visibility = View.VISIBLE
-                    holder.stopButton.visibility = View.GONE
-                    holder.skipButton.visibility = View.GONE
-                }
+                holder.timer?.cancel()
+                holder.isTimerRunning = false
+                holder.startButton.visibility = View.VISIBLE
+                holder.stopButton.visibility = View.GONE
+                holder.skipButton.visibility = View.GONE
             }
 
             holder.skipButton.setOnClickListener {
-                if (holder.isTimerRunning) {
-                    holder.timer?.cancel() // 타이머 멈추기
-                    holder.isTimerRunning = false
-                    holder.timerProgress.progress = totalTimeInSeconds
-                    holder.timerTime.text = "00:00:00"
-                    holder.doneButton.visibility = View.VISIBLE
-                    holder.startButton.visibility = View.GONE
-                    holder.stopButton.visibility = View.GONE
-                    holder.skipButton.visibility = View.GONE
-                }
+                holder.timer?.cancel()
+                holder.isTimerRunning = false
+                holder.timerProgress.progress = totalTimeInSeconds
+                holder.timerTime.text = "00:00:00"
+                holder.doneButton.visibility = View.VISIBLE // 스킵하면 바로 완료 버튼 표시
+                holder.isTimerFinished = true
+                holder.startButton.visibility = View.GONE
+                holder.stopButton.visibility = View.GONE
+                holder.skipButton.visibility = View.GONE
             }
-
-
         } else {
-            // 타이머가 존재하지 않는 경우
             holder.timerFrame.visibility = View.GONE
         }
-        // 타이머 시작 버튼 동작 설정 // 미구현
 
+        // 완료 버튼의 표시 여부 결정
+        holder.doneButton.visibility =
+            if (position == 0) {
+                if (holder.hasTimer) View.GONE else View.VISIBLE // 첫 번째 단계가 타이머가 아니면 완료 버튼 보이게 함
+            } else if (completedSteps.getOrElse(position - 1) { false } && (!holder.hasTimer || holder.isTimerFinished)) {
+                View.VISIBLE // 이전 단계가 완료되었고, 타이머가 있다면 종료된 경우만 버튼 표시
+            } else {
+                View.GONE
+            }
 
-        // 첫 번째 요소에게만 버튼 활성화
-        if (position == 0 && (matchResult == null)) {
-            holder.doneButton.visibility = View.VISIBLE
-        } else {
-            holder.doneButton.visibility = View.GONE
-        }
+        holder.doneButton.setOnClickListener {
+            val currentPosition = holder.adapterPosition
+            if (currentPosition != RecyclerView.NO_POSITION) {
+                completedSteps[currentPosition] = true
+                holder.timerFrame.visibility = View.GONE
+                onDoneButtonClick(currentPosition)
 
-        holder.doneButton.setOnClickListener() {
-            onDoneButtonClick(position)
+                // 다음 단계 버튼 활성화 (다음 아이템이 존재할 경우에만)
+                if (currentPosition + 1 < items.size) {
+                    notifyItemChanged(currentPosition + 1)
+                }
+            }
         }
     }
 
-    override fun getItemCount(): Int {
-        return items.size
-    }
+    override fun getItemCount(): Int = items.size
 
-    // 아이템 리스트를 업데이트하는 메서드
     fun updateItems(newItems: List<String>) {
-        items.clear() // 기존 리스트 클리어
-        items.addAll(newItems) // 새 아이템 추가
-        items.map { it.replace(Regex("^\\d+\\. "), "") }
-        notifyDataSetChanged() // 어댑터에 변경 사항 알리기
+        items.clear()
+        items.addAll(newItems)
+
+        // 새로운 리스트 크기에 맞게 completedSteps 배열 재생성
+        completedSteps = BooleanArray(newItems.size) { false }
+
+        notifyDataSetChanged()
     }
 
-    // 시간 문자열 (hh:mm:ss)을 초로 변환
     private fun convertTimeToSeconds(time: String): Int {
-        val timeParts = time.split(":")
-        val hours = timeParts[0].toInt()
-        val minutes = timeParts[1].toInt()
-        val seconds = timeParts[2].toInt()
+        val (hours, minutes, seconds) = time.split(":").map { it.toInt() }
         return (hours * 3600) + (minutes * 60) + seconds
     }
 }
