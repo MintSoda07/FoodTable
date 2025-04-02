@@ -1,6 +1,8 @@
 [versions]
 agp = "8.7.3"
+androidSdk = "x.y.z"
 converterGson = "2.9.0"
+desugar_jdk_libs = "x.y.z"
 firebaseBom = "33.7.0"
 flexbox = "3.0.0"
 glide = "4.12.0"
@@ -25,8 +27,10 @@ okhttp = "4.10.0"
 portoneSdk = "1.5.0"
 
 [libraries]
+android-sdk = { module = "com.github.portone-io:android-sdk", version.ref = "androidSdk" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
+desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
