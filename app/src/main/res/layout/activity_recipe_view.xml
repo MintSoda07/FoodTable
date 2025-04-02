@@ -172,23 +172,6 @@
                 android:background="#D32F2F">
 
             </FrameLayout>
-            <FrameLayout
-                android:layout_width="match_parent"
-                android:layout_height="5dp"
-                android:background="#D32F2F" >
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/commentRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:nestedScrollingEnabled="true" />
-            </FrameLayout>
-            <!-- 댓글 섹션 시작 -->
-            <!-- 댓글 작성자 -->
-
-        <!-- 댓글 내용 -->
-
-        <!-- 댓글 목록 -->
 
         <!-- 댓글 입력창과 전송 버튼을 포함하는 레이아웃 -->
         <androidx.recyclerview.widget.RecyclerView
@@ -218,44 +201,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="전송" />
-            </LinearLayout>
-        <!-- RecyclerView 아이템을 위한 개별 댓글 레이아웃 -->
-        <LinearLayout
-            android:id="@+id/commentItem"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="8dp">
-
-            <!-- 사용자 정보 및 댓글 내용 -->
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <!-- 사용자 이름 -->
-                <TextView
-                    android:id="@+id/commentAuthorName"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="작성자 이름"
-                    android:textSize="14sp"
-                    android:textColor="#000000"
-                    android:textStyle="bold"/>
-
-                <!-- 댓글 내용 -->
-                <TextView
-                    android:id="@+id/commentText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="댓글 내용"
-                    android:textSize="14sp"
-                    android:textColor="#333333"/>
-            </LinearLayout>
-
-
+        </LinearLayout>
         </LinearLayout>
     </ScrollView>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

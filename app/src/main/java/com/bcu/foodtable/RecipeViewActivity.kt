@@ -23,6 +23,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bcu.foodtable.RecipeViewActivity.Comment
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.google.android.flexbox.FlexDirection
@@ -200,7 +201,7 @@ class RecipeViewActivity : AppCompatActivity() {
         db.collection("user").document(userId).get().addOnSuccessListener { document ->
             if (document.exists()) {
                 val userName = document.getString("name") ?: "익명"
-                val userProfileImage = document.getString("profileImage") ?: ""
+                val userProfileImage = document.getString("image") ?: ""
 
                 val comment = Comment(commentText, System.currentTimeMillis(), userId, userName, userProfileImage)
 
@@ -226,43 +227,7 @@ class RecipeViewActivity : AppCompatActivity() {
         val userProfileImage: String = "" // 사용자 프로필 사진 URL 추가
     )
 
-    // 댓글 RecyclerView 어댑터
-    class CommentAdapter(private var comments: MutableList<Comment>) :
-        RecyclerView.Adapter<CommentAdapter.CommentViewHolder>() {
 
-        inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val profileImage: ImageView = itemView.findViewById(R.id.commentAuthorImage)
-            val userName: TextView = itemView.findViewById(R.id.commentAuthorName)
-            val commentText: TextView = itemView.findViewById(R.id.commentText)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.activity_recipe_view, parent, false)
-            return CommentViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
-            val comment = comments[position]
-            holder.userName.text = comment.userName
-            holder.commentText.text = comment.text
-
-            // 프로필 이미지 로드 (Glide 또는 FireStoreHelper 사용)
-            if (comment.userProfileImage.isNotEmpty()) {
-                FireStoreHelper.loadImageFromUrl(comment.userProfileImage, holder.profileImage)
-            } else {
-                holder.profileImage.setImageResource(R.drawable.dish_icon) // 기본 이미지
-            }
-        }
-
-        override fun getItemCount(): Int = comments.size
-
-        fun updateComments(newComments: List<Comment>) {
-            comments.clear()
-            comments.addAll(newComments)
-            notifyDataSetChanged()
-        }
-    }
 
 
     // Done 버튼 클릭 시 처리할 로직
@@ -347,5 +312,42 @@ class IngredientAdapter(
     fun addItem(newItem: String) {
         ingredients.add(newItem)
         notifyItemInserted(ingredients.size - 1)
+    }
+}
+// 댓글 RecyclerView 어댑터
+class CommentAdapter(private var comments: MutableList<Comment>) :
+    RecyclerView.Adapter<CommentAdapter.CommentViewHolder>() {
+
+    inner class CommentViewHolder(holder: View) : RecyclerView.ViewHolder(holder) {
+            val profileImage: ImageView = holder.findViewById(R.id.commentImage)
+            val userName: TextView = holder.findViewById(R.id.commentAuthor)
+            val commentText: TextView = holder.findViewById(R.id.commentText2)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item, parent, false)
+        return CommentViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
+        val comment = comments[position]
+            holder.userName.text = comment.userName
+            holder.commentText.text = comment.text
+
+            // 프로필 이미지 로드 (Glide 또는 FireStoreHelper 사용)
+            if (comment.userProfileImage.isNotEmpty()) {
+                FireStoreHelper.loadImageFromUrl(comment.userProfileImage, holder.profileImage)
+            } else {
+                holder.profileImage.setImageResource(R.drawable.dish_icon) // 기본 이미지
+            }
+    }
+
+    override fun getItemCount(): Int = comments.size
+
+    fun updateComments(newComments: List<Comment>) {
+        comments.clear()
+        comments.addAll(newComments)
+        notifyDataSetChanged()
     }
 }
