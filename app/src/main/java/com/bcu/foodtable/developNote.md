@@ -86,7 +86,7 @@
 - Ai_chat_Session
 - C_categories
 
-- 검색 알고리즘 구현 ( Synonym DB, Levenshtein Distance )
+- 검색 알고리즘 구현 ( Synonym DB, Levenshtein Distance, ElasticSearch  )
 - AR 기능 (카메라 이용하여 재료 및 음식)
 - 웹페이지 기능 
 - 채널 구독 및 댓글 기능

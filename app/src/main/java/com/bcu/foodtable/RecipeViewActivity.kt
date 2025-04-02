@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.GridView
 import android.widget.ImageView
 import android.widget.TextView
@@ -28,15 +29,22 @@ import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayoutManager
 import com.google.android.flexbox.JustifyContent
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.google.firebase.firestore.Query
 
 class RecipeViewActivity : AppCompatActivity() {
     private lateinit var recipeId: String
     private lateinit var adaptorViewList: RecyclerView
     private lateinit var RecipeAdaptor: RecipeDetailRecyclerAdaptor
     private lateinit var items: List<String>
+    private lateinit var commentRecyclerView: RecyclerView
+    private lateinit var commentAdapter: CommentAdapter
+    private lateinit var commentEditText: EditText
+    private lateinit var commentSendButton: Button
+    private val db = FirebaseFirestore.getInstance()
 
     private var isClickedUpdated = false
     private lateinit var notificationPermissionManager: NotificationPermissionManager
@@ -51,8 +59,34 @@ class RecipeViewActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        // 댓글 관련 초기화
+        commentRecyclerView = findViewById(R.id.commentRecyclerView)
+        commentEditText = findViewById(R.id.commentEditText)
+        commentSendButton = findViewById(R.id.commentSendButton)
+
+        commentRecyclerView.layoutManager = LinearLayoutManager(this)
+        commentAdapter = CommentAdapter(mutableListOf())
+        commentRecyclerView.adapter = commentAdapter
+
         adaptorViewList = findViewById(R.id.AddPageStageListRecyclerView)
         adaptorViewList.layoutManager = LinearLayoutManager(this)
+        // Intent로 전달된 데이터 받기
+        recipeId = intent.getStringExtra("recipe_id") ?: ""
+
+        // 댓글 불러오기
+        loadComments()
+
+        // 댓글 전송 버튼 클릭 이벤트
+        commentSendButton.setOnClickListener {
+            val commentText = commentEditText.text.toString().trim()
+            if (commentText.isNotEmpty()) {
+                postComment(commentText)
+                commentEditText.text.clear()
+            } else {
+                Toast.makeText(this, "댓글을 입력하세요.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
 
         val permissionLauncher =
             registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -91,13 +125,14 @@ class RecipeViewActivity : AppCompatActivity() {
                 val placeholder_image = findViewById<ImageView>(R.id.itemImageView)
                 val inputString = it.order
 
-                val placeholder_ingredients = findViewById<RecyclerView>(R.id.itemIngredientsRecycler)
-                placeholder_ingredients.layoutManager  = LinearLayoutManager(this@RecipeViewActivity)
-                val adaptor_ingre =  IngredientAdapter(
+                val placeholder_ingredients =
+                    findViewById<RecyclerView>(R.id.itemIngredientsRecycler)
+                placeholder_ingredients.layoutManager = LinearLayoutManager(this@RecipeViewActivity)
+                val adaptor_ingre = IngredientAdapter(
                     it.ingredients.toMutableList(),
                     this@RecipeViewActivity,
                     onButtonClick = { click ->
-                        Log.d("Log_LINK","CLICKED")
+                        Log.d("Log_LINK", "CLICKED")
                     },
                 )
                 placeholder_ingredients.adapter = adaptor_ingre
@@ -118,7 +153,7 @@ class RecipeViewActivity : AppCompatActivity() {
                 }
                 // ○를 기준으로 문자열을 나눔 (
                 items = inputString.split("○").filter { it.isNotBlank() }
-                Log.d("Recipe","현재 분리된 레시피 단계 : ${items}")
+                Log.d("Recipe", "현재 분리된 레시피 단계 : ${items}")
                 // 리스트 어댑터
                 RecipeAdaptor = RecipeDetailRecyclerAdaptor(
                     mutableListOf(),
@@ -144,6 +179,91 @@ class RecipeViewActivity : AppCompatActivity() {
         }
 
     }
+
+    private fun loadComments() {
+        db.collection("recipe").document(recipeId) // 레시피 ID 기반으로 변경
+            .collection("comments").orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.w("RecipeViewActivity", "댓글을 불러오는 중 오류 발생", e)
+                    return@addSnapshotListener
+                }
+                val comments = snapshot?.documents?.mapNotNull { it.toObject(Comment::class.java) }
+                comments?.let {
+                    commentAdapter.updateComments(it)
+                }
+            }
+    }
+
+    private fun postComment(commentText: String) {
+        val userId = UserManager.getUser()!!.uid;
+        db.collection("user").document(userId).get().addOnSuccessListener { document ->
+            if (document.exists()) {
+                val userName = document.getString("name") ?: "익명"
+                val userProfileImage = document.getString("profileImage") ?: ""
+
+                val comment = Comment(commentText, System.currentTimeMillis(), userId, userName, userProfileImage)
+
+                db.collection("recipe").document(recipeId)
+                    .collection("comments").add(comment)
+                    .addOnSuccessListener {
+                        Log.d("RecipeViewActivity", "댓글 저장 성공")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.w("RecipeViewActivity", "댓글 저장 실패", e)
+                    }
+            }
+        }
+    }
+
+
+    // 댓글 데이터 모델
+    data class Comment(
+        val text: String = "",
+        val timestamp: Long = 0L,
+        val userId: String = "", // 사용자 ID 추가
+        val userName: String = "", // 사용자 이름 추가
+        val userProfileImage: String = "" // 사용자 프로필 사진 URL 추가
+    )
+
+    // 댓글 RecyclerView 어댑터
+    class CommentAdapter(private var comments: MutableList<Comment>) :
+        RecyclerView.Adapter<CommentAdapter.CommentViewHolder>() {
+
+        inner class CommentViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val profileImage: ImageView = itemView.findViewById(R.id.commentAuthorImage)
+            val userName: TextView = itemView.findViewById(R.id.commentAuthorName)
+            val commentText: TextView = itemView.findViewById(R.id.commentText)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(R.layout.activity_recipe_view, parent, false)
+            return CommentViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
+            val comment = comments[position]
+            holder.userName.text = comment.userName
+            holder.commentText.text = comment.text
+
+            // 프로필 이미지 로드 (Glide 또는 FireStoreHelper 사용)
+            if (comment.userProfileImage.isNotEmpty()) {
+                FireStoreHelper.loadImageFromUrl(comment.userProfileImage, holder.profileImage)
+            } else {
+                holder.profileImage.setImageResource(R.drawable.dish_icon) // 기본 이미지
+            }
+        }
+
+        override fun getItemCount(): Int = comments.size
+
+        fun updateComments(newComments: List<Comment>) {
+            comments.clear()
+            comments.addAll(newComments)
+            notifyDataSetChanged()
+        }
+    }
+
 
     // Done 버튼 클릭 시 처리할 로직
     private fun onDoneButtonClick(position: Int) {
@@ -181,8 +301,6 @@ class RecipeViewActivity : AppCompatActivity() {
         }
 
     }
-
-
 }
 class IngredientAdapter(
     private val ingredients: MutableList<String>,
