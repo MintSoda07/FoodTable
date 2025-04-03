@@ -42,6 +42,13 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    buildFeatures {
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.10" // 최신 버전 가능
+
+    }
 }
 
 dependencies {
@@ -84,4 +91,10 @@ dependencies {
     //헬스 커넥터 라이브러리
     implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
     implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    //제트팩 컴포즈 라이브러리
+    implementation(platform("androidx.compose:compose-bom:2024.03.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.activity:activity-compose:1.8.2")
 }
