@@ -53,6 +53,19 @@
                     android:text="ItemDetailDescriptionHere"
                     android:textSize="16sp" />
 
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/itemIngredientsRecycler"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/AddPageStageListRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="600dp"
+                    android:nestedScrollingEnabled="true">
+
+                </androidx.recyclerview.widget.RecyclerView>
+
             </FrameLayout>
 
             <FrameLayout
@@ -85,11 +98,6 @@
 
             </FrameLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/itemIngredientsRecycler"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-
             <TextView
                 android:id="@+id/textView4"
                 android:layout_width="wrap_content"
@@ -105,14 +113,6 @@
                 android:background="#D32F2F">
 
             </FrameLayout>
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/AddPageStageListRecyclerView"
-                android:layout_width="match_parent"
-                android:layout_height="600dp"
-                android:nestedScrollingEnabled="true">
-
-            </androidx.recyclerview.widget.RecyclerView>
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -173,7 +173,35 @@
 
             </FrameLayout>
 
+        <!-- 댓글 입력창과 전송 버튼을 포함하는 레이아웃 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/commentRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="true" />
+
+        <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp">
+
+                <!-- 댓글 입력창 -->
+                <EditText
+                    android:id="@+id/commentEditText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="댓글을 입력하세요..."
+                    android:textSize="14sp" />
+
+                <!-- 댓글 전송 버튼 -->
+                <Button
+                    android:id="@+id/commentSendButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="전송" />
+        </LinearLayout>
         </LinearLayout>
     </ScrollView>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
