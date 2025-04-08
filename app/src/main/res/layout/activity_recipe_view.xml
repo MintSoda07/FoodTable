@@ -53,19 +53,6 @@
                     android:text="ItemDetailDescriptionHere"
                     android:textSize="16sp" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/itemIngredientsRecycler"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/AddPageStageListRecyclerView"
-                    android:layout_width="match_parent"
-                    android:layout_height="600dp"
-                    android:nestedScrollingEnabled="true">
-
-                </androidx.recyclerview.widget.RecyclerView>
-
             </FrameLayout>
 
             <FrameLayout
@@ -89,6 +76,7 @@
                     android:fontFamily="@font/the_jamsil"
                     android:text="@string/des_buy"
                     android:textSize="12sp" />
+
             </FrameLayout>
 
             <FrameLayout
@@ -97,6 +85,13 @@
                 android:background="#D32F2F">
 
             </FrameLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/itemIngredientsRecycler"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+            </androidx.recyclerview.widget.RecyclerView>
 
             <TextView
                 android:id="@+id/textView4"
@@ -113,6 +108,14 @@
                 android:background="#D32F2F">
 
             </FrameLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/AddPageStageListRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="600dp"
+                android:nestedScrollingEnabled="true">
+
+            </androidx.recyclerview.widget.RecyclerView>
 
             <FrameLayout
                 android:layout_width="match_parent"
