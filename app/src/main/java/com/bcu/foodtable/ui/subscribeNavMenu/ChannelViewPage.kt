@@ -54,6 +54,8 @@ class ChannelViewPage : AppCompatActivity() {
         val writeButton: Button = findViewById(R.id.btn_write)
         val subscribeButton: Button = findViewById(R.id.subbtn)
         adaptorViewList = findViewById<GridView>(R.id.channelItem)
+        val db = FirebaseFirestore.getInstance()
+        val subscriberCountTextView = findViewById<TextView>(R.id.subscriberCount)
 
         // Adapter 초기화
         recipeAdapter = RecipeAdapter(this@ChannelViewPage, recipeList)
@@ -79,6 +81,21 @@ class ChannelViewPage : AppCompatActivity() {
             this.startActivity(intent)
         }
 
+// 구독 여부 저장 변수 (예시)
+        var isSubscribed = false
+
+// 버튼 클릭 이벤트 처리
+        subscribeButton.setOnClickListener {
+            if (isSubscribed) {
+                // 이미 구독중이면 구독 해제
+                subscribeButton.text = "구독하기"
+                isSubscribed = false
+            } else {
+                // 구독 안했으면 구독 처리
+                subscribeButton.text = "구독중"
+                isSubscribed = true
+            }
+        }
         // 🔹 현재 로그인된 사용자 ID 가져오기
         val user = UserManager.getUser()?.uid ?: ""
 
