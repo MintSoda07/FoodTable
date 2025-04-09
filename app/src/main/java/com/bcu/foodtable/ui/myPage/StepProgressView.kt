@@ -28,7 +28,7 @@ class StepProgressView @JvmOverloads constructor(
         }
 
     private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#6C63FF")
+        color = Color.parseColor("#990000")
         strokeWidth = 30f
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND

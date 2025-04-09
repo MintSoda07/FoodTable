@@ -8,37 +8,56 @@
     tools:context=".PuchasePage">
 
     <LinearLayout
+        android:id="@+id/linearLayout2"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginTop="40dp"
+            android:background="#D32F2F"
+            android:orientation="horizontal">
+
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="50dp"
-            android:layout_marginBottom="50dp"
             android:orientation="vertical">
 
             <ImageView
                 android:id="@+id/imageView4"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="300dp"
                 android:layout_gravity="center"
-                tools:srcCompat="@tools:sample/avatars" />
+                android:scaleType="centerCrop"
+                tools:srcCompat="@drawable/salt_image" />
         </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginBottom="40dp"
+            android:background="#D32F2F"
+            android:orientation="horizontal"></LinearLayout>
 
         <TextView
             android:id="@+id/textView25"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="180dp"
             android:fontFamily="@font/the_jamsil"
             android:text="@string/purchase"
-            android:textSize="20sp" />
+            android:textColor="#D32F2F"
+            android:textSize="24sp" />
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="2dp">
+            android:layout_height="2dp"
+            android:background="#D32F2F">
 
         </FrameLayout>
 
@@ -57,6 +76,7 @@
                 android:layout_weight="6"
                 android:fontFamily="@font/the_jamsil_bold"
                 android:text="5,000 원"
+                android:textColor="#D32F2F"
                 android:textSize="24sp" />
 
             <Button
@@ -64,9 +84,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:backgroundTint="#BDBDBD"
+                android:backgroundTint="#D32F2F"
                 android:fontFamily="@font/the_jamsil"
-                android:text="@string/sub" />
+                android:text="@string/sub"
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/plus1"
@@ -93,6 +114,7 @@
                 android:layout_weight="6"
                 android:fontFamily="@font/the_jamsil_bold"
                 android:text="10,000 원"
+                android:textColor="#D32F2F"
                 android:textSize="24sp" />
 
             <Button
@@ -100,9 +122,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:backgroundTint="#BDBDBD"
+                android:backgroundTint="#D32F2F"
                 android:fontFamily="@font/the_jamsil"
-                android:text="@string/sub" />
+                android:text="@string/sub"
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/plus2"
@@ -129,6 +152,7 @@
                 android:layout_weight="6"
                 android:fontFamily="@font/the_jamsil_bold"
                 android:text="50,000 원"
+                android:textColor="#D32F2F"
                 android:textSize="24sp" />
 
             <Button
@@ -136,9 +160,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:backgroundTint="#BDBDBD"
+                android:backgroundTint="#D32F2F"
                 android:fontFamily="@font/the_jamsil"
-                android:text="@string/sub" />
+                android:text="@string/sub"
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/plus3"
@@ -165,6 +190,7 @@
                 android:layout_weight="6"
                 android:fontFamily="@font/the_jamsil_bold"
                 android:text="100,000 원"
+                android:textColor="#D32F2F"
                 android:textSize="24sp" />
 
             <Button
@@ -172,9 +198,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:backgroundTint="#BDBDBD"
+                android:backgroundTint="#D32F2F"
                 android:fontFamily="@font/the_jamsil"
-                android:text="@string/sub" />
+                android:text="@string/sub"
+                android:textColor="#FFFFFF" />
 
             <Button
                 android:id="@+id/plus4"
@@ -189,9 +216,23 @@
 
         <LinearLayout
             android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"></LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#D32F2F"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="@+id/linearLayout2"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
-            android:background="#E6E6E6"
+            android:background="#FFFFFF"
             android:orientation="horizontal">
 
             <LinearLayout
@@ -228,15 +269,11 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
                 android:layout_weight="2"
-                android:backgroundTint="#FFFFFF"
+                android:backgroundTint="#D32F2F"
                 android:fontFamily="@font/the_jamsil_bold"
                 android:gravity="center"
-                android:text="@string/purchase" />
+                android:text="@string/purchase"
+                android:textColor="#FFFFFF" />
         </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"></LinearLayout>
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
