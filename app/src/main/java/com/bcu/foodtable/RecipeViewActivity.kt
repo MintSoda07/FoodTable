@@ -45,6 +45,7 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var commentAdapter: CommentAdapter
     private lateinit var commentEditText: EditText
     private lateinit var commentSendButton: Button
+    private lateinit var deleteBtn : Button
     private val db = FirebaseFirestore.getInstance()
 
     private var isClickedUpdated = false
@@ -71,6 +72,8 @@ class RecipeViewActivity : AppCompatActivity() {
 
         adaptorViewList = findViewById(R.id.AddPageStageListRecyclerView)
         adaptorViewList.layoutManager = LinearLayoutManager(this)
+
+        deleteBtn = findViewById(R.id.idontwannadothis)
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
 
@@ -103,6 +106,7 @@ class RecipeViewActivity : AppCompatActivity() {
         // 알림 권한 요청
         notificationPermissionManager.requestPermissionIfNeeded()
 
+        // idontwannadothis
 
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
@@ -177,9 +181,91 @@ class RecipeViewActivity : AppCompatActivity() {
             } ?: run {
                 Log.d("Recipe", "No recipe found for the provided ID.")
             }
-        }
+            checkRecipeOwnershipAndSetVisibility(
+                recipeId = recipeId,
+                currentUserUid = UserManager.getUser()!!.uid,
+                button = deleteBtn
+            )
+            deleteBtn.setOnClickListener{
+                deleteRecipeAndFollows(recipeId)
+            }
 
+        }
     }
+    fun deleteRecipeAndFollows(recipeId: String) {
+        val db = FirebaseFirestore.getInstance()
+
+        // Step 1. recipe 문서 삭제
+        db.collection("recipe").document(recipeId)
+            .delete()
+            .addOnSuccessListener {
+                Log.d("Firestore", "레시피 삭제 완료")
+
+                // Step 2. recipe_follow 중 해당 recipeId와 일치하는 문서들 찾기
+                db.collection("recipe_follow")
+                    .whereEqualTo("recipeID", recipeId)
+                    .get()
+                    .addOnSuccessListener { querySnapshot ->
+                        for (doc in querySnapshot.documents) {
+                            db.collection("recipe_follow").document(doc.id).delete()
+                        }
+                        Log.d("Firestore", "관련된 recipe_follow 문서들 삭제 완료")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("Firestore", "recipe_follow 삭제 실패: ${e.message}")
+                    }
+
+            }
+            .addOnFailureListener { e ->
+                Log.e("Firestore", "레시피 삭제 실패: ${e.message}")
+            }
+    }
+
+    fun checkRecipeOwnershipAndSetVisibility(
+        recipeId: String,
+        currentUserUid: String,
+        button: View
+    ) {
+        val db = FirebaseFirestore.getInstance()
+
+        // Step 1: recipe 문서 가져오기
+        db.collection("recipe").document(recipeId)
+            .get()
+            .addOnSuccessListener { recipeDoc ->
+                if (recipeDoc.exists()) {
+                    val channelName = recipeDoc.getString("contained_channel")
+                    if (!channelName.isNullOrEmpty()) {
+
+                        // Step 2: channel 문서 가져오기
+                        db.collection("channel").document(channelName)
+                            .get()
+                            .addOnSuccessListener { channelDoc ->
+                                if (channelDoc.exists()) {
+                                    val ownerUid = channelDoc.getString("owner")
+
+                                    // Step 3: 현재 UID와 비교
+                                    if (ownerUid == currentUserUid) {
+                                        // Step 4: 버튼 보여주기
+                                        button.visibility = View.VISIBLE
+                                    }
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("Firestore", "채널 조회 실패: ${e.message}")
+                            }
+
+                    } else {
+                        Log.e("Firestore", "contained_channel 정보 없음")
+                    }
+                } else {
+                    Log.e("Firestore", "레시피 문서 없음")
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("Firestore", "레시피 조회 실패: ${e.message}")
+            }
+    }
+
 
     private fun loadComments() {
         db.collection("recipe").document(recipeId) // 레시피 ID 기반으로 변경

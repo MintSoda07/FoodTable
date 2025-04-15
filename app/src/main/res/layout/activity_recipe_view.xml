@@ -39,6 +39,18 @@
                 android:scaleType="centerCrop"
                 tools:src="@tools:sample/backgrounds/scenic" />
 
+            <Button
+                android:id="@+id/idontwannadothis"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="8dp"
+                android:background="@drawable/round_login_button"
+                android:backgroundTint="#C62828"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="채널 삭제하기"
+                android:textColor="#FFFFFF"
+                android:visibility="gone" />
+
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
