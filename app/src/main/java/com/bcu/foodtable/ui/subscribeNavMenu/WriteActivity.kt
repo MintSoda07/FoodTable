@@ -36,6 +36,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.Timestamp
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.firestore.FirebaseFirestore
+import java.util.UUID
 
 class WriteActivity : AppCompatActivity() {
 
@@ -311,7 +312,7 @@ class WriteActivity : AppCompatActivity() {
             selectedImageUri?.let { uri ->
                 FireStoreHelper.uploadImage(
                     imageUri = uri,
-                    imageName = "",  // 원하는 이미지 파일명 설정
+                    imageName = UUID.randomUUID().toString(),  // 원하는 이미지 파일명 설정
                     folderName = "recipe_image", // Firebase Storage 폴더명
                     onSuccess = { imageUrl ->
                         saveRecipeToFirestore(imageUrl) // 이미지 업로드 이후 레시피를 저장
