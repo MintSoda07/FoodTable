@@ -12,7 +12,7 @@
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#7E7E7E"
+        android:background="#D32F2F"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -25,7 +25,7 @@
             android:elevation="5dp"
             android:orientation="horizontal"
             android:translationZ="1dp"
-            android:visibility="invisible"/>
+            android:visibility="invisible" />
 
         <TextView
             android:id="@+id/placeholder_name"
@@ -34,11 +34,12 @@
             android:layout_gravity="center"
             android:layout_marginLeft="5dp"
             android:layout_weight="1.5"
+            android:fontFamily="@font/the_jamsil"
             android:gravity="center"
             android:text="설정"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
-            android:textStyle="bold"/>
+            android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/setting_btn2"
@@ -48,7 +49,7 @@
             android:backgroundTint="#00FFFFFF"
             android:scaleType="centerCrop"
             app:srcCompat="@drawable/baseline_settings_24"
-            app:tint="#FFFFFF"/>
+            app:tint="#FFFFFF" />
     </FrameLayout>
 
     <!-- 스크롤 가능한 설정 항목 -->
@@ -78,6 +79,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:fontFamily="@font/the_jamsil"
                     android:text="헬스 권한"
                     android:textSize="16sp" />
 
@@ -102,13 +104,14 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:fontFamily="@font/the_jamsil"
                     android:text="푸시 알림"
-                    android:textSize="16sp"/>
+                    android:textSize="16sp" />
 
                 <Switch
                     android:id="@+id/switch_notifications"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content" />
             </LinearLayout>
 
             <!-- 다크 모드 설정 -->
@@ -126,13 +129,14 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:fontFamily="@font/the_jamsil"
                     android:text="다크 모드"
-                    android:textSize="16sp"/>
+                    android:textSize="16sp" />
 
                 <Switch
                     android:id="@+id/switch_dark_mode"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content" />
             </LinearLayout>
 
             <!-- 앱 정보 -->
@@ -149,16 +153,18 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:fontFamily="@font/the_jamsil"
                     android:text="앱 버전"
-                    android:textSize="16sp"/>
+                    android:textSize="16sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1.0.0"
-                    android:textSize="16sp"
                     android:layout_gravity="end"
-                    android:layout_weight="1"/>
+                    android:layout_weight="1"
+                    android:fontFamily="@font/the_jamsil"
+                    android:text="1.0.0"
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <!-- 로그아웃 버튼 -->
@@ -166,10 +172,11 @@
                 android:id="@+id/btn_logout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:backgroundTint="#D32F2F"
                 android:text="@string/logout_button"
                 android:textColor="@android:color/white"
-                android:backgroundTint="@android:color/holo_red_light"
-                android:layout_marginTop="20dp"/>
+                android:fontFamily="@font/the_jamsil" />
         </LinearLayout>
     </ScrollView>
 

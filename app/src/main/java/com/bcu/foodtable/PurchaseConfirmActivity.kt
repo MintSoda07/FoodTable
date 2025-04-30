@@ -7,9 +7,16 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.bcu.foodtable.useful.ActivityTransition
+import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
+import com.bcu.foodtable.useful.User
+import com.bcu.foodtable.useful.UserManager
 import io.portone.sdk.android.PortOne
 import io.portone.sdk.android.payment.*
 import io.portone.sdk.android.type.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 class PurchaseConfirmActivity : AppCompatActivity() {
@@ -19,19 +26,42 @@ class PurchaseConfirmActivity : AppCompatActivity() {
             PaymentCallback {
             override fun onSuccess(response: PaymentResponse.Success) {
                 AlertDialog.Builder(this@PurchaseConfirmActivity)
-                    .setTitle("결제 성공")
+                    .setTitle("결제가 완료되었습니다!")
                     .setMessage(response.toString())
                     .show()
+                val user = UserManager.getUser()!!
+                val costStr = intent.getStringExtra("price")
+                val cost: Long = costStr?.toLongOrNull() ?: 0L
+                val point = user.point + cost
+                CoroutineScope(Dispatchers.IO).launch {
+                    updateFieldById(
+                        collectionPath = "user",
+                        documentId = user.uid,
+                        fieldName = "point",
+                        newValue = point
+                    )
+                }
+                user.point = point.toInt()
+                UserManager.setUser(
+                    name = user.name,
+                    email = user.email,
+                    imageURL = user.image,
+                    phoneNumber = user.phoneNumber,
+                    point = user.point,
+                    uid = user.uid,
+                    rankPoint = user.rankPoint,
+                    description = user.description
+                )
+                ActivityTransition.startStatic(this@PurchaseConfirmActivity,HomeAcitivity::class.java)
             }
+                override fun onFail(response: PaymentResponse.Fail) {
+                    AlertDialog.Builder(this@PurchaseConfirmActivity)
+                        .setTitle("결제 실패")
+                        .setMessage(response.toString())
+                        .show()
+                }
 
-            override fun onFail(response: PaymentResponse.Fail) {
-                AlertDialog.Builder(this@PurchaseConfirmActivity)
-                    .setTitle("결제 실패")
-                    .setMessage(response.toString())
-                    .show()
-            }
-
-        })
+            })
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

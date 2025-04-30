@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
     <!-- 채널 이미지 (프로필 사진) -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="채널 이미지"
-        android:textSize="16sp"
+        android:fontFamily="@font/the_jamsil_bold"
+        android:text="채널 생성하기"
+        android:textColor="#D32F2F"
+        android:textSize="24sp"
         android:textStyle="bold" />
     <!-- 이미지 미리보기 -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="#D32F2F">
+
+    </FrameLayout>
+
     <ImageView
         android:id="@+id/imageView22"
         android:layout_width="match_parent"
@@ -20,63 +27,101 @@
         android:layout_margin="16dp"
         android:contentDescription="선택된 이미지"
         android:scaleType="centerCrop"
-        android:src="@android:drawable/ic_menu_camera" />
+        android:src="@drawable/button_square" />
 
     <!-- 이미지 선택 버튼 -->
+
     <Button
         android:id="@+id/buttonSelectImage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="이미지 선택" />
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#D32F2F"
+        android:fontFamily="@font/the_jamsil"
+        android:text="이미지 선택"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:fontFamily="@font/the_jamsil_bold"
         android:text="채널 이름"
+        android:textColor="#D32F2F"
         android:textSize="16sp"
         android:textStyle="bold" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="#D32F2F">
+
+    </FrameLayout>
 
     <EditText
         android:id="@+id/channelNameEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:fontFamily="@font/the_jamsil"
         android:hint="채널 이름을 입력하세요" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:fontFamily="@font/the_jamsil_bold"
         android:text="채널 설명"
+        android:textColor="#D32F2F"
         android:textSize="16sp"
-        android:textStyle="bold"
-        android:layout_marginTop="12dp" />
+        android:textStyle="bold" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:background="#D32F2F">
+
+    </FrameLayout>
 
     <EditText
         android:id="@+id/channelDescriptionEditText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:fontFamily="@font/the_jamsil"
+        android:gravity="top"
         android:hint="채널 설명을 입력하세요"
         android:lines="3"
-        android:maxLines="5"
-        android:gravity="top" />
+        android:maxLines="5" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
         android:gravity="end"
-        android:layout_marginTop="16dp">
+        android:orientation="horizontal">
+
         <Button
             android:id="@+id/createChannelButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="채널 생성" />
+            android:backgroundTint="#D32F2F"
+            android:fontFamily="@font/the_jamsil"
+            android:text="채널 생성"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
         <Button
             android:id="@+id/cancelButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:backgroundTint="#D32F2F"
+            android:fontFamily="@font/the_jamsil"
             android:text="취소"
-            android:layout_marginEnd="8dp" />
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
 
     </LinearLayout>
 </LinearLayout>
