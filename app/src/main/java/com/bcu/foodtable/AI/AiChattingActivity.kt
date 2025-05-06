@@ -84,6 +84,9 @@ class AiChattingActivity : AppCompatActivity() {
                 onError = {
                     Log.e("OpenAI", "Failed to Load OpenAI API Key.")
                 })
+        }else{
+            aIServiceAgent.apiKeyInfo = ApiKeyManager.getGptApi()!!
+            Log.i("OpenAI","API Name: ${aIServiceAgent.apiKeyInfo}")
         }
 
         ViewAnimator.moveYPos(userWarningBox, 400f, 0f, 600, DecelerateInterpolator(3.0f)).start()
