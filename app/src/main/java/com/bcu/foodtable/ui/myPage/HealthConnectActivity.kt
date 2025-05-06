@@ -108,7 +108,12 @@ class HealthConnectActivity : AppCompatActivity() {
                     ReadRecordsRequest(HeartRateRecord::class, TimeRangeFilter.between(startTime, endTime))
                 ).records.flatMap { it.samples }.maxByOrNull { it.time }?.beatsPerMinute ?: 0
 
+                // 예상 칼로리 바탕으로 음식 출력
                 val estimatedCalories = (steps * caloriesPerStep).toInt()
+                val foodName = getFoodByCalories(estimatedCalories)
+                val foodTextView = findViewById<TextView>(R.id.foodEquivalentTextView)
+                val foodWithParticle = attachParticle(foodName, "을", "를")
+                foodTextView.text = "오늘 $foodWithParticle 불태웠어요!"
 
                 txtResult.text = "걸음 수: $steps\n칼로리: ${totalCalories.toInt()} kcal\n추정: $estimatedCalories kcal\n심박수: $heartRate bpm"
                 customStepView.setStepData(steps.toInt(), stepGoals.find { it > steps } ?: 20000)
@@ -171,11 +176,35 @@ class HealthConnectActivity : AppCompatActivity() {
         }
     }
 
+
     private fun animatePointReward(from: Long, to: Long) {
         val animator = ValueAnimator.ofInt(from.toInt(), to.toInt())
         animator.duration = 1000
         animator.addUpdateListener {}
         animator.start()
+    }
+    //예상 칼로리로 태운 음식 칼로리
+    private fun getFoodByCalories(calories: Int): String {
+        return when (calories) {
+            in 0..30 -> "블랙커피"
+            in 31..80 -> "미역국"
+            in 81..150 -> "계란찜"
+            in 151..200 -> "김밥"
+            in 201..300 -> "된장찌개"
+            in 301..400 -> "순두부찌개"
+            in 401..500 -> "냉면"
+            in 501..600 -> "라면"
+            in 601..700 -> "떡볶이"
+            in 701..800 -> "돈까스"
+            in 801..900 -> "햄버거"
+            in 901..1000 -> "해장국"
+            else -> "국밥"
+        }
+    }
+    private fun attachParticle(word: String, particleWith: String, particleWithout: String): String {
+        val lastChar = word.last()
+        val hasBatchim = (lastChar.code - 0xAC00) % 28 != 0
+        return word + if (hasBatchim) particleWith else particleWithout
     }
     // 헬스 커넥터 다운로드 다이어로그
     private fun showInstallDialog() {
