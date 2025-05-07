@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -20,6 +21,7 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.lifecycle.lifecycleScope
 import com.bcu.foodtable.R
+import com.bcu.foodtable.ui.myPage.FoodItem
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
@@ -110,10 +112,14 @@ class HealthConnectActivity : AppCompatActivity() {
 
                 // 예상 칼로리 바탕으로 음식 출력
                 val estimatedCalories = (steps * caloriesPerStep).toInt()
-                val foodName = getFoodByCalories(estimatedCalories)
+                val foodItem = getFoodByCalories(estimatedCalories)
+                val particle = getJosa(foodItem.name, "을", "를")
+                val foodImageView = findViewById<ImageView>(R.id.foodImageView)
                 val foodTextView = findViewById<TextView>(R.id.foodEquivalentTextView)
-                val foodWithParticle = attachParticle(foodName, "을", "를")
-                foodTextView.text = "오늘 $foodWithParticle 불태웠어요!"
+
+                foodImageView.setImageResource(foodItem.imageResId)
+                foodTextView.text = "오늘 ${foodItem.name}$particle 불태웠어요!"
+
 
                 txtResult.text = "걸음 수: $steps\n칼로리: ${totalCalories.toInt()} kcal\n추정: $estimatedCalories kcal\n심박수: $heartRate bpm"
                 customStepView.setStepData(steps.toInt(), stepGoals.find { it > steps } ?: 20000)
@@ -184,27 +190,28 @@ class HealthConnectActivity : AppCompatActivity() {
         animator.start()
     }
     //예상 칼로리로 태운 음식 칼로리
-    private fun getFoodByCalories(calories: Int): String {
+    private fun getFoodByCalories(calories: Int): FoodItem {
         return when (calories) {
-            in 0..30 -> "블랙커피"
-            in 31..80 -> "미역국"
-            in 81..150 -> "계란찜"
-            in 151..200 -> "김밥"
-            in 201..300 -> "된장찌개"
-            in 301..400 -> "순두부찌개"
-            in 401..500 -> "냉면"
-            in 501..600 -> "라면"
-            in 601..700 -> "떡볶이"
-            in 701..800 -> "돈까스"
-            in 801..900 -> "햄버거"
-            in 901..1000 -> "해장국"
-            else -> "국밥"
+            in 0..30 -> FoodItem("블랙커피", R.drawable.black_coffee)
+            in 31..80 -> FoodItem("미역국", R.drawable.seaweed_soup)
+            in 81..150 -> FoodItem("계란찜", R.drawable.steamed_egg)
+            in 151..200 -> FoodItem("김밥", R.drawable.kimbap)
+            in 201..300 -> FoodItem("된장찌개", R.drawable.soybean_paste_stew)
+            in 301..400 -> FoodItem("순두부찌개", R.drawable.soft_tofu_stew)
+            in 401..500 -> FoodItem("냉면", R.drawable.cold_noodles)
+            in 501..600 -> FoodItem("라면", R.drawable.ramen)
+            in 601..700 -> FoodItem("떡볶이", R.drawable.tteokbokki)
+            in 701..800 -> FoodItem("돈까스", R.drawable.pork_cutlet)
+            in 801..900 -> FoodItem("햄버거", R.drawable.hamburger)
+            in 901..1000 -> FoodItem("해장국", R.drawable.hangover_soup)
+            else -> FoodItem("국밥", R.drawable.rice_soup)
         }
     }
-    private fun attachParticle(word: String, particleWith: String, particleWithout: String): String {
+
+    fun getJosa(word: String, josaWithBatchim: String, josaWithoutBatchim: String): String {
         val lastChar = word.last()
         val hasBatchim = (lastChar.code - 0xAC00) % 28 != 0
-        return word + if (hasBatchim) particleWith else particleWithout
+        return if (hasBatchim) josaWithBatchim else josaWithoutBatchim
     }
     // 헬스 커넥터 다운로드 다이어로그
     private fun showInstallDialog() {
