@@ -69,4 +69,15 @@
         android:minHeight="48dp"
         android:backgroundTint="@android:color/white" />
 
+    <TextView
+        android:id="@+id/foodEquivalentTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="50dp"
+        android:fontFamily="@font/the_jamsil"
+        android:textColor="#333333"
+        android:textSize="18sp"
+        android:textAlignment="center"
+        android:maxLines="1"
+        android:ellipsize="end" />
 </LinearLayout>

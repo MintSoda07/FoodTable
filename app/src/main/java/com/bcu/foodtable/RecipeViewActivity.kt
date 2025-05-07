@@ -23,6 +23,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.RecipeViewActivity.Comment
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
@@ -60,6 +61,21 @@ class RecipeViewActivity : AppCompatActivity() {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+        //AI 호출
+        if (ApiKeyManager.getGptApi() == null) {
+            val aIServiceAgent = OpenAIClient()
+            aIServiceAgent.setAIWithAPI(
+                onSuccess = { info ->
+                    Log.i("OpenAI", "API Name: ${info.KEY_NAME}")
+                    Log.i("OpenAI", "API Key Successfully loaded.")
+                    ApiKeyManager.setGptApiKey(info.KEY_NAME!!, info.KEY_VALUE!!)
+
+                },
+                onError = {
+                    Log.e("OpenAI", "Failed to Load OpenAI API Key.")
+                }
+            )
         }
         // 댓글 관련 초기화
         commentRecyclerView = findViewById(R.id.commentRecyclerView)
@@ -106,7 +122,6 @@ class RecipeViewActivity : AppCompatActivity() {
         // 알림 권한 요청
         notificationPermissionManager.requestPermissionIfNeeded()
 
-        // idontwannadothis
 
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
@@ -114,6 +129,26 @@ class RecipeViewActivity : AppCompatActivity() {
             val recipe = FirebaseHelper.getDocumentById("recipe", recipeId, RecipeItem::class.java)
             recipe?.let {
                 it.id = recipeId  // Firestore 문서의 ID를 recipe.id에 할당
+                val calorieTextView = findViewById<TextView>(R.id.estimatedCaloriesView)
+
+                if (it.estimatedCalories.isNullOrBlank()) {
+                    // Firestore에 칼로리 없으면 AI로 요청
+                    estimateCaloriesWithAI(it) { result ->
+                        calorieTextView.text = "예상 칼로리: $result"
+                        // 결과 저장
+                        db.collection("recipe").document(recipeId)
+                            .update("estimatedCalories", result)
+                            .addOnSuccessListener {
+                                Log.d("CALORIE_AI", "칼로리 Firestore 저장 성공")
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("CALORIE_AI", "칼로리 저장 실패", e)
+                            }
+                    }
+                } else {
+                    // Firestore에 이미 있으면 바로 표시
+                    calorieTextView.text = "예상 칼로리: ${it.estimatedCalories}"
+                }
 
                 // 해당 아이템의 클릭 수 +1
                 if (!isClickedUpdated) {
@@ -171,6 +206,8 @@ class RecipeViewActivity : AppCompatActivity() {
                 FireStoreHelper.loadImageFromUrl(it.imageResId, placeholder_image)
                 placeholder_name.text = it.name
                 placeholder_description.text = it.description
+
+
 
                 placeholder_categories.layoutManager = layoutManager
                 placeholder_tags.layoutManager = layoutManager2
@@ -265,7 +302,43 @@ class RecipeViewActivity : AppCompatActivity() {
                 Log.e("Firestore", "레시피 조회 실패: ${e.message}")
             }
     }
+    private fun estimateCaloriesWithAI(recipe: RecipeItem, onResult: (String) -> Unit) {
+        val prompt = """
+        다음은 레시피 정보입니다.
+        - 재료: ${recipe.ingredients.joinToString(", ")}
+        - 조리 과정: ${recipe.order}
 
+        이 레시피를 기반으로 전체 예상 칼로리를 추정해 주세요.
+        결과는 숫자와 단위만 출력하세요. 예: "350 kcal"
+    """.trimIndent()
+        Log.d("CALORIE_PROMPT", "재료: ${recipe.ingredients.joinToString()} | 과정: ${recipe.order}")
+        Log.d("CALORIE_PROMPT", "재료 수: ${recipe.ingredients.size} / 조리 내용 길이: ${recipe.order.length}")
+
+        val openAI = OpenAIClient()
+
+        val apiKey = ApiKeyManager.getGptApi()
+
+        if (apiKey == null) {
+            Log.e("AI_ERROR", "API 키가 설정되지 않았습니다.")
+            onResult("0 kcal")
+            return
+        }
+
+        openAI.apiKeyInfo = apiKey
+
+        openAI.sendMessage(
+            prompt = prompt,
+            role = "당신은 요리 레시피를 기반으로 칼로리를 정확하게 추정하는 AI입니다. 숫자와 단위만 출력하세요.",
+            onSuccess = { response ->
+                Log.d("AI_SUCCESS_RAW", "AI 원본 응답: '${response}'") // 홑따옴표로 감싸서 확인
+                onResult(response.trim())
+            },
+            onError = { errorMsg ->
+                Log.e("AI_ERROR", "AI 오류: $errorMsg")
+                onResult("0 kcal")
+            }
+        )
+    }
 
     private fun loadComments() {
         db.collection("recipe").document(recipeId) // 레시피 ID 기반으로 변경
