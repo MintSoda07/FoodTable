@@ -38,6 +38,36 @@
                 android:layout_height="300dp"
                 android:scaleType="centerCrop"
                 tools:src="@tools:sample/backgrounds/scenic" />
+            <LinearLayout
+                android:id="@+id/editDeleteButtonLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="end"
+                android:padding="8dp"
+                android:visibility="visible"> <!-- 기본은 안 보이게 -->
+
+                <Button
+                    android:id="@+id/editRecipeButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="수정"
+                    android:backgroundTint="#FFA726"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginEnd="8dp"
+                    android:visibility="visible"
+                android:fontFamily="@font/the_jamsil_bold" />
+
+                <Button
+                    android:id="@+id/deleteRecipeButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="삭제"
+                    android:backgroundTint="#EF5350"
+                    android:textColor="#FFFFFF"
+                    android:visibility="visible"
+                android:fontFamily="@font/the_jamsil_bold" />
+            </LinearLayout>
 
             <Button
                 android:id="@+id/idontwannadothis"
