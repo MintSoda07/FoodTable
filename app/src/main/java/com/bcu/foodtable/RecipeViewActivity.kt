@@ -1,5 +1,6 @@
 package com.bcu.foodtable
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -18,6 +19,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -66,6 +68,9 @@ class RecipeViewActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+
+
         deleteRecipeButton = findViewById(R.id.deleteRecipeButton)
         editBtn = findViewById(R.id.editRecipeButton)
         // 레시피 수정 기능 (editBtn 클릭 시 수정 화면으로 이동)
@@ -73,6 +78,16 @@ class RecipeViewActivity : AppCompatActivity() {
             val intent = Intent(this, WriteActivity::class.java)
             intent.putExtra("recipe_id", recipeId) // 수정할 레시피 ID 전달
             startActivity(intent)
+        }
+        deleteRecipeButton.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("레시피 삭제")
+                .setMessage("정말 이 레시피를 삭제하시겠습니까?")
+                .setPositiveButton("삭제") { _, _ ->
+                    deleteRecipe(recipeId) // 네가 이미 만든 삭제 함수
+                }
+                .setNegativeButton("취소", null)
+                .show()
         }
         //AI 호출
         if (ApiKeyManager.getGptApi() == null) {
@@ -467,6 +482,19 @@ class RecipeViewActivity : AppCompatActivity() {
                     }
             }
         }
+    }
+    fun deleteRecipe(recipeId: String) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("recipe").document(recipeId)
+            .delete()
+            .addOnSuccessListener {
+                Toast.makeText(this, "레시피가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                setResult(Activity.RESULT_OK)
+                finish() // 현재 액티비티 종료 (ex. 목록으로 돌아가기)
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "삭제 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
 
