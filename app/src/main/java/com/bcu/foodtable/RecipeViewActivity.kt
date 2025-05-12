@@ -27,6 +27,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.RecipeViewActivity.Comment
+import com.bcu.foodtable.ui.subscribeNavMenu.EditRecipeActivity
 import com.bcu.foodtable.ui.subscribeNavMenu.WriteActivity
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
@@ -75,10 +76,11 @@ class RecipeViewActivity : AppCompatActivity() {
         editBtn = findViewById(R.id.editRecipeButton)
         // 레시피 수정 기능 (editBtn 클릭 시 수정 화면으로 이동)
         editBtn.setOnClickListener {
-            val intent = Intent(this, WriteActivity::class.java)
+            val intent = Intent(this, EditRecipeActivity::class.java)
             intent.putExtra("recipe_id", recipeId) // 수정할 레시피 ID 전달
             startActivity(intent)
         }
+
         deleteRecipeButton.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("레시피 삭제")
