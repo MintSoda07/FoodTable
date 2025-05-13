@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.GridView
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
@@ -25,6 +26,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.RecipeViewActivity.Comment
+import com.bcu.foodtable.Whisper.WhisperRecorder
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.google.android.flexbox.FlexDirection
@@ -48,6 +50,10 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var commentSendButton: Button
     private lateinit var deleteBtn : Button
     private val db = FirebaseFirestore.getInstance()
+
+    private lateinit var micButton: ImageButton
+    private var currentStepIndex = 0
+
 
     private var isClickedUpdated = false
     private lateinit var notificationPermissionManager: NotificationPermissionManager
@@ -105,6 +111,12 @@ class RecipeViewActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "댓글을 입력하세요.", Toast.LENGTH_SHORT).show()
             }
+        }
+
+        // Whisper 권한
+        micButton = findViewById(R.id.btnMicStart)
+        micButton.setOnClickListener {
+            startWhisperRecording()
         }
 
 
@@ -354,6 +366,23 @@ class RecipeViewActivity : AppCompatActivity() {
                 }
             }
     }
+    private fun startWhisperRecording() {
+        WhisperRecorder.start(
+            context = this,
+            onTranscriptionReady = { text ->
+                Log.d("Whisper", "받은 텍스트: $text")
+                if (text.contains("다음") || text.contains("계속") || text.contains("다음 단계")) {
+                    runOnUiThread {
+                        onDoneButtonClick(currentStepIndex)
+                        currentStepIndex++
+                    }
+                }
+            },
+            onError = { error ->
+                Toast.makeText(this, "음성 인식 오류: $error", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
 
     private fun postComment(commentText: String) {
         val userId = UserManager.getUser()!!.uid;
@@ -509,4 +538,7 @@ class CommentAdapter(private var comments: MutableList<Comment>) :
         comments.addAll(newComments)
         notifyDataSetChanged()
     }
+
+
+
 }
