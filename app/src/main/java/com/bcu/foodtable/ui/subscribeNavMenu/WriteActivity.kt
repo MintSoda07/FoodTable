@@ -21,8 +21,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.IngredientAdapter
 import com.bcu.foodtable.R
+import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FlexAdaptor
 import com.bcu.foodtable.useful.RecipeDetailRecyclerAdaptor
@@ -129,6 +131,9 @@ class WriteActivity : AppCompatActivity() {
         addpageTagsButton = findViewById(R.id.tags_inputButton)
 
         addpageTimerBox = findViewById(R.id.timerStage)
+
+
+
         val channelName= intent.getStringExtra("channel_name")
         fun setupNumberLimit(editText: TextInputEditText, maxValue: Int) {
             editText.inputType = InputType.TYPE_CLASS_NUMBER // 숫자 입력만 허용
@@ -293,6 +298,8 @@ class WriteActivity : AppCompatActivity() {
 
             val firestore = FirebaseFirestore.getInstance()
             val recipeRef = firestore.collection("recipe").document()
+
+            recipeItem.id = recipeRef.id
             recipeRef.set(recipeItem)
                 .addOnSuccessListener {
                     Toast.makeText(this, "레시피가 업로드되었습니다!", Toast.LENGTH_SHORT).show()
@@ -331,6 +338,7 @@ class WriteActivity : AppCompatActivity() {
         // 카테고리 데이터 Firestore에서 가져오기
         getCategoriesFromFirestore()  // 여기서 호출 추가
     }
+
 
     private fun openGallery() {
         pickImageLauncher.launch("image/*")

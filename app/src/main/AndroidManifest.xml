@@ -109,6 +109,9 @@
             android:name=".ui.subscribeNavMenu.WriteActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.subscribeNavMenu.EditRecipeActivity"
+            android:exported="false" />
+        <activity
             android:name=".PuchasePage"
             android:exported="false" />
         <activity

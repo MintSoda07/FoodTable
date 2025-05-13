@@ -16,5 +16,5 @@ data class RecipeItem(
     var tags : List<String> = listOf(),
     var ingredients : List<String> = listOf(),
     val contained_channel : String="",
-    val likes : Int = 0
+    var estimatedCalories: String? = null
 )
