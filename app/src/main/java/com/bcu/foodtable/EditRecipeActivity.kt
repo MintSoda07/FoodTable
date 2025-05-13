@@ -160,10 +160,10 @@ class EditRecipeActivity : AppCompatActivity() {
             val time = getFormattedTime()
 
             if (stepTitle.isNotEmpty() && stepDesc.isNotEmpty()) {
-                val formatted = if (timerSwitch.isChecked)
-                    "○$stepTitle $stepDesc ($cookingMethod,$time)"
+                val formatted = if (timerSwitch.isChecked && cookingMethod.isNotEmpty())
+                    "○${stepTitle}. ${stepDesc} (${cookingMethod},${time})"
                 else
-                    "○$stepTitle $stepDesc"
+                    "○${stepTitle}. ${stepDesc}"
 
                 steps.add(formatted)
                 stepAdapter.updateItems(steps)
@@ -296,8 +296,6 @@ class EditRecipeActivity : AppCompatActivity() {
         }
     }
 
-
-
     private fun saveRecipe(imageUrl: String) {
         Log.d("EditRecipeActivity", "레시피 저장 시도 중... recipeId: $recipeId")
 
@@ -327,5 +325,5 @@ class EditRecipeActivity : AppCompatActivity() {
                 Log.e("EditRecipeActivity", "레시피 수정 실패: ${it.message}")
             }
     }
-    }
+}
 
