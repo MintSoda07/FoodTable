@@ -4,16 +4,24 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.print.PrintAttributes
+import android.print.PrintManager
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.GridView
 import android.widget.ImageButton
 import android.widget.ImageView
@@ -21,7 +29,10 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -43,6 +54,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.Query
+import android.Manifest
 
 class RecipeViewActivity : AppCompatActivity() {
     private lateinit var recipeId: String
@@ -151,8 +163,14 @@ class RecipeViewActivity : AppCompatActivity() {
 
         // Whisper 권한
         micButton = findViewById(R.id.btnMicStart)
+
         micButton.setOnClickListener {
-            startWhisperRecording()
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1001)
+            } else {
+                startWhisperRecording()
+            }
         }
 
 
@@ -679,23 +697,93 @@ class RecipeViewActivity : AppCompatActivity() {
                 }
             }
     }
+    // 음성 마이크 권한 추가
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1001) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "마이크 권한이 허용되었습니다.", Toast.LENGTH_SHORT).show()
+                startWhisperRecording()
+            } else {
+                Toast.makeText(this, "마이크 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun startWhisperRecording() {
         WhisperRecorder.start(
             context = this,
             onTranscriptionReady = { text ->
                 Log.d("Whisper", "받은 텍스트: $text")
-                if (text.contains("다음") || text.contains("계속") || text.contains("다음 단계")) {
+
+                val openAI = OpenAIClient()
+                val apiKey = ApiKeyManager.getGptApi()
+                if (apiKey == null) {
                     runOnUiThread {
-                        onDoneButtonClick(currentStepIndex)
-                        currentStepIndex++
+                        Toast.makeText(this, "API 키가 설정되지 않았습니다.", Toast.LENGTH_SHORT).show()
                     }
+                    return@start
                 }
+
+                openAI.apiKeyInfo = apiKey
+
+                val prompt = """
+            사용자 발화: "$text"
+            아래 중 해당하는 의도를 하나만 판단해서 소문자로 답하세요:
+
+            - next: 다음 단계로 넘어가고 싶을 때
+            - repeat: 현재 단계를 다시 듣고 싶을 때
+            - stop: 진행을 멈추거나 종료하고 싶을 때
+            - none: 어떤 의도도 해당하지 않을 때
+
+            예시 답변: next
+            """.trimIndent()
+
+                openAI.sendMessage(
+                    prompt = prompt,
+                    role = "당신은 요리 레시피를 진행하는 비서입니다. 발화의 의도를 정확히 판단해 'next', 'repeat', 'stop', 'none' 중 하나만 응답하세요.",
+                    onSuccess = { intent ->
+                        val intentClean = intent.trim().lowercase()
+                        Log.d("GPT_INTENT", "분석된 의도: $intentClean")
+
+                        runOnUiThread {
+                            when (intentClean) {
+                                "next" -> {
+                                    onDoneButtonClick(currentStepIndex)
+                                    currentStepIndex++
+                                }
+                                "repeat" -> {
+                                    Toast.makeText(this, "현재 단계를 다시 확인하세요.", Toast.LENGTH_SHORT).show()
+                                    // 필요하면 다시 읽어주는 기능 추가 가능
+                                }
+                                "stop" -> {
+                                    Toast.makeText(this, "레시피 진행을 종료합니다.", Toast.LENGTH_SHORT).show()
+                                }
+                                else -> {
+                                    Toast.makeText(this, "명령을 인식하지 못했어요.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                    onError = { errorMsg ->
+                        runOnUiThread {
+                            Toast.makeText(this, "AI 분석 오류: $errorMsg", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
             },
             onError = { error ->
-                Toast.makeText(this, "음성 인식 오류: $error", Toast.LENGTH_SHORT).show()
+                runOnUiThread {
+                    Toast.makeText(this, "음성 인식 오류: $error", Toast.LENGTH_SHORT).show()
+                }
             }
         )
     }
+
 
 
     private fun postComment(commentText: String) {

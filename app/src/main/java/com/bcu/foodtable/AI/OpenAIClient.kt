@@ -138,7 +138,7 @@ class OpenAIClient() {
             .addFormDataPart(
                 "file",
                 audioFile.name,
-                audioFile.asRequestBody("audio/wav".toMediaTypeOrNull())
+                audioFile.asRequestBody("audio/mp4".toMediaTypeOrNull())
             )
             .addFormDataPart("model", "whisper-1")
             .build()

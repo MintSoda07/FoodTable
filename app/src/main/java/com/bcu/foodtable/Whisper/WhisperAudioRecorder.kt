@@ -9,12 +9,12 @@ object WhisperAudioRecorder {
     private var outputFile: File? = null
 
     fun start(context: Context): File {
-        outputFile = File(context.cacheDir, "recorded_audio.wav")
+        outputFile = File(context.cacheDir, "recorded_audio.mp4")
 
         recorder = MediaRecorder().apply {
             setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)  // Whisper는 mp3도 지원됨
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             setOutputFile(outputFile!!.absolutePath)
             prepare()
             start()
