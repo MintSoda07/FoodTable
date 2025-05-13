@@ -1,5 +1,7 @@
 package com.bcu.foodtable
 
+import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -26,6 +28,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.RecipeViewActivity.Comment
+import com.bcu.foodtable.ui.subscribeNavMenu.EditRecipeActivity
+import com.bcu.foodtable.ui.subscribeNavMenu.WriteActivity
 import com.bcu.foodtable.Whisper.WhisperRecorder
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
@@ -33,6 +37,7 @@ import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayoutManager
 import com.google.android.flexbox.JustifyContent
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,8 +53,13 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var commentAdapter: CommentAdapter
     private lateinit var commentEditText: EditText
     private lateinit var commentSendButton: Button
-    private lateinit var deleteBtn : Button
+    private lateinit var deleteBtn: Button
+    private lateinit var deleteRecipeButton: Button
+    private lateinit var editBtn: Button
     private val db = FirebaseFirestore.getInstance()
+    private lateinit var pdfBtn: Button
+    private lateinit var recipeItems: RecipeItem
+    private lateinit var html: String
 
     private lateinit var micButton: ImageButton
     private var currentStepIndex = 0
@@ -68,6 +78,28 @@ class RecipeViewActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+
+
+        deleteRecipeButton = findViewById(R.id.deleteRecipeButton)
+        editBtn = findViewById(R.id.editRecipeButton)
+        // 레시피 수정 기능 (editBtn 클릭 시 수정 화면으로 이동)
+        editBtn.setOnClickListener {
+            val intent = Intent(this, EditRecipeActivity::class.java)
+            intent.putExtra("recipe_id", recipeId) // 수정할 레시피 ID 전달
+            startActivity(intent)
+        }
+
+        deleteRecipeButton.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("레시피 삭제")
+                .setMessage("정말 이 레시피를 삭제하시겠습니까?")
+                .setPositiveButton("삭제") { _, _ ->
+                    deleteRecipe(recipeId) // 네가 이미 만든 삭제 함수
+                }
+                .setNegativeButton("취소", null)
+                .show()
+        }
         //AI 호출
         if (ApiKeyManager.getGptApi() == null) {
             val aIServiceAgent = OpenAIClient()
@@ -83,6 +115,10 @@ class RecipeViewActivity : AppCompatActivity() {
                 }
             )
         }
+
+        deleteRecipeButton = findViewById(R.id.deleteRecipeButton)
+        editBtn = findViewById(R.id.editRecipeButton)
+
         // 댓글 관련 초기화
         commentRecyclerView = findViewById(R.id.commentRecyclerView)
         commentEditText = findViewById(R.id.commentEditText)
@@ -203,6 +239,15 @@ class RecipeViewActivity : AppCompatActivity() {
                     justifyContent = JustifyContent.FLEX_START // 아이템을 왼쪽 정렬
                     flexWrap = FlexWrap.WRAP           // 줄바꿈 허용 (자동으로 아이템 크기 맞추기)
                 }
+
+                // 기본적으로 안 보이게 설정
+                deleteRecipeButton.visibility = View.GONE
+                editBtn.visibility = View.GONE
+
+                checkIfUserIsOwner()
+                Log.d("Recipe_Edit_BtnCheck", "유저이름은 :" + UserManager.getUser()!!.uid)
+
+
                 // ○를 기준으로 문자열을 나눔 (
                 items = inputString.split("○").filter { it.isNotBlank() }
                 Log.d("Recipe", "현재 분리된 레시피 단계 : ${items}")
@@ -218,7 +263,7 @@ class RecipeViewActivity : AppCompatActivity() {
                 FireStoreHelper.loadImageFromUrl(it.imageResId, placeholder_image)
                 placeholder_name.text = it.name
                 placeholder_description.text = it.description
-
+                recipeItems = it
 
 
                 placeholder_categories.layoutManager = layoutManager
@@ -235,22 +280,284 @@ class RecipeViewActivity : AppCompatActivity() {
                 currentUserUid = UserManager.getUser()!!.uid,
                 button = deleteBtn
             )
-            deleteBtn.setOnClickListener{
+            deleteBtn.setOnClickListener {
                 deleteRecipeAndFollows(recipeId)
             }
 
         }
+        CoroutineScope(Dispatchers.Main).launch {
+            val recipe = FirebaseHelper.getDocumentById("recipe", recipeId, RecipeItem::class.java)
+            recipe?.let {
+                recipeItems = it
+                val html = """
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @font-face {
+            font-family: 'NotoSerifKR';
+            font-style: normal;
+            font-weight: 400;
+            src: local('Noto Serif KR'), url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR&display=swap');
+        }
+
+        body {
+            font-family: 'NotoSerifKR', serif;
+            background-color: #f8f4ec;
+            color: #333;
+            padding: 40px;
+        }
+
+        .recipe-container {
+            max-width: 700px;
+            margin: auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .recipe-title {
+            font-size: 36px;
+            color: #a0522d;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .recipe-subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .recipe-image {
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            margin-top: 30px;
+            color: #444;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+
+        .description, .note, .order, .ingredients, .tags {
+            font-size: 15px;
+            line-height: 1.8;
+            margin-top: 10px;
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .footer {
+            margin-top: 40px;
+            text-align: right;
+            font-size: 12px;
+            color: #888;
+        }
+        .step {
+            border-left: 4px solid #a0522d;
+            background-color: #fffaf4;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.05);
+        }
+
+        .step-header {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #5a3e2b;
+        }
+
+        .step-number {
+            background-color: #a0522d;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+        .step-title {
+            font-style: italic;
+        }
+
+        .step-description {
+            font-size: 15px;
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 5px;
+        }
+
+        .step-meta {
+            font-size: 13px;
+            color: #777;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
+        .method {
+            color: #444;
+        }
+
+        .duration {
+            color: #444;
+        }
+        /* 각 레시피 블록 단위로 잘리지 않게 설정 */
+  .recipe-container {
+    page-break-inside: avoid;  /* 페이지 내부에서 분리 금지 */
+    break-inside: avoid;
+  }
+
+  /* 전체 컨테이너도 부드럽게 나눔 */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+    </style>
+</head>
+<body>
+    <div class="recipe-container">
+        <div class="recipe-title">${recipeItems.name}</div>
+        <div class="recipe-subtitle">열람수: ${recipeItems.clicked}회 • 예상 열량: ${recipeItems.estimatedCalories ?: "정보 없음"}</div>
+        <img class="recipe-image" src="${recipeItems.imageResId}" alt="레시피 이미지">
+
+        <div class="section-title">설명</div>
+        <div class="description">${recipeItems.description}</div>
+        <br><br><br>
+
+        <div class="section-title">조리 순서</div>
+        <div class="order">${parseOrderSteps(recipeItems.order)}</div>
+
+        <div class="section-title">재료</div>
+        <div class="ingredients">
+            <ul>
+                ${recipeItems.ingredients.joinToString("\n") { "<li>$it</li>" }}
+            </ul>
+        </div>
+
+        <div class="section-title">카테고리</div>
+        <div class="tags">${recipeItems.C_categories.joinToString(", ")}</div>
+
+        <div class="section-title">태그</div>
+        <div class="tags">${recipeItems.tags.joinToString(", ")}</div>
+
+        ${
+                    if (recipeItems.note.isNotBlank()) """
+        <div class="section-title">비고</div>
+        <div class="note">${recipeItems.note}</div>
+        """ else ""
+                }
+
+        <div class="footer">채널: ${recipeItems.contained_channel} • 날짜: ${recipeItems.date.toDate()}</div>
+    </div>
+</body>
+</html>
+""".trimIndent()
+                Log.i("PDF Provider","Recipe  내용${recipeItems} \n \n 그리고 html 내용 ${html}")
+                pdfBtn = findViewById(R.id.pdfPrintbtn)
+                pdfBtn.setOnClickListener {
+                    createPdfFromHtml(this@RecipeViewActivity, html, "레시피_${recipeItems.name}")
+                }
+            }
+        }
+
     }
+
+    private fun checkIfUserIsOwner() {
+        try {
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val recipeId = this.recipeId  // 상위에서 초기화되어 있다고 가정
+
+            if (currentUser != null) {
+                val db = FirebaseFirestore.getInstance()
+                Log.d("Recipe_Owner_Check", "시작점까지 도달")
+
+                db.collection("recipe")
+                    .document(recipeId)
+                    .get()
+                    .addOnSuccessListener { recipeDoc ->
+                        if (recipeDoc.exists()) {
+                            val containedChannelName = recipeDoc.getString("contained_channel")
+                            Log.d("Recipe_Owner_Check", "레시피에서 채널명 가져옴: $containedChannelName")
+
+                            if (!containedChannelName.isNullOrEmpty()) {
+                                // name으로 채널 문서 찾기
+                                db.collection("channel")
+                                    .whereEqualTo("name", containedChannelName)
+                                    .get()
+                                    .addOnSuccessListener { querySnapshot ->
+                                        if (!querySnapshot.isEmpty) {
+                                            val channelDoc = querySnapshot.documents[0]
+                                            val ownerUid = channelDoc.getString("owner")
+
+                                            if (ownerUid == currentUser.uid) {
+                                                // 소유자일 경우 버튼 보이기
+                                                deleteRecipeButton.visibility = View.VISIBLE
+                                                editBtn.visibility = View.VISIBLE
+                                                Log.d(
+                                                    "Recipe_Owner_Check",
+                                                    "채널 소유자 확인 완료: ${currentUser.uid}"
+                                                )
+                                            } else {
+                                                // 소유자 아님
+                                                deleteRecipeButton.visibility = View.GONE
+                                                editBtn.visibility = View.GONE
+                                                Log.d(
+                                                    "Recipe_Owner_Check",
+                                                    "채널 소유자 아님: ${currentUser.uid}"
+                                                )
+                                            }
+                                        } else {
+                                            Log.e(
+                                                "Firestore",
+                                                "채널 문서 없음 (name = $containedChannelName)"
+                                            )
+                                        }
+                                    }
+                                    .addOnFailureListener {
+                                        Log.e("Firestore", "채널 문서 조회 실패", it)
+                                    }
+                            } else {
+                                Log.e("Firestore", "contained_channel 값이 없음")
+                            }
+                        } else {
+                            Log.e("Firestore", "레시피 문서 존재하지 않음")
+                        }
+                    }
+                    .addOnFailureListener {
+                        Log.e("Firestore", "레시피 문서 조회 실패", it)
+                    }
+
+            } else {
+                Log.e("Recipe_Owner_Check", "로그인한 유저 없음")
+            }
+
+        } catch (error: Exception) {
+            Log.e("Recipe_Owner_Check", "예외 발생: ${error.message}")
+        }
+    }
+
     fun deleteRecipeAndFollows(recipeId: String) {
         val db = FirebaseFirestore.getInstance()
 
-        // Step 1. recipe 문서 삭제
+        // 레시피 삭제
         db.collection("recipe").document(recipeId)
             .delete()
             .addOnSuccessListener {
                 Log.d("Firestore", "레시피 삭제 완료")
 
-                // Step 2. recipe_follow 중 해당 recipeId와 일치하는 문서들 찾기
+                // 관련된 recipe_follow 문서들 삭제
                 db.collection("recipe_follow")
                     .whereEqualTo("recipeID", recipeId)
                     .get()
@@ -270,6 +577,8 @@ class RecipeViewActivity : AppCompatActivity() {
             }
     }
 
+
+    // 레시피 소유자와 관련된 버튼 표시/숨기기
     fun checkRecipeOwnershipAndSetVisibility(
         recipeId: String,
         currentUserUid: String,
@@ -277,24 +586,22 @@ class RecipeViewActivity : AppCompatActivity() {
     ) {
         val db = FirebaseFirestore.getInstance()
 
-        // Step 1: recipe 문서 가져오기
+        // 레시피 문서 가져오기
         db.collection("recipe").document(recipeId)
             .get()
             .addOnSuccessListener { recipeDoc ->
                 if (recipeDoc.exists()) {
                     val channelName = recipeDoc.getString("contained_channel")
                     if (!channelName.isNullOrEmpty()) {
-
-                        // Step 2: channel 문서 가져오기
+                        // 채널 문서 가져오기
                         db.collection("channel").document(channelName)
                             .get()
                             .addOnSuccessListener { channelDoc ->
                                 if (channelDoc.exists()) {
                                     val ownerUid = channelDoc.getString("owner")
-
-                                    // Step 3: 현재 UID와 비교
+                                    // 현재 UID와 비교
                                     if (ownerUid == currentUserUid) {
-                                        // Step 4: 버튼 보여주기
+                                        // 버튼 보여주기
                                         button.visibility = View.VISIBLE
                                     }
                                 }
@@ -312,8 +619,11 @@ class RecipeViewActivity : AppCompatActivity() {
             }
             .addOnFailureListener { e ->
                 Log.e("Firestore", "레시피 조회 실패: ${e.message}")
+
             }
     }
+
+
     private fun estimateCaloriesWithAI(recipe: RecipeItem, onResult: (String) -> Unit) {
         val prompt = """
         다음은 레시피 정보입니다.
@@ -324,7 +634,10 @@ class RecipeViewActivity : AppCompatActivity() {
         결과는 숫자와 단위만 출력하세요. 예: "350 kcal"
     """.trimIndent()
         Log.d("CALORIE_PROMPT", "재료: ${recipe.ingredients.joinToString()} | 과정: ${recipe.order}")
-        Log.d("CALORIE_PROMPT", "재료 수: ${recipe.ingredients.size} / 조리 내용 길이: ${recipe.order.length}")
+        Log.d(
+            "CALORIE_PROMPT",
+            "재료 수: ${recipe.ingredients.size} / 조리 내용 길이: ${recipe.order.length}"
+        )
 
         val openAI = OpenAIClient()
 
@@ -384,6 +697,7 @@ class RecipeViewActivity : AppCompatActivity() {
         )
     }
 
+
     private fun postComment(commentText: String) {
         val userId = UserManager.getUser()!!.uid;
         db.collection("user").document(userId).get().addOnSuccessListener { document ->
@@ -391,7 +705,13 @@ class RecipeViewActivity : AppCompatActivity() {
                 val userName = document.getString("name") ?: "익명"
                 val userProfileImage = document.getString("image") ?: ""
 
-                val comment = Comment(commentText, System.currentTimeMillis(), userId, userName, userProfileImage)
+                val comment = Comment(
+                    commentText,
+                    System.currentTimeMillis(),
+                    userId,
+                    userName,
+                    userProfileImage
+                )
 
                 db.collection("recipe").document(recipeId)
                     .collection("comments").add(comment)
@@ -405,6 +725,20 @@ class RecipeViewActivity : AppCompatActivity() {
         }
     }
 
+    fun deleteRecipe(recipeId: String) {
+        val db = FirebaseFirestore.getInstance()
+        db.collection("recipe").document(recipeId)
+            .delete()
+            .addOnSuccessListener {
+                Toast.makeText(this, "레시피가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                setResult(Activity.RESULT_OK)
+                finish() // 현재 액티비티 종료 (ex. 목록으로 돌아가기)
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "삭제 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
 
     // 댓글 데이터 모델
     data class Comment(
@@ -414,8 +748,6 @@ class RecipeViewActivity : AppCompatActivity() {
         val userName: String = "", // 사용자 이름 추가
         val userProfileImage: String = "" // 사용자 프로필 사진 URL 추가
     )
-
-
 
 
     // Done 버튼 클릭 시 처리할 로직
@@ -454,7 +786,92 @@ class RecipeViewActivity : AppCompatActivity() {
         }
 
     }
+
+    // PDF 출력용 HTML 생성부 및 PDF 출력부
+    //createPdfFromHtml(this, html, "my_recipe") 호출부는 상단 OnCreate에 있음
+    // suspend 함수로 변경
+    fun parseOrderSteps(order: String): String {
+        val steps = order.split("○").filter { it.isNotBlank() }
+
+        return steps.map { step ->
+            val regex = Regex("""(\d+)\.\s*\((.*?)\)\s*(.*?)(\(([^,]+),([^)]+)\))?$""")
+            val match = regex.find(step.trim())
+
+            if (match != null) {
+                val number = match.groupValues[1]
+                val title = match.groupValues[2]
+                val description = match.groupValues[3]
+                val method = match.groupValues.getOrNull(5)?.trim() ?: ""
+                val duration = match.groupValues.getOrNull(6)?.trim() ?: ""
+
+                """
+            <div class="step">
+                <div class="step-header">
+                    <span class="step-number">$number.</span>
+                    <span class="step-title">$title</span>
+                </div>
+                <div class="step-description">$description</div>
+                ${
+                    if (method.isNotEmpty() && duration.isNotEmpty()) """
+                <div class="step-meta">
+                    <span class="method">⏱ $method</span> |
+                    <span class="duration">$duration</span>
+                </div>""" else ""
+                }
+            </div>
+            """
+            } else {
+                "<div class=\"step\"><div class=\"step-description\">${step.trim()}</div></div>"
+            }
+        }.joinToString("\n")
+    }
+
+
+    @SuppressLint("SetJavaScriptEnabled")
+    fun createPdfFromHtml(activity: Activity, htmlContent: String, fileName: String) {
+        // WebView 생성 및 설정
+        val webView = WebView(activity)
+        webView.settings.javaScriptEnabled = false
+        webView.setBackgroundColor(Color.WHITE) // PDF 배경 흰색 보장
+        webView.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        // WebView를 보이지 않게 FrameLayout에 추가 (실제 렌더링을 위해 필요)
+        val container = FrameLayout(activity)
+        container.addView(webView)
+        activity.addContentView(container, ViewGroup.LayoutParams(0, 0)) // 보이지 않게 추가
+
+        // HTML 로딩
+        webView.loadDataWithBaseURL("file:///android_asset/", htmlContent, "text/html", "UTF-8", null)
+
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String?) {
+                // 렌더링 지연을 위한 postDelayed
+                Handler(Looper.getMainLooper()).postDelayed({
+                    createPdfFromWebView(view, fileName)
+                }, 500)
+            }
+        }
+    }
+
+    fun createPdfFromWebView(webView: WebView, fileName: String) {
+        val printManager = webView.context.getSystemService(Context.PRINT_SERVICE) as PrintManager
+        val printAdapter = webView.createPrintDocumentAdapter(fileName)
+        val jobName = "$fileName Document"
+
+        val builder = PrintAttributes.Builder()
+            .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            .setResolution(PrintAttributes.Resolution("pdf", "pdf", 600, 600))
+            .setMinMargins(PrintAttributes.Margins.NO_MARGINS)
+
+        val printJob = printManager.print(jobName, printAdapter, builder.build())
+    }
+
 }
+
 class IngredientAdapter(
     private val ingredients: MutableList<String>,
     private val context: Context,
@@ -477,7 +894,7 @@ class IngredientAdapter(
         holder.ingredientText.text = ingredient
         holder.ingredientButton.visibility = View.GONE
         // 버튼 클릭 이벤트 추가
-        holder.ingredientText.setOnClickListener{
+        holder.ingredientText.setOnClickListener {
             val encodedQuery = Uri.encode(ingredient) // 검색어 URL 인코딩
             val searchUrl = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
 
@@ -502,14 +919,15 @@ class IngredientAdapter(
         notifyItemInserted(ingredients.size - 1)
     }
 }
+
 // 댓글 RecyclerView 어댑터
 class CommentAdapter(private var comments: MutableList<Comment>) :
     RecyclerView.Adapter<CommentAdapter.CommentViewHolder>() {
 
     inner class CommentViewHolder(holder: View) : RecyclerView.ViewHolder(holder) {
-            val profileImage: ImageView = holder.findViewById(R.id.commentImage)
-            val userName: TextView = holder.findViewById(R.id.commentAuthor)
-            val commentText: TextView = holder.findViewById(R.id.commentText2)
+        val profileImage: ImageView = holder.findViewById(R.id.commentImage)
+        val userName: TextView = holder.findViewById(R.id.commentAuthor)
+        val commentText: TextView = holder.findViewById(R.id.commentText2)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
@@ -520,15 +938,15 @@ class CommentAdapter(private var comments: MutableList<Comment>) :
 
     override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
         val comment = comments[position]
-            holder.userName.text = comment.userName
-            holder.commentText.text = comment.text
+        holder.userName.text = comment.userName
+        holder.commentText.text = comment.text
 
-            // 프로필 이미지 로드 (Glide 또는 FireStoreHelper 사용)
-            if (comment.userProfileImage.isNotEmpty()) {
-                FireStoreHelper.loadImageFromUrl(comment.userProfileImage, holder.profileImage)
-            } else {
-                holder.profileImage.setImageResource(R.drawable.dish_icon) // 기본 이미지
-            }
+        // 프로필 이미지 로드 (Glide 또는 FireStoreHelper 사용)
+        if (comment.userProfileImage.isNotEmpty()) {
+            FireStoreHelper.loadImageFromUrl(comment.userProfileImage, holder.profileImage)
+        } else {
+            holder.profileImage.setImageResource(R.drawable.dish_icon) // 기본 이미지
+        }
     }
 
     override fun getItemCount(): Int = comments.size
@@ -538,6 +956,7 @@ class CommentAdapter(private var comments: MutableList<Comment>) :
         comments.addAll(newComments)
         notifyDataSetChanged()
     }
+
 
 
 
