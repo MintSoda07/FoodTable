@@ -220,7 +220,19 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/ItemTags"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent" >
+
+            </androidx.recyclerview.widget.RecyclerView>
+
+            <Button
+                android:id="@+id/pdfPrintbtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:backgroundTint="#C62828"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="PDF 출력하기 "
+                android:textColor="#FFFFFF" />
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -237,7 +249,7 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="true" />
 
-        <LinearLayout
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -262,7 +274,8 @@
                 android:fontFamily="@font/the_jamsil_bold"
                 android:text="전송"
                 android:textColor="#FFFFFF" />
-        </LinearLayout>
+
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 </androidx.constraintlayout.widget.ConstraintLayout>
