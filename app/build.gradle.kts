@@ -61,6 +61,9 @@ dependencies {
     
     // 이미지 로드 라이브러리
     implementation(libs.glide)
+
+    // 웹소켓 라이브러리
+    implementation("org.java-websocket:Java-WebSocket:1.5.2")
     // JSON 파싱 라이브러리
     implementation(libs.gson)
 

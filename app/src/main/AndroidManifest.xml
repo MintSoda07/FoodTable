@@ -7,23 +7,20 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- 알림 권한 -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-
-    <uses-permission android:name="android.permission.health.READ_STEPS" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_HEART_RATE" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_STEPS" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_EXERCISE"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-
+    <uses-permission android:name="android.permission.health.READ_STEPS" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" /> <!-- 헬스 커넥트 권한 -->
+    <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED" /> <!-- 헬스 커넥트 권한 -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
-    </queries>
-
-    <!--결제대행사 관련 앱 스킴-->
+    </queries> <!-- 결제대행사 관련 앱 스킴 -->
     <queries>
 
         <!-- 간편결제 -->
@@ -85,7 +82,6 @@
         <package android:name="kr.danal.app.damoum" /> <!-- 다날 다모음 -->
     </queries>
 
-
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
@@ -102,6 +98,9 @@
         android:theme="@style/Theme.FoodTable"
         tools:ignore="DiscouragedApi"
         tools:targetApi="35">
+        <activity
+            android:name=".AI.RealtimeHelperActivity"
+            android:exported="false" />
         <activity
             android:name=".PurchaseConfirmActivity"
             android:exported="false" />
@@ -146,22 +145,33 @@
             android:exported="false" />
         <activity
             android:name=".SearchResultActivity"
-            android:exported="false"/>
+            android:exported="false" />
         <activity
             android:name=".ui.health.HealthConnectActivity"
-            android:exported="false"/>
+            android:exported="false" />
+
+        <activity-alias
+            android:name=".AndroidURationaleActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".ui.health.HealthConnectActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
         <activity
             android:name=".HomeAcitivity"
             android:exported="false"
             android:label="@string/title_activity_home_acitivity" />
-
         <activity
             android:name=".LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
-
         <activity
-            android:name="com.bcu.foodtable.ui.myPage.ChannelCreationActivity"
+            android:name=".ui.myPage.ChannelCreationActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
@@ -172,16 +182,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity-alias
-            android:name=".AndroidURationaleActivity"
-            android:exported="true"
-            android:targetActivity=".ui.health.HealthConnectActivity"
-            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
-                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
-            </intent-filter>
-        </activity-alias>
     </application>
 
 </manifest>
