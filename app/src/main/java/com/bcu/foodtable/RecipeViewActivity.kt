@@ -55,6 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.Query
 import android.Manifest
+import com.bcu.foodtable.ui.home.RecommendManager
 
 class RecipeViewActivity : AppCompatActivity() {
     private lateinit var recipeId: String
@@ -218,6 +219,7 @@ class RecipeViewActivity : AppCompatActivity() {
 
                 // 해당 아이템의 클릭 수 +1
                 if (!isClickedUpdated) {
+                    RecommendManager.recordRecipeHistory(it.id,it.C_categories)
                     updateFieldById(
                         collectionPath = "recipe", // 컬렉션 이름
                         documentId = recipeId, // 문서 ID

@@ -105,21 +105,6 @@ class HomeAcitivity : AppCompatActivity() {
         //  ExpandedGridView 가져오기
         val gridView = findViewById<ExpandedGridView>(R.id.cardGridView)
 
-        //  Adapter 초기화 및 설정
-        recipeAdapter = RecipeAdapter(this, mutableListOf())
-
-        gridView.adapter = recipeAdapter
-
-        viewModel.recipes.observe(this) { recipes ->
-            Log.d("HomeActivity", " HomeActivity에서 레시피 업데이트: ${recipes.size}개")
-            recipeAdapter.updateRecipes(recipes) // 레시피 목록 즉시 반영
-        }
-
-        //  앱이 실행될 때 즉시 데이터 로드
-        if (viewModel.recipes.value.isNullOrEmpty()) {
-            Log.d("HomeActivity", " 레시피가 비어있음 -> 강제 로드 실행")
-            viewModel.loadRecipes() // 데이터 로드 실행
-        }
         //  SearchView  설정
         setupSearchView()
 
