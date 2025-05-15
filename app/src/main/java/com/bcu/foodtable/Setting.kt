@@ -2,6 +2,7 @@ package com.bcu.foodtable
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.Switch
 import android.widget.Toast
@@ -23,15 +24,21 @@ class Setting : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var permissionLauncher: ActivityResultLauncher<Set<String>>
     private lateinit var permissions: Set<String>
-
+    private lateinit var healthClient:HealthConnectClient
+    private lateinit var healthPermissionSwitch : Switch
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_setting)
 
         auth = FirebaseAuth.getInstance()
         val btnLogout = findViewById<Button>(R.id.btn_logout)
-        val healthClient = HealthConnectClient.getOrCreate(this)
-        val healthPermissionSwitch = findViewById<Switch>(R.id.switch_health_permission)
+        try{
+            healthClient = HealthConnectClient.getOrCreate(this)
+        }catch(E:Exception){
+            Log.e("health","NO HC Detected.")
+        }
+
+        healthPermissionSwitch = findViewById(R.id.switch_health_permission)
 
         //  요청할 권한 명시
         permissions = setOf(
@@ -61,21 +68,25 @@ class Setting : AppCompatActivity() {
                 }
             }
         }
-
-        //  스위치 ON -> 권한 요청
-        healthPermissionSwitch.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                lifecycleScope.launch {
-                    val granted = healthClient.permissionController.getGrantedPermissions()
-                    val needed = permissions - granted
-                    if (needed.isNotEmpty()) {
-                        permissionLauncher.launch(needed)
-                    } else {
-                        Toast.makeText(this@Setting, "이미 권한이 부여되어 있습니다", Toast.LENGTH_SHORT).show()
+        try{
+            healthPermissionSwitch.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    lifecycleScope.launch {
+                        val granted = healthClient.permissionController.getGrantedPermissions()
+                        val needed = permissions - granted
+                        if (needed.isNotEmpty()) {
+                            permissionLauncher.launch(needed)
+                        } else {
+                            Toast.makeText(this@Setting, "이미 권한이 부여되어 있습니다", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
+        }catch(E:Exception){
+            Log.e("health","NO HC Detected.")
         }
+        //  스위치 ON -> 권한 요청
+
 
         // 로그아웃 처리
         btnLogout.setOnClickListener {

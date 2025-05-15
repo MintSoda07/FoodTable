@@ -121,6 +121,16 @@
                 android:textColor="#FFFFFF"
                 android:visibility="gone" />
 
+            <TextView
+                android:id="@+id/estimatedCaloriesView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="예상 칼로리: 로딩 중..."
+                android:textColor="@android:color/darker_gray"
+                android:textSize="16sp" />
+
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -134,16 +144,6 @@
                     android:fontFamily="@font/the_jamsil"
                     android:text="ItemDetailDescriptionHere"
                     android:textSize="16sp" />
-                <TextView
-                    android:id="@+id/estimatedCaloriesView"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="예상 칼로리: 로딩 중..."
-                    android:textSize="16sp"
-                    android:layout_marginTop="8dp"
-                    android:textColor="@android:color/darker_gray" />
-
-
 
 
             </FrameLayout>
@@ -186,14 +186,35 @@
 
             </androidx.recyclerview.widget.RecyclerView>
 
-            <TextView
-                android:id="@+id/textView4"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/the_jamsil_bold"
-                android:text="@string/cooking_order"
-                android:textColor="#D32F2F"
-                android:textSize="20sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="8dp"
+                android:paddingTop="12dp">
+
+                <TextView
+                    android:id="@+id/textView4"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/the_jamsil_bold"
+                    android:text="@string/cooking_order"
+                    android:textColor="#D32F2F"
+                    android:textSize="20sp" />
+
+                <ImageButton
+                    android:id="@+id/btnMicStart"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="음성 인식 시작"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_mic" />
+
+            </LinearLayout>
+
+
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -260,7 +281,19 @@
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/ItemTags"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent" >
+
+            </androidx.recyclerview.widget.RecyclerView>
+
+            <Button
+                android:id="@+id/pdfPrintbtn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:backgroundTint="#C62828"
+                android:fontFamily="@font/the_jamsil_bold"
+                android:text="PDF 출력하기 [50 소금] "
+                android:textColor="#FFFFFF" />
 
             <FrameLayout
                 android:layout_width="match_parent"
@@ -277,7 +310,7 @@
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="true" />
 
-        <LinearLayout
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -302,7 +335,8 @@
                 android:fontFamily="@font/the_jamsil_bold"
                 android:text="전송"
                 android:textColor="#FFFFFF" />
-        </LinearLayout>
+
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 </androidx.constraintlayout.widget.ConstraintLayout>

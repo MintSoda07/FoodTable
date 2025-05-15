@@ -160,10 +160,10 @@ class EditRecipeActivity : AppCompatActivity() {
             val time = getFormattedTime()
 
             if (stepTitle.isNotEmpty() && stepDesc.isNotEmpty()) {
-                val formatted = if (timerSwitch.isChecked)
-                    "○$stepTitle $stepDesc ($cookingMethod,$time)"
+                val formatted = if (timerSwitch.isChecked && cookingMethod.isNotEmpty())
+                    "○${stepTitle}. ${stepDesc} (${cookingMethod},${time})"
                 else
-                    "○$stepTitle $stepDesc"
+                    "○${stepTitle}. ${stepDesc}"
 
                 steps.add(formatted)
                 stepAdapter.updateItems(steps)
@@ -250,40 +250,76 @@ class EditRecipeActivity : AppCompatActivity() {
 
     private fun loadRecipe() {
         Log.d(TAG, "loadRecipe 실행")
-        db.collection("recipe").document(recipeId)
-            .get()
-            .addOnSuccessListener { doc ->
-                val recipe = doc.toObject(RecipeItem::class.java)
-                if (recipe != null) {
-                    Log.d(TAG, "레시피 데이터 로드 성공")
-                    titleEdit.setText(recipe.name)
-                    descEdit.setText(recipe.description)
-                    noteEdit.setText(recipe.note)
-                    Glide.with(this).load(recipe.imageResId).into(imageView)
-                    originalImageUrl = recipe.imageResId
+        try {
+            db.collection("recipe").document(recipeId)
+                .get()
+                .addOnSuccessListener { doc ->
+                    try {
+                        val recipe = doc.toObject(RecipeItem::class.java)
+                        if (recipe != null) {
+                            Log.d(TAG, "레시피 데이터 로드 성공")
+                            titleEdit.setText(recipe.name)
+                            descEdit.setText(recipe.description)
+                            noteEdit.setText(recipe.note)
+                            Glide.with(this).load(recipe.imageResId).into(imageView)
+                            originalImageUrl = recipe.imageResId
 
-                    ingredients.clear()
-                    ingredients.addAll(recipe.ingredients)
-                    ingreAdapter.notifyDataSetChanged()
+                            ingredients.clear()
+                            ingredients.addAll(recipe.ingredients)
+                            ingreAdapter.notifyDataSetChanged()
 
-                    tags.clear()
-                    tags.addAll(recipe.tags)
-                    tagAdapter.notifyDataSetChanged()
+                            tags.clear()
+                            tags.addAll(recipe.tags)
+                            tagAdapter.notifyDataSetChanged()
 
-                    recipe.C_categories.getOrNull(0)?.let { setSpinnerSelection(categorySpinner1, it) }
-                    recipe.C_categories.getOrNull(1)?.let { setSpinnerSelection(categorySpinner2, it) }
+                            recipe.C_categories.getOrNull(0)?.let { setSpinnerSelection(categorySpinner1, it) }
+                            recipe.C_categories.getOrNull(1)?.let { setSpinnerSelection(categorySpinner2, it) }
 
-                    steps.clear()
-                    steps.addAll(recipe.order.split("○").filter { it.isNotBlank() }.map { "○$it" }) // 이렇게 하면 OK
-                    stepAdapter.updateItems(steps)
-                } else {
-                    Log.e(TAG, "레시피 데이터가 null입니다")
+                            steps.clear()
+                            try {
+                                val recipeSteps = recipe.order.split("○").filter { it.isNotBlank() }
+                                Log.d(TAG, "원본 레시피 단계: $recipeSteps")
+
+                                steps.addAll(recipeSteps.mapIndexed { index, step ->
+                                    try {
+                                        val cleanStep = step.trim()
+                                        if (cleanStep.contains("(") && cleanStep.contains(")")) {
+                                            "○$cleanStep"
+                                        } else {
+                                            val stepNumber = index + 1
+                                            val stepContent = cleanStep.substringAfter(".")
+                                                .substringAfter(" ")
+                                                .trim()
+                                            "○$stepNumber.($stepContent)"
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "단계 변환 중 오류: ${e.message}")
+                                        "○${index + 1}.(${step.trim()})"
+                                    }
+                                })
+                                Log.d(TAG, "변환된 레시피 단계: $steps")
+                                stepAdapter.updateItems(steps)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "레시피 단계 처리 중 오류: ${e.message}")
+                                Toast.makeText(this, "레시피 단계 로드 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Log.e(TAG, "레시피 데이터가 null입니다")
+                            Toast.makeText(this, "레시피 데이터를 찾을 수 없습니다", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "레시피 데이터 처리 중 오류: ${e.message}")
+                        Toast.makeText(this, "레시피 데이터 처리 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            }
-            .addOnFailureListener {
-                Toast.makeText(this, "레시피 로드 실패", Toast.LENGTH_SHORT).show()
-                Log.e(TAG, "레시피 로드 실패: ${it.message}")
-            }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "레시피 로드 실패: ${e.message}")
+                    Toast.makeText(this, "레시피 로드에 실패했습니다", Toast.LENGTH_SHORT).show()
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "loadRecipe 실행 중 오류: ${e.message}")
+            Toast.makeText(this, "예기치 않은 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setSpinnerSelection(spinner: Spinner, value: String) {
@@ -295,8 +331,6 @@ class EditRecipeActivity : AppCompatActivity() {
             }
         }
     }
-
-
 
     private fun saveRecipe(imageUrl: String) {
         Log.d("EditRecipeActivity", "레시피 저장 시도 중... recipeId: $recipeId")
@@ -327,5 +361,5 @@ class EditRecipeActivity : AppCompatActivity() {
                 Log.e("EditRecipeActivity", "레시피 수정 실패: ${it.message}")
             }
     }
-    }
+}
 
