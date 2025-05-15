@@ -125,50 +125,7 @@ class OpenAIClient() {
             }
         })
     }
-    //  Whisper API: 음성 파일 전송 후 텍스트 추출
-    fun transcribeAudio(
-        audioFile: File,
-        onResult: (String) -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val whisperUrl = "https://api.openai.com/v1/audio/transcriptions"
 
-        val requestBody = MultipartBody.Builder()
-            .setType(MultipartBody.FORM)
-            .addFormDataPart(
-                "file",
-                audioFile.name,
-                audioFile.asRequestBody("audio/mp4".toMediaTypeOrNull())
-            )
-            .addFormDataPart("model", "whisper-1")
-            .build()
-
-        val request = Request.Builder()
-            .url(whisperUrl)
-            .addHeader("Authorization", "Bearer ${apiKeyInfo.KEY_VALUE}")
-            .post(requestBody)
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e("WHISPER_API", "통신 실패: ${e.message}")
-                onError("통신 실패: ${e.message}")
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val responseBody = response.body?.string()
-                if (response.isSuccessful && responseBody != null) {
-                    val transcript = Regex("\"text\"\\s*:\\s*\"(.*?)\"")
-                        .find(responseBody)?.groupValues?.get(1) ?: ""
-                    Log.d("WHISPER_API", "인식 결과: $transcript")
-                    onResult(transcript)
-                } else {
-                    Log.e("WHISPER_API", "응답 오류: ${response.code}")
-                    onError("응답 오류: ${response.code}")
-                }
-            }
-        })
-    }
 }
 //                        추후 사용될 레시피 생성 AI 프롬프트
 //                        """

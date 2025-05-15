@@ -38,10 +38,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.AI.OpenAIClient
+import com.bcu.foodtable.R.id.likeCountText
 import com.bcu.foodtable.RecipeViewActivity.Comment
 import com.bcu.foodtable.ui.subscribeNavMenu.EditRecipeActivity
 import com.bcu.foodtable.ui.subscribeNavMenu.WriteActivity
-import com.bcu.foodtable.Whisper.WhisperRecorder
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.google.android.flexbox.FlexDirection
@@ -56,8 +56,14 @@ import kotlinx.coroutines.launch
 import com.google.firebase.firestore.Query
 import android.Manifest
 import com.bcu.foodtable.ui.home.RecommendManager
+import android.speech.RecognizerIntent
+import android.speech.tts.TextToSpeech
+import androidx.activity.result.ActivityResultLauncher
+import com.bcu.foodtable.Whisper.TextToSpeechProvider
+import com.bcu.foodtable.Whisper.VoiceCookingManager
+import java.util.Locale
 
-class RecipeViewActivity : AppCompatActivity() {
+class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, TextToSpeechProvider {
     private lateinit var recipeId: String
     private lateinit var adaptorViewList: RecyclerView
     private lateinit var RecipeAdaptor: RecipeDetailRecyclerAdaptor
@@ -69,6 +75,7 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var deleteBtn: Button
     private lateinit var deleteRecipeButton: Button
     private lateinit var editBtn: Button
+    private lateinit var likeButton: ImageButton
     private val db = FirebaseFirestore.getInstance()
     private lateinit var pdfBtn: Button
     private lateinit var recipeItems: RecipeItem
@@ -80,6 +87,20 @@ class RecipeViewActivity : AppCompatActivity() {
     val aiUseCost = 50
     private var isClickedUpdated = false
     private lateinit var notificationPermissionManager: NotificationPermissionManager
+
+    // TTS 및 음성 선언
+    lateinit var voiceCookingManager: VoiceCookingManager
+    private lateinit var tts: TextToSpeech
+    // 타이머 버튼
+    private lateinit var timerStartButton: Button
+    // 타이머 어댑터 리스트 가져오기
+    fun getAdaptorViewList(): RecyclerView = adaptorViewList
+    fun getCurrentStepIndex(): Int = currentStepIndex
+    fun setCurrentStepIndex(index: Int) {
+        currentStepIndex = index
+    }
+    fun getRecipeAdaptor(): RecipeDetailRecyclerAdaptor = RecipeAdaptor
+    //레시피 어댑터
 
     //    private val regex = Regex("(.*)\\s*\\((.*),(\\d{2}:\\d{2}:\\d{2})\\)") // 타이머가 포함된 형식
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,6 +114,8 @@ class RecipeViewActivity : AppCompatActivity() {
         }
 
 
+        likeButton = findViewById(R.id.likeButton)
+        val likeCountText = findViewById<TextView>(R.id.likeCountText)
 
         deleteRecipeButton = findViewById(R.id.deleteRecipeButton)
         editBtn = findViewById(R.id.editRecipeButton)
@@ -145,8 +168,88 @@ class RecipeViewActivity : AppCompatActivity() {
         adaptorViewList.layoutManager = LinearLayoutManager(this)
 
         deleteBtn = findViewById(R.id.idontwannadothis)
+        // 타이머
+
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
+        likeButton.setOnClickListener {
+            val currentUserId = UserManager.getUser()?.uid
+            if (currentUserId == null) {
+                Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()  // 메시지 수정 가능
+                return@setOnClickListener
+            }
+
+            val recipeCollection = FirebaseFirestore.getInstance().collection("recipe")
+            val recipeDocRef = recipeCollection.document(recipeId)
+
+            recipeDocRef
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val likes = document.getLong("likes") ?: 0
+                        val likedUsers = document.get("likedUsers") as? List<String> ?: listOf()
+
+                        val isLiked = likedUsers.contains(currentUserId)
+
+                        val updatedLikes = if (isLiked) likes - 1 else likes + 1
+                        val updatedLikedUsers = if (isLiked) {
+                            likedUsers.filter { it != currentUserId }
+                        } else {
+                            likedUsers + currentUserId
+                        }
+
+                        // Firestore 업데이트
+                        recipeDocRef
+                            .update(
+                                mapOf(
+                                    "likes" to updatedLikes,
+                                    "likedUsers" to updatedLikedUsers
+                                )
+                            )
+                            .addOnSuccessListener {
+                                Toast.makeText(this, if (isLiked) "좋아요 취소" else "좋아요!", Toast.LENGTH_SHORT).show()
+
+                                //  좋아요 수 텍스트뷰 업데이트
+                                likeCountText.text = updatedLikes.toString()
+
+                                //  좋아요 아이콘 변경
+                                likeButton.setImageResource(
+                                    if (isLiked) R.drawable.likes_default else R.drawable.likes_filled
+                                )
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(this, "업데이트 실패: ${it.message}", Toast.LENGTH_SHORT).show()
+                            }
+                    } else {
+                        Toast.makeText(this, "레시피를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .addOnFailureListener {
+                    Toast.makeText(this, "레시피 로드 실패: ${it.message}", Toast.LENGTH_SHORT).show()
+                }
+        }
+
+        fun initLikeStatus() {
+            val currentUserId = UserManager.getUser()?.uid ?: return
+            val recipeDocRef = FirebaseFirestore.getInstance().collection("recipe").document(recipeId)
+
+            recipeDocRef.get()
+                .addOnSuccessListener { document ->
+                    if (!document.exists()) return@addOnSuccessListener
+
+                    val likes = document.getLong("likes") ?: 0
+                    val likedUsers = document.get("likedUsers") as? List<String> ?: listOf()
+                    val isLiked = likedUsers.contains(currentUserId)
+
+                    // 좋아요 수와 아이콘 초기화
+                    likeCountText.text = likes.toString()
+                    likeButton.setImageResource(
+                        if (isLiked) R.drawable.likes_filled else R.drawable.likes_default
+                    )
+                }
+        }
+        //initLikeStatus()
+
 
         // 댓글 불러오기
         loadComments()
@@ -162,17 +265,7 @@ class RecipeViewActivity : AppCompatActivity() {
             }
         }
 
-        // Whisper 권한
-        micButton = findViewById(R.id.btnMicStart)
 
-        micButton.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), 1001)
-            } else {
-                startWhisperRecording()
-            }
-        }
 
 
         val permissionLauncher =
@@ -518,7 +611,145 @@ class RecipeViewActivity : AppCompatActivity() {
                 }
             }
         }
+        tts = TextToSpeech(this, this)
+        // 음성 연결
+        // 1. VoiceCookingManager 초기화
+        voiceCookingManager = VoiceCookingManager(
+            context = this,
+            micButton = findViewById(R.id.micButton),
+            onNextStep = {
+                // 1. 현재 ViewHolder 가져오기
+                val currentViewHolder =
+                    getAdaptorViewList().findViewHolderForAdapterPosition(currentStepIndex)
+                            as? RecipeDetailRecyclerAdaptor.ViewHolder
 
+                // 2. 현재 타이머 종료 및 UI 숨기기
+                currentViewHolder?.timer?.cancel()
+                currentViewHolder?.isTimerRunning = false
+                currentViewHolder?.timerFrame?.visibility = View.GONE
+                currentViewHolder?.startButton?.visibility = View.GONE
+                currentViewHolder?.stopButton?.visibility = View.GONE
+                currentViewHolder?.skipButton?.visibility = View.GONE
+
+                // 3. 완료 체크 및 회색 배경 처리
+                currentViewHolder?.doneButton?.visibility = View.GONE
+                currentViewHolder?.checkBox?.isChecked = true
+                currentViewHolder?.itemView?.setBackgroundColor(Color.parseColor("#D3D3D3"))
+
+                // 4. 다음 단계로 이동
+                onDoneButtonClick(currentStepIndex)
+                currentStepIndex += 1
+            },
+            onRepeat = { repeatStep() },
+            onStop = { stopCooking() },
+            onStartTimer = {
+                timerStartButton.performClick()  // ← 음성으로 타이머 시작
+            }
+        )
+
+
+
+
+        // 2. 마이크 버튼 누르면 시작
+        micButton = findViewById(R.id.micButton)
+        micButton.setOnClickListener {
+            if (voiceCookingManager.isRunning()) {
+                voiceCookingManager.stop()
+                Toast.makeText(this, "음성 인식을 종료합니다.", Toast.LENGTH_SHORT).show()
+            } else {
+                // 현재 체크된 단계까지 검사해서 currentStepIndex 업데이트
+                val currentIndex = RecipeAdaptor.getCurrentStepIndex()
+                setCurrentStepIndex(currentIndex)
+
+                voiceCookingManager.start()
+                Toast.makeText(
+                    this,
+                    "음성 인식을 시작합니다. '다음', '반복', '타이머' 등을 말해보세요.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                // 0단계일 경우에만 안내 메시지 출력
+                if (currentIndex == 0) {
+                    speakStep(0)
+                }
+            }
+        }
+
+
+
+
+
+
+    }
+
+    //TTS 코드 초기화 함수
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            tts.language = Locale.KOREAN
+        }
+    }
+    // 조리 단계 읽어 주는 함수
+    fun speakStep(position: Int) {
+        Log.d("VoiceCooking", "실제 speakStep 내부 position: $position")
+        if (position >= items.size) return
+
+        val step = items[position].trim()
+
+        // 정규식으로 파싱 (예: "1. (준비하기) 오븐을 예열하세요.")
+        val regex = Regex("""\d+\.\s*\((.*?)\)\s*(.*)""")
+        val match = regex.find(step)
+
+        val speechText = if (match != null) {
+            val title = match.groupValues[1]  // "준비하기"
+            val description = match.groupValues[2]  // "오븐을 예열하세요."
+
+            if (position == 0) {
+                "요리를 시작하겠습니다. 첫 번째 단계입니다. ${title} 단계: ${description} 해주세요."
+            } else {
+                "이제 ${title} 단계입니다. ${description} 해주세요."
+            }
+
+        } else {
+            // 예외 상황: 정규식에 맞지 않으면 전체 문장 그대로
+            if (position == 0) {
+                "요리를 시작하겠습니다. 첫 번째 단계입니다. ${step}"
+            } else {
+                step
+            }
+        }
+
+        tts.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, "STEP_$position")
+    }
+
+
+
+
+    override fun onDestroy() {
+        tts.stop()
+        tts.shutdown()
+        super.onDestroy()
+    }
+    override fun onPause() {
+        if (voiceCookingManager.isRunning()) {
+            voiceCookingManager.stop()
+            Log.d("VoiceCooking", "음성 인식 onPause()에서 종료됨")
+        }
+        super.onPause()
+    }
+
+    override fun getTTS(): TextToSpeech = tts
+
+    private fun repeatStep() {
+        // 현재 단계를 다시 실행하는 로직 (체크 상태 풀고 다시 실행 등)
+        val index = currentStepIndex - 1
+        if (index >= 0) {
+            speakStep(index) // 반복해서 TTS로 읽어주기
+            onDoneButtonClick(index)
+        }
+    }
+
+    private fun stopCooking() {
+        Toast.makeText(this, "요리를 종료합니다.", Toast.LENGTH_SHORT).show()
+        // 버튼 상태 초기화, TTS, 기타 리셋 작업
     }
 
     private fun checkIfUserIsOwner() {
@@ -736,82 +967,14 @@ class RecipeViewActivity : AppCompatActivity() {
         if (requestCode == 1001) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Toast.makeText(this, "마이크 권한이 허용되었습니다.", Toast.LENGTH_SHORT).show()
-                startWhisperRecording()
+                //startWhisperRecording()
             } else {
                 Toast.makeText(this, "마이크 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun startWhisperRecording() {
-        WhisperRecorder.start(
-            context = this,
-            onTranscriptionReady = { text ->
-                Log.d("Whisper", "받은 텍스트: $text")
 
-                val openAI = OpenAIClient()
-                val apiKey = ApiKeyManager.getGptApi()
-                if (apiKey == null) {
-                    runOnUiThread {
-                        Toast.makeText(this, "API 키가 설정되지 않았습니다.", Toast.LENGTH_SHORT).show()
-                    }
-                    return@start
-                }
-
-                openAI.apiKeyInfo = apiKey
-
-                val prompt = """
-            사용자 발화: "$text"
-            아래 중 해당하는 의도를 하나만 판단해서 소문자로 답하세요:
-
-            - next: 다음 단계로 넘어가고 싶을 때
-            - repeat: 현재 단계를 다시 듣고 싶을 때
-            - stop: 진행을 멈추거나 종료하고 싶을 때
-            - none: 어떤 의도도 해당하지 않을 때
-
-            예시 답변: next
-            """.trimIndent()
-
-                openAI.sendMessage(
-                    prompt = prompt,
-                    role = "당신은 요리 레시피를 진행하는 비서입니다. 발화의 의도를 정확히 판단해 'next', 'repeat', 'stop', 'none' 중 하나만 응답하세요.",
-                    onSuccess = { intent ->
-                        val intentClean = intent.trim().lowercase()
-                        Log.d("GPT_INTENT", "분석된 의도: $intentClean")
-
-                        runOnUiThread {
-                            when (intentClean) {
-                                "next" -> {
-                                    onDoneButtonClick(currentStepIndex)
-                                    currentStepIndex++
-                                }
-                                "repeat" -> {
-                                    Toast.makeText(this, "현재 단계를 다시 확인하세요.", Toast.LENGTH_SHORT).show()
-                                    // 필요하면 다시 읽어주는 기능 추가 가능
-                                }
-                                "stop" -> {
-                                    Toast.makeText(this, "레시피 진행을 종료합니다.", Toast.LENGTH_SHORT).show()
-                                }
-                                else -> {
-                                    Toast.makeText(this, "명령을 인식하지 못했어요.", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    },
-                    onError = { errorMsg ->
-                        runOnUiThread {
-                            Toast.makeText(this, "AI 분석 오류: $errorMsg", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                )
-            },
-            onError = { error ->
-                runOnUiThread {
-                    Toast.makeText(this, "음성 인식 오류: $error", Toast.LENGTH_SHORT).show()
-                }
-            }
-        )
-    }
 
 
 
@@ -873,14 +1036,18 @@ class RecipeViewActivity : AppCompatActivity() {
         val currentViewHolder =
             adaptorViewList.findViewHolderForAdapterPosition(position) as RecipeDetailRecyclerAdaptor.ViewHolder?
 
-        // Done 버튼 숨기기
-        currentViewHolder?.doneButton?.visibility = View.GONE
+        //  현재 타이머가 있으면 정지 및 숨김 처리
+        currentViewHolder?.timer?.cancel()
+        currentViewHolder?.isTimerRunning = false
+        currentViewHolder?.timerFrame?.visibility = View.GONE
+        currentViewHolder?.startButton?.visibility = View.GONE
+        currentViewHolder?.stopButton?.visibility = View.GONE
+        currentViewHolder?.skipButton?.visibility = View.GONE
 
-        // CheckBox 체크 상태 변경
+        //  체크박스 및 배경 변경
         currentViewHolder?.checkBox?.isChecked = true
-
-        // 배경색을 회색으로 흐리게 하기 (배경색 변경)
-        currentViewHolder?.itemView?.setBackgroundColor(Color.parseColor("#D3D3D3"))  // 회색으로 배경 변경
+        currentViewHolder?.doneButton?.visibility = View.GONE
+        currentViewHolder?.itemView?.setBackgroundColor(Color.parseColor("#D3D3D3"))
         try {
             val item = items[position + 1]
             val regex = Regex("(.*)\\s*\\((.*),(\\d{2}:\\d{2}:\\d{2})\\)") // 타이머가 포함된 형식
@@ -894,12 +1061,27 @@ class RecipeViewActivity : AppCompatActivity() {
                 val timeStr = matchResult.groupValues[3].trim() // "hh:mm:ss" 의 시간 비슷한 문자열
                 nextViewHolder?.timerTitle?.text = method
                 nextViewHolder?.timerTime?.text = timeStr
+
+
             } else {
                 // 다음 항목 버튼 바로 보이기
                 nextViewHolder?.doneButton?.visibility = View.VISIBLE
             }
+            if (voiceCookingManager.isRunning()) {
+                speakStep(position + 1)
+            }
         } catch (error: Exception) {
             Log.e("RecipeCooking", "Error Occured.. :${error.message}") // Index 오류일 것이다. 그대로 둔다.
+        }
+        if (position + 1 >= items.size) {
+            // 마지막 단계까지 완료한 경우
+            // Toast.makeText(this, "모든 조리 과정이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+
+            if (voiceCookingManager.isRunning()) {
+                voiceCookingManager.stop()
+                val tts = getTTS()
+                tts.speak("모든 조리 과정이 완료되었습니다. 수고하셨습니다.", TextToSpeech.QUEUE_FLUSH, null, "COOK_DONE")
+            }
         }
 
     }
@@ -1005,6 +1187,7 @@ class IngredientAdapter(
             .inflate(R.layout.list_with_dots, parent, false)
         return IngredientViewHolder(view)
     }
+
 
     override fun onBindViewHolder(holder: IngredientViewHolder, position: Int) {
         val ingredient = ingredients[position]

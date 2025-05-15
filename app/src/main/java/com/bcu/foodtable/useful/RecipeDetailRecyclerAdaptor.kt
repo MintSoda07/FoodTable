@@ -178,6 +178,9 @@ class RecipeDetailRecyclerAdaptor(
         completedSteps = BooleanArray(newItems.size) { false }
         notifyDataSetChanged()
     }
+    fun getCurrentStepIndex(): Int {
+        return completedSteps.lastIndexOf(true) + 1
+    }
 
     private fun convertTimeToSeconds(time: String): Int {
         return try {
