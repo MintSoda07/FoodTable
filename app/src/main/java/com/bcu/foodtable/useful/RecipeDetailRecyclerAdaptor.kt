@@ -161,6 +161,9 @@ class RecipeDetailRecyclerAdaptor(
 
         notifyDataSetChanged()
     }
+    fun getCurrentStepIndex(): Int {
+        return completedSteps.lastIndexOf(true) + 1
+    }
 
     private fun convertTimeToSeconds(time: String): Int {
         val (hours, minutes, seconds) = time.split(":").map { it.toInt() }

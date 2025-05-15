@@ -164,7 +164,7 @@
                     android:textSize="20sp" />
 
                 <ImageButton
-                    android:id="@+id/btnMicStart"
+                    android:id="@+id/micButton"
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
