@@ -208,10 +208,10 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
                             .addOnSuccessListener {
                                 Toast.makeText(this, if (isLiked) "좋아요 취소" else "좋아요!", Toast.LENGTH_SHORT).show()
 
-                                // ✅ 좋아요 수 텍스트뷰 업데이트
+                                //  좋아요 수 텍스트뷰 업데이트
                                 likeCountText.text = updatedLikes.toString()
 
-                                // ✅ 좋아요 아이콘 변경
+                                //  좋아요 아이콘 변경
                                 likeButton.setImageResource(
                                     if (isLiked) R.drawable.likes_default else R.drawable.likes_filled
                                 )
