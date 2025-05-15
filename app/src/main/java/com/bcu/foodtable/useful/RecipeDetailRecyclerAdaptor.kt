@@ -28,6 +28,7 @@ class RecipeDetailRecyclerAdaptor(
         val doneButton: Button = itemView.findViewById(R.id.itemDoneButton)
         val stopButton: Button = itemView.findViewById(R.id.ItemStopButton)
         val skipButton: Button = itemView.findViewById(R.id.ItemSkipButton)
+        val restartButton: Button = itemView.findViewById(R.id.ItemReStartButton)
         var timer: CountDownTimer? = null
         var isTimerRunning = false
         var isTimerFinished = false
@@ -46,7 +47,8 @@ class RecipeDetailRecyclerAdaptor(
         var description = ""
 
         // 타이머가 있는 경우의 정규식 패턴
-        val timerRegex = Regex("^\\d*\\.?\\s*\\((.*?)\\)\\s*(.*?)\\s*\\((.*?),(\\d{2}:\\d{2}:\\d{2})\\)\\s*$")
+        val timerRegex = Regex("^\\d*\\.?\\s*\\((.*?)\\)\\s*(.*?)\\s*\\(([^(),]+),(\\d{2}:\\d{2}:\\d{2})\\)\\s*$")
+
         // 타이머가 없는 경우의 정규식 패턴
         val noTimerRegex = Regex("^\\d*\\.?\\s*\\((.*?)\\)\\s*(.*)$")
 
@@ -121,10 +123,14 @@ class RecipeDetailRecyclerAdaptor(
     }
 
     private fun setupTimer(holder: ViewHolder, totalTimeInSeconds: Int) {
+        var remainingTime = (totalTimeInSeconds * 1000).toLong()  // 남은 시간
+
+        // 시작
         holder.startButton.setOnClickListener {
             if (!holder.isTimerRunning) {
-                holder.timer = object : CountDownTimer((totalTimeInSeconds * 1000).toLong(), 1000) {
+                holder.timer = object : CountDownTimer(remainingTime, 1000) {
                     override fun onTick(millisUntilFinished: Long) {
+                        remainingTime = millisUntilFinished
                         val secondsLeft = millisUntilFinished / 1000
                         holder.timerProgress.progress = (totalTimeInSeconds - secondsLeft).toInt()
                         holder.timerTime.text = String.format(
@@ -140,35 +146,74 @@ class RecipeDetailRecyclerAdaptor(
                         holder.timerTime.text = "00:00:00"
                         holder.isTimerFinished = true
                         holder.doneButton.visibility = View.VISIBLE
+                        holder.isTimerRunning = false
                     }
                 }.start()
                 holder.isTimerRunning = true
                 holder.startButton.visibility = View.GONE
                 holder.stopButton.visibility = View.VISIBLE
                 holder.skipButton.visibility = View.VISIBLE
+                holder.restartButton.visibility = View.VISIBLE
             }
         }
 
+        // 일시 정지
         holder.stopButton.setOnClickListener {
             holder.timer?.cancel()
             holder.isTimerRunning = false
             holder.startButton.visibility = View.VISIBLE
             holder.stopButton.visibility = View.GONE
             holder.skipButton.visibility = View.GONE
+
         }
 
+        // 스킵
         holder.skipButton.setOnClickListener {
             holder.timer?.cancel()
             holder.isTimerRunning = false
+            remainingTime = 0L
             holder.timerProgress.progress = totalTimeInSeconds
             holder.timerTime.text = "00:00:00"
             holder.doneButton.visibility = View.VISIBLE
-            holder.isTimerFinished = true
             holder.startButton.visibility = View.GONE
             holder.stopButton.visibility = View.GONE
             holder.skipButton.visibility = View.GONE
         }
+
+        // 무조건 처음부터 재시작
+        holder.restartButton.setOnClickListener {
+            holder.timer?.cancel()
+            remainingTime = (totalTimeInSeconds * 1000).toLong()  // 시간 초기화
+
+            holder.timer = object : CountDownTimer(remainingTime, 1000) {
+                override fun onTick(millisUntilFinished: Long) {
+                    remainingTime = millisUntilFinished
+                    val secondsLeft = millisUntilFinished / 1000
+                    holder.timerProgress.progress = (totalTimeInSeconds - secondsLeft).toInt()
+                    holder.timerTime.text = String.format(
+                        "%02d:%02d:%02d",
+                        secondsLeft / 3600,
+                        (secondsLeft % 3600) / 60,
+                        secondsLeft % 60
+                    )
+                }
+
+                override fun onFinish() {
+                    holder.timerProgress.progress = totalTimeInSeconds
+                    holder.timerTime.text = "00:00:00"
+                    holder.isTimerFinished = true
+                    holder.doneButton.visibility = View.VISIBLE
+                    holder.isTimerRunning = false
+                }
+            }.start()
+
+            holder.isTimerRunning = true
+            holder.startButton.visibility = View.GONE
+            holder.stopButton.visibility = View.VISIBLE
+            holder.skipButton.visibility = View.VISIBLE
+        }
     }
+
 
     override fun getItemCount(): Int = items.size
 

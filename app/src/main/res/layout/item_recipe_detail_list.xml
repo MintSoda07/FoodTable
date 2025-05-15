@@ -135,6 +135,16 @@
                     android:layout_marginTop="50dp"
                     android:background="@drawable/round_button_alpha"
                     android:text="@string/start" />
+                <Button
+                    android:id="@+id/ItemReStartButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="75dp"
+                    android:layout_marginLeft="150dp"
+                    android:background="@drawable/round_button_alpha"
+                    android:visibility="gone"
+                    android:text="다시 시작" />
 
                 <!-- 스탑 버튼 (왼쪽 배치) -->
                 <Button
