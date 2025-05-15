@@ -1,8 +1,7 @@
 package com.bcu.foodtable
 
-import RegisterScreen
+import SigupScreen
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,10 +18,11 @@ class SignUpActivity : ComponentActivity() {
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
     private var isEmailVerified = false
     private var isNicknameValid = false
-    private val temporaryPassword = "TemporaryPass123!" // 임시 비밀번호
+    private val temporaryPassword = "TemporaryPass123!"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             val email = remember { mutableStateOf("") }
             val nickname = remember { mutableStateOf("") }
@@ -30,7 +30,7 @@ class SignUpActivity : ComponentActivity() {
             val confirmPassword = remember { mutableStateOf("") }
             val warningText = remember { mutableStateOf("") }
 
-            RegisterScreen(
+            SigupScreen(
                 email = email.value,
                 onEmailChange = { email.value = it },
                 nickname = nickname.value,
@@ -44,14 +44,14 @@ class SignUpActivity : ComponentActivity() {
                 nicknameValid = isNicknameValid,
                 onEmailVerifyClick = {
                     if (email.value.isNotEmpty()) {
-                        sendEmailVerification(email.value) { message -> warningText.value = message }
+                        sendEmailVerification(email.value) { warningText.value = it }
                     } else {
                         warningText.value = "이메일을 입력하세요."
                     }
                 },
                 onNicknameCheckClick = {
                     if (nickname.value.isNotEmpty()) {
-                        checkNicknameAvailability(nickname.value) { message -> warningText.value = message }
+                        checkNicknameAvailability(nickname.value) { warningText.value = it }
                     } else {
                         warningText.value = "닉네임을 입력하세요."
                     }

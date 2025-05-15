@@ -16,6 +16,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 //  사용 예시. setAIWithAPI로 API Key를 받아 준비한 뒤, Success 시 sendMeesage 실행할 것!
 //  순서 잘못될 시 오류를 반환함. (Key가 null)
@@ -37,7 +38,7 @@ import java.util.concurrent.TimeUnit
 //  onError = {
 //      Log.e("AI_SERVICE","An Error Occured During Setting an AI.")
 //  })
-class OpenAIClient() {
+class OpenAIClient @Inject constructor() {
     // AI API 키 불러오기
     lateinit var apiKeyInfo : ApiKey
 

@@ -22,6 +22,11 @@
         android:label="@string/title_AI"
         tools:layout="@layout/fragment_ai" />
     <fragment
+        android:id="@+id/navigation_challenge"
+        android:name="com.bcu.foodtable.ui.challenge.ChallengeFragment"
+        android:label="챌린지"
+        tools:layout="@layout/fragment_challenge" />
+    <fragment
         android:id="@+id/navigation_recipe"
         android:name="com.bcu.foodtable.ui.myRecipeStorage.RecipeStorageFragment"
         android:label="@string/title_recipe"
