@@ -76,7 +76,7 @@ class RecipeViewActivity : AppCompatActivity() {
     private lateinit var micButton: ImageButton
     private var currentStepIndex = 0
 
-
+    val aiUseCost = 50
     private var isClickedUpdated = false
     private lateinit var notificationPermissionManager: NotificationPermissionManager
 
@@ -302,9 +302,11 @@ class RecipeViewActivity : AppCompatActivity() {
                 deleteRecipeAndFollows(recipeId)
             }
 
+
         }
         CoroutineScope(Dispatchers.Main).launch {
             val recipe = FirebaseHelper.getDocumentById("recipe", recipeId, RecipeItem::class.java)
+
             recipe?.let {
                 recipeItems = it
                 val html = """
@@ -485,6 +487,31 @@ class RecipeViewActivity : AppCompatActivity() {
                 Log.i("PDF Provider","Recipe  내용${recipeItems} \n \n 그리고 html 내용 ${html}")
                 pdfBtn = findViewById(R.id.pdfPrintbtn)
                 pdfBtn.setOnClickListener {
+                    var userData = UserManager.getUser()!!
+                    if ( userData.point < aiUseCost) {
+                        Toast.makeText(
+                            applicationContext,
+                            "소금이 부족합니다. PDF 사용 기능은 50소금이 필요합니다.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@setOnClickListener
+                    }
+                    // 소금 계산을 위해 유저 설정 불러오기
+                    Toast.makeText(
+                        applicationContext,
+                        "50 소금을 사용하여 PDF를 생성합니다.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    userData.point -= 50
+                    CoroutineScope(Dispatchers.IO).launch {
+                        UserManager.setUserByDatatype(userData)
+                        updateFieldById(
+                            collectionPath = "user",
+                            documentId = userData.uid,
+                            fieldName = "point",
+                            newValue = userData.point
+                        )
+                    }
                     createPdfFromHtml(this@RecipeViewActivity, html, "레시피_${recipeItems.name}")
                 }
             }

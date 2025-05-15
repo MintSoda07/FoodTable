@@ -252,7 +252,7 @@
                 android:layout_weight="1"
                 android:backgroundTint="#C62828"
                 android:fontFamily="@font/the_jamsil_bold"
-                android:text="PDF 출력하기 "
+                android:text="PDF 출력하기 [50 소금] "
                 android:textColor="#FFFFFF" />
 
             <FrameLayout
