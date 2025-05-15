@@ -83,6 +83,7 @@
     <string name="purchase_wait">결제 진행 중..</string>
     <string name="purchase_done">결제가 완료되었습니다!</string>
     <string name="purchase_fail">결제가 실패하였습니다.</string>
+    <string name="like_button">Like Button</string>
     <!-- 회원가입 Warnings -->
     <string name="email_empty_warning">이메일을 입력하세요.</string>
     <string name="nickname_empty_warning">닉네임을 입력하세요.</string>

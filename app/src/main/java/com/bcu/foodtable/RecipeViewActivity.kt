@@ -38,6 +38,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.AI.OpenAIClient
+import com.bcu.foodtable.R.id.likeCountText
 import com.bcu.foodtable.RecipeViewActivity.Comment
 import com.bcu.foodtable.ui.subscribeNavMenu.EditRecipeActivity
 import com.bcu.foodtable.ui.subscribeNavMenu.WriteActivity
@@ -73,6 +74,7 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
     private lateinit var deleteBtn: Button
     private lateinit var deleteRecipeButton: Button
     private lateinit var editBtn: Button
+    private lateinit var likeButton: ImageButton
     private val db = FirebaseFirestore.getInstance()
     private lateinit var pdfBtn: Button
     private lateinit var recipeItems: RecipeItem
@@ -81,7 +83,7 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
     private lateinit var micButton: ImageButton
     private var currentStepIndex = 0
 
-
+    val aiUseCost = 50
     private var isClickedUpdated = false
     private lateinit var notificationPermissionManager: NotificationPermissionManager
 
@@ -111,6 +113,8 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
         }
 
 
+        likeButton = findViewById(R.id.likeButton)
+        val likeCountText = findViewById<TextView>(R.id.likeCountText)
 
         deleteRecipeButton = findViewById(R.id.deleteRecipeButton)
         editBtn = findViewById(R.id.editRecipeButton)
@@ -167,6 +171,84 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
 
         // Intent로 전달된 데이터 받기
         recipeId = intent.getStringExtra("recipe_id") ?: ""
+        likeButton.setOnClickListener {
+            val currentUserId = UserManager.getUser()?.uid
+            if (currentUserId == null) {
+                Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()  // 메시지 수정 가능
+                return@setOnClickListener
+            }
+
+            val recipeCollection = FirebaseFirestore.getInstance().collection("recipe")
+            val recipeDocRef = recipeCollection.document(recipeId)
+
+            recipeDocRef
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document.exists()) {
+                        val likes = document.getLong("likes") ?: 0
+                        val likedUsers = document.get("likedUsers") as? List<String> ?: listOf()
+
+                        val isLiked = likedUsers.contains(currentUserId)
+
+                        val updatedLikes = if (isLiked) likes - 1 else likes + 1
+                        val updatedLikedUsers = if (isLiked) {
+                            likedUsers.filter { it != currentUserId }
+                        } else {
+                            likedUsers + currentUserId
+                        }
+
+                        // Firestore 업데이트
+                        recipeDocRef
+                            .update(
+                                mapOf(
+                                    "likes" to updatedLikes,
+                                    "likedUsers" to updatedLikedUsers
+                                )
+                            )
+                            .addOnSuccessListener {
+                                Toast.makeText(this, if (isLiked) "좋아요 취소" else "좋아요!", Toast.LENGTH_SHORT).show()
+
+                                // ✅ 좋아요 수 텍스트뷰 업데이트
+                                likeCountText.text = updatedLikes.toString()
+
+                                // ✅ 좋아요 아이콘 변경
+                                likeButton.setImageResource(
+                                    if (isLiked) R.drawable.likes_default else R.drawable.likes_filled
+                                )
+                            }
+                            .addOnFailureListener {
+                                Toast.makeText(this, "업데이트 실패: ${it.message}", Toast.LENGTH_SHORT).show()
+                            }
+                    } else {
+                        Toast.makeText(this, "레시피를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .addOnFailureListener {
+                    Toast.makeText(this, "레시피 로드 실패: ${it.message}", Toast.LENGTH_SHORT).show()
+                }
+        }
+
+        fun initLikeStatus() {
+            val currentUserId = UserManager.getUser()?.uid ?: return
+            val recipeDocRef = FirebaseFirestore.getInstance().collection("recipe").document(recipeId)
+
+            recipeDocRef.get()
+                .addOnSuccessListener { document ->
+                    if (!document.exists()) return@addOnSuccessListener
+
+                    val likes = document.getLong("likes") ?: 0
+                    val likedUsers = document.get("likedUsers") as? List<String> ?: listOf()
+                    val isLiked = likedUsers.contains(currentUserId)
+
+                    // 좋아요 수와 아이콘 초기화
+                    likeCountText.text = likes.toString()
+                    likeButton.setImageResource(
+                        if (isLiked) R.drawable.likes_filled else R.drawable.likes_default
+                    )
+                }
+        }
+        //initLikeStatus()
+
 
         // 댓글 불러오기
         loadComments()
@@ -313,9 +395,11 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
                 deleteRecipeAndFollows(recipeId)
             }
 
+
         }
         CoroutineScope(Dispatchers.Main).launch {
             val recipe = FirebaseHelper.getDocumentById("recipe", recipeId, RecipeItem::class.java)
+
             recipe?.let {
                 recipeItems = it
                 val html = """
@@ -496,6 +580,31 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
                 Log.i("PDF Provider","Recipe  내용${recipeItems} \n \n 그리고 html 내용 ${html}")
                 pdfBtn = findViewById(R.id.pdfPrintbtn)
                 pdfBtn.setOnClickListener {
+                    var userData = UserManager.getUser()!!
+                    if ( userData.point < aiUseCost) {
+                        Toast.makeText(
+                            applicationContext,
+                            "소금이 부족합니다. PDF 사용 기능은 50소금이 필요합니다.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@setOnClickListener
+                    }
+                    // 소금 계산을 위해 유저 설정 불러오기
+                    Toast.makeText(
+                        applicationContext,
+                        "50 소금을 사용하여 PDF를 생성합니다.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    userData.point -= 50
+                    CoroutineScope(Dispatchers.IO).launch {
+                        UserManager.setUserByDatatype(userData)
+                        updateFieldById(
+                            collectionPath = "user",
+                            documentId = userData.uid,
+                            fieldName = "point",
+                            newValue = userData.point
+                        )
+                    }
                     createPdfFromHtml(this@RecipeViewActivity, html, "레시피_${recipeItems.name}")
                 }
             }
@@ -1076,6 +1185,7 @@ class IngredientAdapter(
             .inflate(R.layout.list_with_dots, parent, false)
         return IngredientViewHolder(view)
     }
+
 
     override fun onBindViewHolder(holder: IngredientViewHolder, position: Int) {
         val ingredient = ingredients[position]
