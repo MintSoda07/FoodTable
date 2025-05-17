@@ -26,6 +26,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+
 
 class ChannelViewPage : AppCompatActivity() {
 
@@ -33,6 +36,7 @@ class ChannelViewPage : AppCompatActivity() {
     private lateinit var adaptorViewList: GridView
     private lateinit var recipeAdapter: RecipeAdapter
     private lateinit var channelitem: Channel
+    private lateinit var viewModel: ChannelViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +60,8 @@ class ChannelViewPage : AppCompatActivity() {
         adaptorViewList = findViewById<GridView>(R.id.channelItem)
         val db = FirebaseFirestore.getInstance()
         val subscriberCountTextView = findViewById<TextView>(R.id.subscriberCount)
+
+
 
         // Adapter 초기화
         recipeAdapter = RecipeAdapter(this@ChannelViewPage, recipeList)
@@ -81,92 +87,58 @@ class ChannelViewPage : AppCompatActivity() {
             this.startActivity(intent)
         }
 
-// 구독 여부 저장 변수 (예시)
-        var isSubscribed = false
-
-// 버튼 클릭 이벤트 처리
-        subscribeButton.setOnClickListener {
-            if (isSubscribed) {
-                // 이미 구독중이면 구독 해제
-                subscribeButton.text = "구독하기"
-                isSubscribed = false
-            } else {
-                // 구독 안했으면 구독 처리
-                subscribeButton.text = "구독중"
-                isSubscribed = true
-            }
-        }
         // 🔹 현재 로그인된 사용자 ID 가져오기
         val user = UserManager.getUser()?.uid ?: ""
+        // ViewModel 초기화
+        viewModel = ViewModelProvider(this)[ChannelViewModel::class.java]
+        // observe 등록
+        viewModel.channel.observe(this) { channel ->
+            channelitem = channel
+            channelNameText.text = channel.name
+            FireStoreHelper.loadImageFromUrl(channel.BackgroundResId, backgroundImg)
+            FireStoreHelper.loadImageFromUrl(channel.imageResId, channelImg)
 
+            writeButton.visibility = if (user == channel.owner) View.VISIBLE else View.GONE
+            subscribeButton.visibility = if (user != channel.owner) View.VISIBLE else View.GONE
+        }
+
+        viewModel.subscriberCount.observe(this) { count ->
+            subscriberCountTextView.text = "$count 명"
+        }
+
+        viewModel.isSubscribed.observe(this) { isSubscribed ->
+            subscribeButton.text = if (isSubscribed) "구독중" else "구독하기"
+        }
+
+        viewModel.recipes.observe(this) { newRecipes ->
+            recipeList.clear()
+            recipeList.addAll(newRecipes)
+            recipeAdapter.notifyDataSetChanged()
+        }
+
+        // 3. 클릭 리스너 설정
+        subscribeButton.setOnClickListener {
+            viewModel.toggleSubscription(channelitem.name, user)
+        }
+
+        writeButton.setOnClickListener {
+            val intent = Intent(this, WriteActivity::class.java)
+            intent.putExtra("channel_name", channelitem.name)
+            startActivity(intent)
+        }
+
+        adaptorViewList.setOnItemClickListener { _, _, position, _ ->
+            val item = recipeList[position]
+            val intent = Intent(this, RecipeViewActivity::class.java)
+            intent.putExtra("recipe_id", item.id)
+            startActivity(intent)
+        }
         // 🔹 채널 정보 불러오기
-        CoroutineScope(Dispatchers.Main).launch {
-            channelitem = getChannelByName(channelName) ?: return@launch
-
-            // 🔹 Firestore에서 이미지 불러오기
-            FireStoreHelper.loadImageFromUrl(channelitem.BackgroundResId, backgroundImg)
-            FireStoreHelper.loadImageFromUrl(channelitem.imageResId, channelImg)
-
-            // 🔹 채널 이름 설정
-            channelNameText.text = channelitem.name
-
-            // 🔹 작성자와 비교하여 버튼 설정
-            if (user == channelitem.owner) {
-                writeButton.visibility = View.VISIBLE
-                subscribeButton.visibility = View.GONE
-            } else {
-                writeButton.visibility = View.GONE
-                subscribeButton.visibility = View.VISIBLE
-            }
-
-            // 🔹 레시피 목록 불러오기
-            loadRecipes()
+        lifecycleScope.launch {
+            viewModel.loadChannel(channelName) // 채널 불러오기
+            viewModel.loadRecipes(channelName) // 레시피 불러오기
+            viewModel.checkSubscription(channelName, user) // 구독 여부
         }
     }
 
-    // 🔹 Firestore에서 채널 정보 가져오기
-    private suspend fun getChannelByName(channelName: String): Channel? {
-        return withContext(Dispatchers.IO) {
-            try {
-                val db = FirebaseFirestore.getInstance()
-                val query = db.collection("channel")
-                    .whereEqualTo("name", channelName)
-                    .get()
-                    .await()
-
-                if (query.isEmpty) null else query.documents[0].toObject(Channel::class.java)
-            } catch (e: Exception) {
-                Log.e("Firestore", "채널 가져오기 실패: ${e.message}")
-                null
-            }
-        }
-    }
-
-    // 🔹 레시피 목록을 Firestore에서 불러오기
-    private fun loadRecipes() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val db = FirebaseFirestore.getInstance()
-            try {
-                val querySnapshot = db.collection("recipe")
-                    .whereEqualTo("contained_channel", channelitem.name)
-                    .get()
-                    .await()
-
-                val recipes = querySnapshot.documents.mapNotNull { doc ->
-                    val recipe = doc.toObject(RecipeItem::class.java)
-                    recipe?.id = doc.id // 🔹 Firestore 문서 ID를 RecipeItem 객체에 설정
-                    recipe
-                }
-
-                withContext(Dispatchers.Main) {
-                    // 🔹 레시피 목록 업데이트
-                    recipeList.clear()
-                    recipeList.addAll(recipes)
-                    recipeAdapter.notifyDataSetChanged()
-                }
-            } catch (e: Exception) {
-                Log.e("Firestore", "레시피 불러오기 실패: ${e.message}")
-            }
-        }
-    }
 }
