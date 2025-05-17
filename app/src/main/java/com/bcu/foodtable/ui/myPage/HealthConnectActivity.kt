@@ -21,6 +21,7 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.lifecycle.lifecycleScope
 import com.bcu.foodtable.R
+import com.bcu.foodtable.Setting
 import com.bcu.foodtable.ui.myPage.FoodItem
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -56,8 +57,8 @@ class HealthConnectActivity : AppCompatActivity() {
 
         txtResult = findViewById(R.id.txtStepResult)
         customStepView = findViewById(R.id.stepProgressView)
-        val btnPermission = findViewById<Button>(R.id.btnRequestPermission)
-        val btnReadSteps = findViewById<Button>(R.id.btnReadSteps)
+        // val btnPermission = findViewById<Button>(R.id.btnRequestPermission)
+        // val btnReadSteps = findViewById<Button>(R.id.btnReadSteps)
         btnRewardBox = findViewById(R.id.btnRewardBox)
 
         btnRewardBox.setOnClickListener {
@@ -71,24 +72,29 @@ class HealthConnectActivity : AppCompatActivity() {
 
         healthConnectClient = HealthConnectClient.getOrCreate(this)
 
-        btnPermission.setOnClickListener {
-            lifecycleScope.launch {
-                val granted = healthConnectClient.permissionController.getGrantedPermissions()
-                val needed = permissions - granted
-                if (needed.isNotEmpty()) {
-                    registerForActivityResult(PermissionController.createRequestPermissionResultContract()) {}.launch(needed)
-                } else {
-                    loadHealthData()
-                }
-            }
-        }
 
-        btnReadSteps.setOnClickListener {
-            loadHealthData()
-        }
+
 
         loadHealthData()
     }
+    override fun onResume() {
+        super.onResume()
+
+        lifecycleScope.launch {
+            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            val needed = permissions - granted
+
+            if (needed.isEmpty()) {
+                loadHealthData() //  권한 있으면 바로 로드
+            } else {
+                //  권한 없으면 설정(Setting) 액티비티로 이동
+                Toast.makeText(this@HealthConnectActivity, "권한이 없어 설정 화면으로 이동합니다", Toast.LENGTH_SHORT).show()
+                startActivity(Intent(this@HealthConnectActivity, Setting::class.java))
+                finish()
+            }
+        }
+    }
+
     // 헬스 데이터 로드
     private fun loadHealthData() {
         lifecycleScope.launch {
@@ -130,6 +136,16 @@ class HealthConnectActivity : AppCompatActivity() {
                 Log.e("HealthConnect", "불러오기 실패", e)
                 Toast.makeText(this@HealthConnectActivity, "데이터 로딩 실패", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+    //ui 셋업
+    private fun setupUI() {
+        txtResult = findViewById(R.id.txtStepResult)
+        customStepView = findViewById(R.id.stepProgressView)
+        btnRewardBox = findViewById(R.id.btnRewardBox)
+
+        btnRewardBox.setOnClickListener {
+            claimReward()
         }
     }
     // 리워드 횟수 체크해주는거?
