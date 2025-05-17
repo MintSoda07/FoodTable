@@ -90,6 +90,13 @@ class SubscribeFragment : Fragment() {
 
         return root
     }
+    override fun onResume() {
+        super.onResume()
+        // 자동 새로고침
+        viewModel.fetchSubscribedChannels()
+        viewModel.fetchMyChannels()
+        viewModel.fetchRecommendedChannels()
+    }
 
     override fun onDestroyView() {
         super.onDestroyView()

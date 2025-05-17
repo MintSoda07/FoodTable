@@ -248,7 +248,7 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
                     )
                 }
         }
-        //initLikeStatus()
+        initLikeStatus()
 
 
         // 댓글 불러오기
@@ -673,11 +673,6 @@ class RecipeViewActivity : AppCompatActivity(), TextToSpeech.OnInitListener, Tex
                 }
             }
         }
-
-
-
-
-
 
     }
 
