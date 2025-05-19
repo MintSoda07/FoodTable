@@ -19,6 +19,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # ✅ Secret에서 google-services.json 복원
+      - name: Decode google-services.json from Secret
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > app/google-services.json
+
       - name: Grant execute permission to gradlew
         run: chmod +x ./gradlew
 
