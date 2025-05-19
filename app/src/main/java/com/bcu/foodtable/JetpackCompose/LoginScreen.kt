@@ -1,3 +1,4 @@
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -9,142 +10,172 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bcu.foodtable.R
 
 @Composable
 fun LoginScreen(
-    idInput: String,
-    onIdChange: (String) -> Unit,
-    pwdInput: String,
-    onPwdChange: (String) -> Unit,
+    email: String,
+    password: String,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
     warningText: String,
     onLoginClick: () -> Unit,
     onSignUpClick: () -> Unit
 ) {
-    Column(
+    val primaryColor = Color(0xFFE76F51)
+    val overlayColor = Color(0xF2FFFFFF) // 반투명 흰색 배경
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 40.dp), // 상단 여백만 살짝
-        verticalArrangement = Arrangement.Top,             // 위쪽 정렬
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFFFF1E6), // 크림톤
+                        Color(0xFFFDE8D4)  // 오렌지 빛 살짝
+                    )
+                )
+            )
     ) {
-        // 상단 로고 + 타이틀
-        Row(
-            modifier = Modifier.padding(top = 60.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.dish_icon),
-                contentDescription = null,
-                modifier = Modifier.size(100.dp),
-                colorFilter = ColorFilter.tint(Color(0xFFC62828))
-            )
-            Text(
-                text = stringResource(id = R.string.app_name),
-                fontSize = 60.sp,
-                color = Color(0xFFC62828),
-                fontFamily = FontFamily(Font(R.font.dimibang)),
-                modifier = Modifier
-                    .padding(start = 10.dp)
-
-            )
-        }
-        Spacer(modifier = Modifier.height(100.dp))
-
-        // 입력 영역
-        Column(
+        // 반투명 Surface 로그인 카드
+        Surface(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
+                .align(Alignment.Center),
+            shape = RoundedCornerShape(24.dp),
+            color = overlayColor,
+            tonalElevation = 8.dp,
+            shadowElevation = 16.dp
         ) {
-            if (warningText.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .padding(28.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 앱 로고
+                Image(
+                    painter = painterResource(id = R.drawable.dish_icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    colorFilter = ColorFilter.tint(primaryColor)
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // 앱 이름
                 Text(
-                    text = warningText,
-                    color = Color(0xFFC62828),
-                    fontSize = 14.sp,
+                    text = stringResource(id = R.string.app_name),
+                    fontSize = 30.sp,
+                    color = primaryColor
+                )
+
+                // 서브 타이틀
+                Text(
+                    text = "따뜻한 한끼, 함께 나눠요",
+                    fontSize = 13.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+
+                // 경고 메시지
+                AnimatedVisibility(visible = warningText.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = warningText,
+                            color = Color.Red,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+
+                // 이메일 입력
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = onEmailChange,
+                    label = { Text("이메일") },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_person_24),
+                            contentDescription = null
+                        )
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp)
+                        .padding(bottom = 12.dp)
                 )
-            }
 
-            OutlinedTextField(
-                value = idInput,
-                onValueChange = onIdChange,
-                label = { Text(text = stringResource(id = R.string.login_id)) },
-                placeholder = { Text("아이디를 입력하세요") },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(id = R.drawable.baseline_person_24),
-                        contentDescription = null
+                // 비밀번호 입력
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    label = { Text("비밀번호") },
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_lock_24),
+                            contentDescription = null
+                        )
+                    },
+                    shape = RoundedCornerShape(14.dp),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp)
+                )
+
+                // 로그인 버튼
+                Button(
+                    onClick = onLoginClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = primaryColor,
+                        contentColor = Color.White
                     )
-                },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
-            )
+                ) {
+                    Text("로그인", fontSize = 16.sp)
+                }
 
-            OutlinedTextField(
-                value = pwdInput,
-                onValueChange = onPwdChange,
-                label = { Text(text = stringResource(id = R.string.login_password)) },
-                placeholder = { Text("비밀번호를 입력하세요") },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(id = R.drawable.baseline_lock_24),
-                        contentDescription = null
+                // 회원가입 버튼
+                TextButton(onClick = onSignUpClick) {
+                    Text(
+                        text = "아직 계정이 없으신가요? 회원가입",
+                        color = primaryColor,
+                        fontSize = 14.sp
                     )
-                },
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onLoginClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(25.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFC62828),
-                    contentColor = Color.White
-                )
-            ) {
-                Text(text = stringResource(id = R.string.login_button), fontSize = 18.sp)
-            }
-
-            TextButton(
-                onClick = onSignUpClick,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 12.dp)
-            ) {
-                Text(
-                    text = stringResource(id = R.string.signup),
-                    fontSize = 16.sp,
-                    color = Color(0xFFC62828)
-                )
+                }
             }
         }
-
-
-
     }
 }

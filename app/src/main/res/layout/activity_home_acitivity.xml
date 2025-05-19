@@ -2,8 +2,6 @@
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-
-
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -26,16 +24,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 app:defaultNavHost="true"
-                app:layout_constraintBottom_toTopOf="@id/nav_view"
-                app:layout_constraintLeft_toLeftOf="parent"
-                app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/appbar"
                 app:navGraph="@navigation/mobile_navigation" />
         </ScrollView>
 
         <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/appbar"
-
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:background="#B71C1C"
@@ -51,12 +44,7 @@
                 android:focusable="auto"
                 android:iconifiedByDefault="false"
                 android:queryBackground="@drawable/round_search_shape"
-                android:queryHint="@string/search_hint"
-                tools:layout_editor_absoluteX="10dp"
-                tools:layout_editor_absoluteY="60dp">
-
-            </SearchView>
-
+                android:queryHint="@string/search_hint" />
         </com.google.android.material.appbar.AppBarLayout>
 
         <LinearLayout
@@ -78,9 +66,7 @@
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
-                android:background="#B71C1C">
-
-            </FrameLayout>
+                android:background="#B71C1C" />
 
             <com.google.android.flexbox.FlexboxLayout
                 android:id="@+id/tagContainer"
@@ -88,45 +74,36 @@
                 android:layout_height="wrap_content"
                 android:padding="4dp"
                 app:flexWrap="wrap"
-                app:justifyContent="flex_start"/>
+                app:justifyContent="flex_start" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/RecyclerViewCategoryBig"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp">
-
-            </androidx.recyclerview.widget.RecyclerView>
+                android:layout_height="40dp" />
 
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
-                android:background="#B71C1C">
-
-            </FrameLayout>
+                android:background="#B71C1C" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/RecyclerViewCategoryMed"
                 android:layout_width="wrap_content"
-                android:layout_height="75dp">
-
-            </androidx.recyclerview.widget.RecyclerView>
+                android:layout_height="75dp" />
 
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:layout_marginTop="2dp"
                 android:layout_marginBottom="2dp"
-                android:background="#B71C1C">
-
-            </FrameLayout>
+                android:background="#B71C1C" />
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/RecyclerViewCategorySmall"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp" />
-
         </LinearLayout>
 
         <LinearLayout
@@ -150,7 +127,7 @@
                 android:backgroundTintMode="src_over"
                 android:clipToOutline="true"
                 android:scaleType="centerCrop"
-                tools:src="@tools:sample/avatars"/>
+                tools:src="@tools:sample/avatars" />
 
             <TextView
                 android:id="@+id/placeholder_name"
@@ -197,5 +174,14 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-
+    <!-- ✅ FAB 챌린지 버튼 추가 위치 (CoordinatorLayout 안, ConstraintLayout 밖) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_challenge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center|bottom"
+        android:layout_marginBottom="80dp"
+        android:src="@drawable/baseline_emoji_events_24"
+        android:contentDescription="챌린지"
+        app:backgroundTint="@color/primary" />
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
