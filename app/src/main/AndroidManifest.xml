@@ -93,6 +93,7 @@
         android:maxSdkVersion="29" />
 
     <application
+        android:name="com.bcu.foodtable.JetpackCompose.Mypage.FoodTableApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -103,7 +104,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FoodTable"
         tools:ignore="DiscouragedApi"
-        tools:targetApi="35">
+        tools:targetApi="35"
+        >
+        <activity android:name="com.bcu.foodtable.JetpackCompose.AI.AiMainActivity" />
         <activity
             android:name=".PurchaseConfirmActivity"
             android:exported="false" />
@@ -150,8 +153,9 @@
             android:name=".SearchResultActivity"
             android:exported="false"/>
         <activity
-            android:name=".ui.health.HealthConnectActivity"
-            android:exported="false"/>
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity"
+            android:exported="false" />
+
         <activity
             android:name=".HomeAcitivity"
             android:exported="false"
@@ -177,13 +181,27 @@
         <activity-alias
             android:name=".AndroidURationaleActivity"
             android:exported="true"
-            android:targetActivity=".ui.health.HealthConnectActivity"
+            android:targetActivity="com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+        <activity
+            android:name=".ui.ChallengeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+        <activity
+            android:name=".ui.ChallengeDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+        <activity
+            android:name=".ui.ChallengeHistoryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
     </application>
+
 
 </manifest>
