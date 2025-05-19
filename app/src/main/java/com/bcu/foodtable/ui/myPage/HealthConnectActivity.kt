@@ -139,15 +139,15 @@ class HealthConnectActivity : AppCompatActivity() {
         }
     }
     //ui 셋업
-    private fun setupUI() {
-        txtResult = findViewById(R.id.txtStepResult)
-        customStepView = findViewById(R.id.stepProgressView)
-        btnRewardBox = findViewById(R.id.btnRewardBox)
-
-        btnRewardBox.setOnClickListener {
-            claimReward()
-        }
-    }
+//    private fun setupUI() {
+//        txtResult = findViewById(R.id.txtStepResult)
+//        customStepView = findViewById(R.id.stepProgressView)
+//        btnRewardBox = findViewById(R.id.btnRewardBox)
+//
+//        btnRewardBox.setOnClickListener {
+//            claimReward()
+//        }
+//    }
     // 리워드 횟수 체크해주는거?
     private fun rewardUserIfNeeded(currentSteps: Long) {
         val user = auth.currentUser ?: return
@@ -243,13 +243,13 @@ class HealthConnectActivity : AppCompatActivity() {
             .show()
     }
     // 헬스 커넥트 세팅 오픈
-    private fun openHealthConnectSettings() {
-        try {
-            startActivity(Intent("android.health.connect.action.HEALTH_CONNECT_SETTINGS"))
-        } catch (e: Exception) {
-            Toast.makeText(this, "설정 화면을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
-        }
-    }
+//    private fun openHealthConnectSettings() {
+//        try {
+//            startActivity(Intent("android.health.connect.action.HEALTH_CONNECT_SETTINGS"))
+//        } catch (e: Exception) {
+//            Toast.makeText(this, "설정 화면을 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+//        }
+//    }
 
     // 헬스 커넥터 다운 확인
     private fun isHealthConnectInstalled(): Boolean {
