@@ -22,7 +22,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.google.firebase.storage.FirebaseStorage
-
+import com.bcu.foodtable.ui.myPage.myFridge.FridgeActivity
 
 class MyPage : Fragment() {
 
@@ -84,6 +84,10 @@ class MyPage : Fragment() {
                 context,
                 PuchasePage::class.java
             )
+        }
+        binding.ProfileMyFridgeBtn.setOnClickListener {
+            val intent = Intent(requireContext(), FridgeActivity::class.java)
+            startActivity(intent)
         }
         // 헬스 커넥트 액티비티 연결
         binding.ProfileStepButton.setOnClickListener {

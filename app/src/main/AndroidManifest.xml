@@ -157,6 +157,9 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.myPage.myFridge.FridgeActivity"
+            android:exported="false"/>
+        <activity
             android:name=".HomeAcitivity"
             android:exported="false"
             android:label="@string/title_activity_home_acitivity" />

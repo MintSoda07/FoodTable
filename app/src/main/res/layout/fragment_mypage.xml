@@ -48,15 +48,37 @@
                         android:orientation="vertical">
 
                         <!-- 걸음 수 확인 버튼 -->
-                        <Button
-                            android:id="@+id/ProfileStepButton"
-                            android:layout_width="wrap_content"
+                        <androidx.constraintlayout.widget.ConstraintLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/round_login_button"
-                            android:text="건강 확인"
-                            android:textColor="#FFFFFF"
-                            android:textSize="16sp"
-                            android:layout_marginStart="1dp" />
+                            android:layout_marginTop="0dp"
+                            android:layout_marginBottom="7dp"
+                            android:paddingHorizontal="5dp">
+
+                            <!-- 건강 확인 버튼 (왼쪽 정렬) -->
+                            <Button
+                                android:id="@+id/ProfileStepButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/round_login_button"
+                                android:text="건강 확인"
+                                android:textColor="#FFFFFF"
+                                android:textSize="16sp"
+                                app:layout_constraintStart_toStartOf="parent"
+                                app:layout_constraintTop_toTopOf="parent" />
+
+                            <!-- 나만의 냉장고 버튼 (오른쪽 정렬) -->
+                            <Button
+                                android:id="@+id/ProfileMyFridgeBtn"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:background="@drawable/round_login_button"
+                                android:text="나만의 냉장고"
+                                android:textColor="#FFFFFF"
+                                android:textSize="16sp"
+                                app:layout_constraintEnd_toEndOf="parent"
+                                app:layout_constraintTop_toTopOf="parent" />
+                        </androidx.constraintlayout.widget.ConstraintLayout>
 
                         <TextView
                             android:id="@+id/ProfileMyName"
