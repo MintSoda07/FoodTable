@@ -2,13 +2,14 @@ package com.bcu.foodtable.JetpackCompose.Channel
 
 
 
+import RecipeItem
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import com.bcu.foodtable.useful.FireStoreHelper
-import com.bcu.foodtable.useful.RecipeItem
+
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch

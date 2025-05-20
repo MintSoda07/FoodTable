@@ -18,10 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.bcu.foodtable.useful.Channel
+import com.bcu.foodtable.useful.SubscribeItem
 
 @Composable
 fun ChannelCard(
-    item: Channel,
+    item: SubscribeItem,
     onClick: () -> Unit
 ) {
     Column(

@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -49,7 +49,7 @@ fun ChannelRowList(
 ) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         items(channelList) { item ->  // LazyListScope.items() 함수 호출
-            ChannelCard(item = item) {
+            ChannelCard(item = channel) {
                 navController.navigate("channel/${item.name}/$userId")
             }
         }

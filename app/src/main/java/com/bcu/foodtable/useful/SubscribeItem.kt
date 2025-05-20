@@ -5,5 +5,7 @@ import com.google.firebase.Timestamp
 data class SubscribeItem(
     val userId:String="",
     val channel:String="",
-    val date:Timestamp = Timestamp.now()
+    val date:Timestamp = Timestamp.now(),
+    val imageResId: String = "",
+    val name: String
 )

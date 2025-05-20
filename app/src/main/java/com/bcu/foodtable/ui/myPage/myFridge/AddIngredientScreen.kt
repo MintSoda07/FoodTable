@@ -14,6 +14,7 @@ import com.bcu.foodtable.ui.myPage.myFridge.Ingredient
 import com.bcu.foodtable.ui.myPage.myFridge.FridgeViewModel
 import java.time.LocalDate
 import androidx.compose.ui.text.input.KeyboardType
+import java.util.UUID
 
 @Composable
 fun AddIngredientScreen(
@@ -76,12 +77,18 @@ fun AddIngredientScreen(
 
         Button(
             onClick = {
-                if (name.isNotBlank() && quantity.isNotBlank() && expireDate.isNotBlank()) {
-                    val item = Ingredient(name, quantity.toInt(), expireDate, section = section)
+                val quantityInt = quantity.toIntOrNull()
+                if (name.isNotBlank() && quantityInt != null && quantityInt > 0 && expireDate.isNotBlank()) {
+                    val item = Ingredient(
+                        id = UUID.randomUUID().toString(),
+                        name = name,
+                        quantity = quantity.toInt(),
+                        expireDate = expireDate,
+                        section = section
+                    )
                     viewModel.addIngredient(item, section) {
                         navController.popBackStack()
                     }
-
                 }
             },
             modifier = Modifier.align(Alignment.End)

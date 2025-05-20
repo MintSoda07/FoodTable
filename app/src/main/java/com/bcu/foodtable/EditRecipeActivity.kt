@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.subscribeNavMenu
 
+import RecipeItem
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -12,7 +13,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.IngredientAdapter
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.*
-import com.bcu.foodtable.useful.RecipeItem
 import com.bumptech.glide.Glide
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -27,25 +28,82 @@ import kotlinx.coroutines.launch
 fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     val allIngredients = viewModel.ingredientList
 
-    val fridgeSections = listOf("냉장", "냉동", "문칸")
+
     var selectedTabIndex by remember { mutableStateOf(0) }
 
-    val fridgeMap = remember { fridgeSections.associateWith { mutableStateListOf<Ingredient>() }.toMutableMap() }
-    val outsideFridge = remember { mutableStateListOf<Ingredient>() }
 
     val scope = rememberCoroutineScope()
     val showDialog = remember { mutableStateOf<Ingredient?>(null) }
-
-
+    val fridgeSections = listOf("냉장", "냉동", "문칸")
+    val fridgeMap = remember { fridgeSections.associateWith { mutableStateListOf<Ingredient>() }.toMutableMap() }
+    val outsideFridge = remember { mutableStateListOf<Ingredient>() }
+    LaunchedEffect(Unit) {
+        viewModel.loadIngredients() //  단 한 번만 호출됨
+    }
     // 초기 분류 (한 번만 실행)
     LaunchedEffect(allIngredients) {
         fridgeSections.forEach { fridgeMap[it]?.clear() }
-        outsideFridge.clear()
-        allIngredients.forEachIndexed { i, ingredient ->
-            val section = fridgeSections[i % fridgeSections.size] // 예시: 순서대로 분배
-            fridgeMap[section]?.add(ingredient)
+
+        outsideFridge.clear() // ← 초기화 안 하면 duplication 발생 가능
+
+        allIngredients.forEach { ingredient ->
+            val alreadyInFridge = fridgeMap[ingredient.section]?.any { it.id == ingredient.id } ?: false
+            val alreadyOutside = outsideFridge.any { it.id == ingredient.id }
+
+            if (!alreadyInFridge && !alreadyOutside) {
+                fridgeMap[ingredient.section]?.add(ingredient)
+            }
         }
     }
+
+
+    fun moveIngredientToOutside(
+        ingredient: Ingredient,
+        fromSection: String,
+        fridgeMap: MutableMap<String, SnapshotStateList<Ingredient>>,
+        outsideFridge: SnapshotStateList<Ingredient>
+    ) {
+        println(" [OUT] 시도: ${ingredient.name} / $fromSection")
+
+        val removed = fridgeMap[fromSection]?.removeIf { it.id == ingredient.id } == true
+        val existsOutside = outsideFridge.any { it.id == ingredient.id }
+
+        println(" [OUT] removed: $removed / already exists outside: $existsOutside")
+
+        if (removed) {
+            // 중복 제거 후 추가 (안전하게)
+            outsideFridge.removeAll { it.id == ingredient.id }
+            outsideFridge.add(ingredient)
+            println(" [OUT] 이동 완료: ${ingredient.name}")
+        }
+    }
+
+
+    fun moveIngredientToFridge(
+        ingredient: Ingredient,
+        toSection: String,
+        fridgeMap: MutableMap<String, SnapshotStateList<Ingredient>>,
+        outsideFridge: SnapshotStateList<Ingredient>
+    ) {
+        println("⬅ [IN] 시도: ${ingredient.name} / $toSection")
+
+        val removed = outsideFridge.removeIf { it.id == ingredient.id }
+        val exists = fridgeMap[toSection]?.any { it.id == ingredient.id } == true
+
+        println("⬅ [IN] removed: $removed / already exists in section: $exists")
+
+        if (removed && !exists) {
+            val updated = ingredient.copy(section = toSection)
+            fridgeMap[toSection]?.add(updated)
+
+            // // 파이어베이스 반영
+            viewModel.updateIngredientSection(ingredient.id, toSection)
+
+            println(" [IN] 이동 완료: ${ingredient.name}")
+        }
+    }
+
+
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
 
@@ -68,18 +126,26 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
 
             LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.weight(1f)) {
-                items(fridgeMap[fridgeSections[selectedTabIndex]] ?: emptyList()) { ingredient ->
+                items(fridgeMap[fridgeSections[selectedTabIndex]] ?: emptyList(), key = {it.id} ){ ingredient ->
                     IngredientCard(
                         ingredient = ingredient,
                         onClick = {
-                            fridgeMap[fridgeSections[selectedTabIndex]]?.remove(ingredient)
-                            outsideFridge.add(ingredient)
+                            moveIngredientToOutside(
+                                ingredient,
+                                fromSection = fridgeSections[selectedTabIndex],
+                                fridgeMap = fridgeMap,
+                                outsideFridge = outsideFridge
+                            )
                         },
                         onLongClick = { showDialog.value = ingredient },
                         draggable = true,
                         onDragEnd = {
-                            fridgeMap[fridgeSections[selectedTabIndex]]?.remove(ingredient)
-                            outsideFridge.add(ingredient)
+                            moveIngredientToOutside(
+                                ingredient,
+                                fromSection = fridgeSections[selectedTabIndex],
+                                fridgeMap = fridgeMap,
+                                outsideFridge = outsideFridge
+                            )
                         }
                     )
                 }
@@ -91,6 +157,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
             Row(modifier = Modifier.fillMaxWidth().height(100.dp).padding(top = 8.dp)) {
                 outsideFridge.forEach { ingredient ->
+                    key(ingredient.id) {
                     var offset by remember { mutableStateOf(Offset.Zero) }
 
                     Box(
@@ -106,8 +173,12 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                     },
                                     onDragEnd = {
                                         if (offset.y < fridgeDropThreshold) {
-                                            outsideFridge.remove(ingredient)
-                                            fridgeMap[fridgeSections[selectedTabIndex]]?.add(ingredient)
+                                            moveIngredientToFridge(
+                                                ingredient,
+                                                toSection = fridgeSections[selectedTabIndex],
+                                                fridgeMap = fridgeMap,
+                                                outsideFridge = outsideFridge
+                                            )
                                         }
                                         offset = Offset.Zero
                                     }
@@ -117,6 +188,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(ingredient.name)
+                    }
                     }
                 }
 
