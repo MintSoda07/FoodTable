@@ -1,9 +1,6 @@
-package com.bcu.foodtable.useful
-
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.PropertyName
 
-// 레시피의 정보를 저장하기 위한 data class.
 data class RecipeItem(
     @PropertyName("name")
     val name: String = "",
@@ -12,7 +9,7 @@ data class RecipeItem(
     val description: String = "",
 
     @PropertyName("imageResId")
-    val imageResId: String = "", // Firestore에서 이미지 URL을 불러옴
+    val imageResId: String = "",
 
     @PropertyName("clicked")
     val clicked: Int = 0,
@@ -42,5 +39,8 @@ data class RecipeItem(
     val contained_channel: String = "",
 
     @PropertyName("estimatedCalories")
-    var estimatedCalories: String? = null
+    var estimatedCalories: String? = null,
+
+    @PropertyName("likes")
+    var likes: Int = 0
 )

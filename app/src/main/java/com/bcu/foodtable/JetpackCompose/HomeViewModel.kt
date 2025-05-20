@@ -1,9 +1,10 @@
 package com.bcu.foodtable.JetpackCompose
 
+import RecipeItem
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bcu.foodtable.useful.RecipeItem
+
 import com.bcu.foodtable.useful.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore

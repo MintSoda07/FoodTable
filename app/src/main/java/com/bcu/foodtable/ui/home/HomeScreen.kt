@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.home
 
+import RecipeItem
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -30,9 +31,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
 import com.bcu.foodtable.R
-import com.bcu.foodtable.ui.ChallengeActivity
-import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.User
+import com.bcu.foodtable.ui.ChallengeActivity
+
 import com.bcu.foodtable.JetpackCompose.HomeViewModel  // ✅ 수정된 ViewModel import 경로
 import com.bcu.foodtable.JetpackCompose.HomeTopSection
 import com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity
@@ -114,7 +115,11 @@ fun HomeScreen(
                 context = context
             )
 
-            1 -> Text("Subscribe Screen")
+            1 -> {
+                LaunchedEffect(Unit) {
+                    context.startActivity(Intent(context, SubscribeActivity::class.java))
+                }
+            }
             2 -> {
                 LaunchedEffect(Unit) {
                     context.startActivity(Intent(context, AiMainActivity::class.java))
