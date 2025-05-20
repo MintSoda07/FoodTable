@@ -1,6 +1,6 @@
 package com.bcu.foodtable.ui.home
 
-import RecipeItem
+import com.bcu.foodtable.useful.RecipeItem
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
@@ -117,7 +117,7 @@ fun HomeScreen(
 
             1 -> {
                 LaunchedEffect(Unit) {
-                    context.startActivity(Intent(context, SubscribeActivity::class.java))
+                    //context.startActivity(Intent(context, SubscribeActivity::class.java))
                 }
             }
             2 -> {

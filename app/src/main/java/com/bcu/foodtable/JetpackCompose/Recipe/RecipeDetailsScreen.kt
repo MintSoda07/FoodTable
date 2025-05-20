@@ -1,6 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Recipe
 
-import RecipeItem
+import com.bcu.foodtable.useful.RecipeItem
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize

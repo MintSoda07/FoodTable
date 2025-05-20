@@ -1,3 +1,5 @@
+package com.bcu.foodtable.useful
+
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.PropertyName
 

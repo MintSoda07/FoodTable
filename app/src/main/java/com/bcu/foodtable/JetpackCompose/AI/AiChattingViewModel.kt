@@ -1,5 +1,5 @@
 package com.bcu.foodtable.JetpackCompose.AI
-import com.bcu.foodtable.useful.FirebaseHelper
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.AI.OpenAIClient
@@ -15,11 +15,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import androidx.lifecycle.viewModelScope
 
 @HiltViewModel
 class AiChattingViewModel @Inject constructor(
-    private val apiClient: OpenAIClient
+    private val apiClient: OpenAIClient,
+    private val db: FirebaseFirestore   // 🔥 주입된 Firestore 인스턴스
 ) : ViewModel() {
 
     data class UiState(
@@ -33,7 +33,7 @@ class AiChattingViewModel @Inject constructor(
     val uiState: StateFlow<UiState> = _uiState
 
     private val user = UserManager.getUser()
-    private val chatCollection = FirebaseFirestore.getInstance().collection("Ai_chat_Session")
+    private val chatCollection = db.collection("Ai_chat_Session")
     private val aiUseCost = 25
 
     init {
@@ -99,9 +99,8 @@ class AiChattingViewModel @Inject constructor(
                     val newPoint = (currentUser.point - aiUseCost).coerceAtLeast(0)
                     currentUser.point = newPoint
 
-
                     viewModelScope.launch {
-                        updateFieldById("user", user.uid, "point", 123)
+                        updateFieldById("user", user.uid, "point", newPoint)
                     }
 
                     _uiState.update {

@@ -3,7 +3,7 @@ package com.bcu.foodtable.JetpackCompose.Recipe
 // PdfUtils.kt
 
 
-import RecipeItem
+import com.bcu.foodtable.useful.RecipeItem
 
 
 fun generateHtmlForPdf(recipe: RecipeItem): String {

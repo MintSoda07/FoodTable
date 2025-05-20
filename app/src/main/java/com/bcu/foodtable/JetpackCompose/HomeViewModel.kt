@@ -1,6 +1,6 @@
 package com.bcu.foodtable.JetpackCompose
 
-import RecipeItem
+import com.bcu.foodtable.useful.RecipeItem
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
