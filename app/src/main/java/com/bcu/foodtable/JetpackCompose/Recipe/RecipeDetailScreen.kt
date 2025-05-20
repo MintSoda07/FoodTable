@@ -53,14 +53,14 @@ fun RecipeDetailScreen(
             onClick = onLikeClicked
         )
 
-        CommentSection(
-            comments = comments,
-            onSubmit = onCommentSubmit
-        )
-
-        VoiceControlSection(
-            onCommand = onVoiceCommand
-        )
+//        CommentSection(
+//            comments = comments,
+//            onSubmit = onCommentSubmit
+//        )
+//
+//        VoiceControlSection(
+//            onCommand = onVoiceCommand
+//        )
 
         if (isOwner) {
             OwnerActions(
@@ -68,9 +68,9 @@ fun RecipeDetailScreen(
                 onDelete = onDeleteClicked
             )
         }
-
-        RecipePdfButton(
-            onClick = onDownloadPdf
-        )
+//
+//        RecipePdfButton(
+//            onClick = onDownloadPdf
+//        )
     }
 }

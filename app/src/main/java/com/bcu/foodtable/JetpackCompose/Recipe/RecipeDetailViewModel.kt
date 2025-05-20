@@ -1,6 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Recipe
 
-import RecipeItem
+import com.bcu.foodtable.useful.RecipeItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState

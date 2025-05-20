@@ -7,20 +7,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bcu.foodtable.useful.SubscribeItem
 import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.ui.subscribeNavMenu.SubscribeViewModel
+import com.bcu.foodtable.useful.Channel
 
 @Composable
 fun SubscribeScreen(
-    subscribed: List<SubscribeItem>,
-    myChannels: List<SubscribeItem>,
-    recommended: List<SubscribeItem>,
+    subscribed: List<Channel>,
+    myChannels: List<Channel>,
+    recommended: List<Channel>,
     navController: NavController,
     userId: String,
 ) {
@@ -43,7 +42,7 @@ fun SubscribeScreen(
 
 @Composable
 fun ChannelRowList(
-    channelList: List<SubscribeItem>,  // 변수명 변경
+    channelList: List<Channel>,  // 변수명 변경
     navController: NavController,
     userId: String
 ) {
