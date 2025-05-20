@@ -28,8 +28,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
+import com.bcu.foodtable.JetpackCompose.Channel.SubscribeScreen
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.ui.ChallengeActivity
@@ -48,7 +50,8 @@ import kotlinx.coroutines.delay
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    navController: NavHostController
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -116,10 +119,9 @@ fun HomeScreen(
             )
 
             1 -> {
-                LaunchedEffect(Unit) {
-                    //context.startActivity(Intent(context, SubscribeActivity::class.java))
-                }
+                SubscribeScreen(navController = navController)
             }
+
             2 -> {
                 LaunchedEffect(Unit) {
                     context.startActivity(Intent(context, AiMainActivity::class.java))
