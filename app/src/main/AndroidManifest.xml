@@ -155,11 +155,11 @@
         <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity"
             android:exported="false"/>
         <activity
-            android:name="com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity"
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
             android:exported="false" />
 
         <activity
-            android:name=".ui.myPage.myFridge.FridgeActivity"
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity"
             android:exported="false"/>
         <activity
             android:name=".HomeAcitivity"
@@ -188,7 +188,7 @@
         <activity-alias
             android:name=".AndroidURationaleActivity"
             android:exported="true"
-            android:targetActivity="com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity"
+            android:targetActivity="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />

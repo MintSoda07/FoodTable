@@ -1,4 +1,4 @@
-package com.bcu.foodtable.ui.myPage.myFridge
+package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,10 +52,15 @@ class FridgeViewModel : ViewModel() {
     // 재료 이동
     fun updateIngredientSection(id: String, newSection: String) {
         val docRef = db.collection("user").document(uid).collection("fridge")
-        docRef.whereEqualTo("id", id).get().addOnSuccessListener { snapshot ->
-            snapshot.documents.firstOrNull()?.reference?.update("section", newSection)
+            .whereEqualTo("id", id)
+
+        docRef.get().addOnSuccessListener { documents ->
+            for (doc in documents) {
+                doc.reference.update("section", newSection)
+            }
         }
     }
+
     // 레시피 찾기 예시
     fun findRecipesByIngredient(name: String): List<String> {
         // TODO: 여기는 추후 Firestore에서 레시피 ingredients 검색으로 바꿀 수 있음

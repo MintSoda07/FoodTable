@@ -1,4 +1,4 @@
-package com.bcu.foodtable.ui.myPage.myFridge.theme
+package com.bcu.foodtable.JetpackCompose.Mypage.myFridge.theme
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable

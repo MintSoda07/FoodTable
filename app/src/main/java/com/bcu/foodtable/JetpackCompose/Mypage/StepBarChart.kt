@@ -12,7 +12,7 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
-import com.bcu.foodtable.JetpackCompose.Mypage.StepData
+import com.bcu.foodtable.JetpackCompose.Mypage.Health.StepData
 import com.bcu.foodtable.R
 
 @Composable

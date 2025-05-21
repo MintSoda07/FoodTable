@@ -1,6 +1,5 @@
 package com.bcu.foodtable.ui.myPage
 
-import com.bcu.foodtable.ui.myPage.ChannelCreationActivity
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -8,8 +7,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.bcu.foodtable.PuchasePage
@@ -22,7 +19,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import com.google.firebase.storage.FirebaseStorage
-import com.bcu.foodtable.ui.myPage.myFridge.FridgeActivity
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity
 
 class MyPage : Fragment() {
 

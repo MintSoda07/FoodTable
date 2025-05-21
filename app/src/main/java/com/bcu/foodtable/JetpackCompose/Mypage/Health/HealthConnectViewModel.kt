@@ -1,7 +1,6 @@
-package com.bcu.foodtable.JetpackCompose.Mypage
+package com.bcu.foodtable.JetpackCompose.Mypage.Health
 
-import android.content.Context
-import android.widget.Toast
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.health.connect.client.HealthConnectClient
@@ -14,7 +13,9 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.myPage.FoodItem
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -34,6 +35,7 @@ class HealthConnectViewModel : ViewModel() {
         val foodItem: FoodItem? = null
     )
 
+
     private val stepGoals = listOf(5000, 10000, 15000, 20000)
     private val caloriesPerStep = 0.04
     private val auth = FirebaseAuth.getInstance()
@@ -41,16 +43,24 @@ class HealthConnectViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(HealthUiState())
     val uiState: StateFlow<HealthUiState> = _uiState
-
+    private var healthClient: HealthConnectClient? = null
     private val _stepDataList = MutableStateFlow<List<StepData>>(emptyList())
     val stepDataList: StateFlow<List<StepData>> = _stepDataList
-
-    fun getRequiredPermissions(): Set<String> = setOf(
-        HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class)
-    )
-
+    // 헬스 커넥터 권한 가져오기
+    fun getRequiredPermissions(): Set<String> {
+        return setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
+            HealthPermission.getReadPermission(HeartRateRecord::class)
+        )
+    }
+    // 클라이언트 설정
+    fun setHealthClient(client: HealthConnectClient) {
+        healthClient = client
+    }
+    // 클라이언트 가져오기
+    fun getHealthClient(): HealthConnectClient? = healthClient
+    // 헬스 데이터 로드
     fun loadHealthData(client: HealthConnectClient) {
         viewModelScope.launch {
             try {
@@ -58,10 +68,10 @@ class HealthConnectViewModel : ViewModel() {
                 val startOfDay = LocalDateTime.of(now.toLocalDate(), LocalTime.MIDNIGHT)
                 val startTime = startOfDay.atZone(ZoneId.systemDefault()).toInstant()
                 val endTime = now.atZone(ZoneId.systemDefault()).toInstant()
-
-                val steps = client.readRecords(
-                    ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startTime, endTime))
-                ).records.sumOf { it.count }
+                val steps = 25000L
+//                val steps = client.readRecords(
+//                    ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startTime, endTime))
+//                ).records.sumOf { it.count }
 
                 val totalCalories = client.readRecords(
                     ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(startTime, endTime))
@@ -128,7 +138,7 @@ class HealthConnectViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(rewardCount = updatedCount)
         }
     }
-
+    // 칼로리별 음식 가져오기
     private fun getFoodByCalories(calories: Int): FoodItem {
         return when (calories) {
             in 0..30 -> FoodItem("블랙커피", R.drawable.black_coffee)
@@ -146,11 +156,60 @@ class HealthConnectViewModel : ViewModel() {
             else -> FoodItem("국밥", R.drawable.rice_soup)
         }
     }
-
+    // 자동으로 을/를 구분해주는 함수
     fun getJosa(word: String, josaWithBatchim: String, josaWithoutBatchim: String): String {
         val lastChar = word.last()
         val hasBatchim = (lastChar.code - 0xAC00) % 28 != 0
         return if (hasBatchim) josaWithBatchim else josaWithoutBatchim
     }
+
+    fun uploadYesterdaySteps(client: HealthConnectClient) {
+        val yesterday = LocalDate.now().minusDays(1)
+        val uid = auth.currentUser?.uid ?: return
+
+        val start = yesterday.atStartOfDay().atZone(ZoneId.systemDefault()).toInstant()
+        val end = yesterday.plusDays(1).atStartOfDay().atZone(ZoneId.systemDefault()).toInstant()
+
+        viewModelScope.launch {
+            try {
+                val steps = client.readRecords(
+                    ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(start, end))
+                ).records.sumOf { it.count }
+
+                val docRef = db.collection("user").document(uid)
+                    .collection("step_history").document(yesterday.format(DateTimeFormatter.ofPattern("yyyyMMdd")))
+
+                docRef.set(mapOf("steps" to steps.toInt()))
+
+                // 이후에 정렬해서 7개만 유지하는 로직 추가 필요
+            } catch (e: Exception) {
+                Log.e("HealthViewModel", "어제 걸음 저장 실패", e)
+            }
+        }
+    }
+    fun fetchWeeklySteps() {
+        val uid = auth.currentUser?.uid ?: return
+        val colRef = db.collection("user").document(uid).collection("step_history")
+
+        colRef.orderBy(FieldPath.documentId(), Query.Direction.DESCENDING)
+            .limit(7).get()
+            .addOnSuccessListener { result ->
+                val data = result.documents.map {
+                    val date = it.id.takeLast(4) // MMdd로 표시
+                    StepData(date, it.getLong("steps")?.toInt() ?: 0)
+                }.reversed() // 최신이 먼저 오므로 뒤집기
+                Log.d("fetchWeeklySteps", "불러온 데이터: $data")
+                _stepDataList.value = data
+            }
+            .addOnFailureListener {
+                Log.e("HealthViewModel", "7일 걸음 불러오기 실패", it)
+            }
+    }
+    fun updateStepChartData(data: List<StepData>) {
+        Log.d("StepChart", "Chart 데이터: $data")
+        _stepDataList.value = data
+    }
+
+
 }
 

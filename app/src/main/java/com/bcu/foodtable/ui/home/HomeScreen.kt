@@ -38,13 +38,8 @@ import com.bcu.foodtable.ui.ChallengeActivity
 
 import com.bcu.foodtable.JetpackCompose.HomeViewModel  // ✅ 수정된 ViewModel import 경로
 import com.bcu.foodtable.JetpackCompose.HomeTopSection
-import com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import com.bcu.foodtable.JetpackCompose.RecipeCard
-import com.bcu.foodtable.JetpackCompose.screens.MyChannelScreen
-import com.bcu.foodtable.JetpackCompose.screens.AIServiceScreen
-import com.bcu.foodtable.JetpackCompose.screens.RecipeStorageScreen
-import com.bcu.foodtable.JetpackCompose.screens.ProfileScreen
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalComposeUiApi::class)

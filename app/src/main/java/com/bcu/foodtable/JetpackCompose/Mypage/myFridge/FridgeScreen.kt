@@ -1,13 +1,18 @@
 
-package com.bcu.foodtable.ui.myPage.myFridge
+package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
@@ -21,7 +26,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -109,13 +113,15 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
         val fridgeDropThreshold = constraints.maxHeight * 0.5f
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            TabRow(selectedTabIndex = selectedTabIndex) {
-                fridgeSections.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
-                        text = { Text(title) }
-                    )
+            AnimatedVisibility(visible = true, enter = fadeIn(), exit = fadeOut()) {
+                TabRow(selectedTabIndex = selectedTabIndex) {
+                    fridgeSections.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = { Text(title) }
+                        )
+                    }
                 }
             }
 
@@ -125,44 +131,62 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             )
 
 
-            LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.weight(1f)) {
-                items(fridgeMap[fridgeSections[selectedTabIndex]] ?: emptyList(), key = {it.id} ){ ingredient ->
-                    IngredientCard(
-                        ingredient = ingredient,
-                        onClick = {
-                            moveIngredientToOutside(
-                                ingredient,
-                                fromSection = fridgeSections[selectedTabIndex],
-                                fridgeMap = fridgeMap,
-                                outsideFridge = outsideFridge
-                            )
-                        },
-                        onLongClick = { showDialog.value = ingredient },
-                        draggable = true,
-                        onDragEnd = {
-                            moveIngredientToOutside(
-                                ingredient,
-                                fromSection = fridgeSections[selectedTabIndex],
-                                fridgeMap = fridgeMap,
-                                outsideFridge = outsideFridge
+            Column(modifier = Modifier.weight(1f)) {
+                val fridgeItems = fridgeMap[fridgeSections[selectedTabIndex]] ?: emptyList()
+                val rows = fridgeItems.chunked(3)
+
+                rows.forEachIndexed { index, rowItems ->
+                    Divider(color = Color.LightGray, thickness = 2.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowItems.forEach { ingredient ->
+                            IngredientCard(
+                                ingredient = ingredient,
+                                onClick = {
+                                    moveIngredientToOutside(
+                                        ingredient,
+                                        fromSection = fridgeSections[selectedTabIndex],
+                                        fridgeMap = fridgeMap,
+                                        outsideFridge = outsideFridge
+                                    )
+                                },
+                                onLongClick = { showDialog.value = ingredient },
+                                draggable = true,
+                                onDragEnd = {
+                                    moveIngredientToOutside(
+                                        ingredient,
+                                        fromSection = fridgeSections[selectedTabIndex],
+                                        fridgeMap = fridgeMap,
+                                        outsideFridge = outsideFridge
+                                    )
+                                }
                             )
                         }
-                    )
+                    }
                 }
             }
+
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text("\uD83E\uDDF5 꺼낸 재료", style = MaterialTheme.typography.titleLarge)
 
-            Row(modifier = Modifier.fillMaxWidth().height(100.dp).padding(top = 8.dp)) {
-                outsideFridge.forEach { ingredient ->
-                    key(ingredient.id) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(outsideFridge, key = { it.id }) { ingredient ->
                     var offset by remember { mutableStateOf(Offset.Zero) }
 
                     Box(
                         modifier = Modifier
-                            .padding(4.dp)
                             .size(80.dp)
                             .offset { IntOffset(offset.x.toInt(), offset.y.toInt()) }
                             .pointerInput(Unit) {
@@ -189,10 +213,11 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                     ) {
                         Text(ingredient.name)
                     }
-                    }
                 }
-
             }
+
+
+
 
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
                 FloatingActionButton(onClick = {
@@ -238,7 +263,6 @@ fun getEmojiForIngredient(name: String): String {
     }
 }
 
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun IngredientCard(
@@ -252,8 +276,8 @@ fun IngredientCard(
 
     Card(
         modifier = Modifier
-            .padding(8.dp)
-            .size(100.dp)
+            .padding(6.dp)
+            .size(110.dp)
             .offset { IntOffset(offset.x.toInt(), offset.y.toInt()) }
             .then(
                 if (draggable) Modifier.pointerInput(Unit) {
@@ -269,14 +293,40 @@ fun IngredientCard(
                     )
                 } else Modifier
             )
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F7FA))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(alpha = 0.6f) // 반투명한 유리 느낌
+        )
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(text = "${getEmojiForIngredient(ingredient.name)} ${ingredient.name}")
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceAround
+        ) {
+            // 이모지
+            Text(
+                text = getEmojiForIngredient(ingredient.name),
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            // 이름
+            Text(
+                text = ingredient.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.Black
+            )
+
+            // 수량
+            Text(
+                text = "${ingredient.quantity}개",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.DarkGray
+            )
         }
     }
 }
+
