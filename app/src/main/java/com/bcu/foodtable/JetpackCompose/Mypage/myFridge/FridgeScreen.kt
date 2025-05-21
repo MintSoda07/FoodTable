@@ -9,9 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -131,42 +129,25 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             )
 
 
-            Column(modifier = Modifier.weight(1f)) {
-                val fridgeItems = fridgeMap[fridgeSections[selectedTabIndex]] ?: emptyList()
-                val rows = fridgeItems.chunked(3)
-
-                rows.forEachIndexed { index, rowItems ->
-                    Divider(color = Color.LightGray, thickness = 2.dp)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        rowItems.forEach { ingredient ->
-                            IngredientCard(
-                                ingredient = ingredient,
-                                onClick = {
-                                    moveIngredientToOutside(
-                                        ingredient,
-                                        fromSection = fridgeSections[selectedTabIndex],
-                                        fridgeMap = fridgeMap,
-                                        outsideFridge = outsideFridge
-                                    )
-                                },
-                                onLongClick = { showDialog.value = ingredient },
-                                draggable = true,
-                                onDragEnd = {
-                                    moveIngredientToOutside(
-                                        ingredient,
-                                        fromSection = fridgeSections[selectedTabIndex],
-                                        fridgeMap = fridgeMap,
-                                        outsideFridge = outsideFridge
-                                    )
-                                }
+            // LazyVerticalGrid 그대로 유지
+            LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.weight(1f)) {
+                items(fridgeMap[fridgeSections[selectedTabIndex]] ?: emptyList(), key = { it.id }) { ingredient ->
+                    val currentSection = fridgeSections[selectedTabIndex]
+                    IngredientCard(
+                        ingredient = ingredient,
+                        onClick = {
+                            moveIngredientToOutside(
+                                ingredient, currentSection, fridgeMap, outsideFridge
+                            )
+                        },
+                        onLongClick = { showDialog.value = ingredient },
+                        draggable = true,
+                        onDragEnd = {
+                            moveIngredientToOutside(
+                                ingredient, currentSection, fridgeMap, outsideFridge
                             )
                         }
-                    }
+                    )
                 }
             }
 
@@ -175,18 +156,14 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
             Text("\uD83E\uDDF5 꺼낸 재료", style = MaterialTheme.typography.titleLarge)
 
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp)
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(outsideFridge, key = { it.id }) { ingredient ->
+            Row(modifier = Modifier.fillMaxWidth().height(100.dp).padding(top = 8.dp)) {
+                outsideFridge.forEach { ingredient ->
+                    key(ingredient.id) {
                     var offset by remember { mutableStateOf(Offset.Zero) }
 
                     Box(
                         modifier = Modifier
+                            .padding(4.dp)
                             .size(80.dp)
                             .offset { IntOffset(offset.x.toInt(), offset.y.toInt()) }
                             .pointerInput(Unit) {
@@ -213,11 +190,10 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                     ) {
                         Text(ingredient.name)
                     }
+                    }
                 }
+
             }
-
-
-
 
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomEnd) {
                 FloatingActionButton(onClick = {
