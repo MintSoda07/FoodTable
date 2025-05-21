@@ -59,6 +59,7 @@ fun SubscribeScreen(
     LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         // 구독한 채널
         item {
+            Spacer(modifier = Modifier.height(80.dp))
             Text("구독한 채널", style = MaterialTheme.typography.titleMedium)
         }
 
@@ -84,11 +85,9 @@ fun SubscribeScreen(
             if (myChannels.isNotEmpty()) {
                 HorizontalChannelList(myChannels, navController)
             } else {
-                Text(
-                    "내가 만든 채널이 없습니다.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                EmptyChannelCard(
+                    title = "내가 만든 채널이 없습니다.",
+                    description = "직접 만든 채널은 여기에 표시됩니다.",
                 )
             }
         }
@@ -103,11 +102,9 @@ fun SubscribeScreen(
             if (recommendedChannels.isNotEmpty()) {
                 HorizontalChannelList(recommendedChannels, navController)
             } else {
-                Text(
-                    "추천 채널이 없습니다.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                EmptyChannelCard(
+                    title = "추천 채널이 없습니다.",
+                    description = "지금은 추천할 채널이 없습니다.",
                 )
             }
         }
