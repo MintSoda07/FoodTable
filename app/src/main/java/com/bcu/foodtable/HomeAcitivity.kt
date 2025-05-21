@@ -3,18 +3,21 @@ package com.bcu.foodtable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.navigation.compose.rememberNavController
+import com.bcu.foodtable.JetpackCompose.HomeViewModel
+import com.bcu.foodtable.ui.home.FoodTableTheme
 import com.bcu.foodtable.ui.home.HomeScreen
-import dagger.hilt.android.AndroidEntryPoint
 
-@AndroidEntryPoint
-class HomeAcitivity : ComponentActivity() {
+class HomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // ✅ HomeViewModel은 기본 생성자만 사용
+        val homeViewModel = HomeViewModel()
         setContent {
-            val navController = rememberNavController()
-            HomeScreen(navController = navController)
+            FoodTableTheme {
+                HomeScreen(viewModel = homeViewModel)
+            }
+
         }
     }
 }

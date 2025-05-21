@@ -8,10 +8,10 @@ import androidx.activity.viewModels
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
-import dagger.hilt.android.AndroidEntryPoint
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingViewModel
 import kotlinx.coroutines.launch
 
-@AndroidEntryPoint
 class SettingActivity : ComponentActivity() {
 
     private val viewModel: SettingViewModel by viewModels()

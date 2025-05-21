@@ -4,6 +4,7 @@ import com.bcu.foodtable.useful.RecipeItem
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -25,13 +26,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
+import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
 import com.bcu.foodtable.JetpackCompose.Channel.SubscribeScreen
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.ui.ChallengeActivity
@@ -45,13 +49,14 @@ import com.bcu.foodtable.JetpackCompose.screens.MyChannelScreen
 import com.bcu.foodtable.JetpackCompose.screens.AIServiceScreen
 import com.bcu.foodtable.JetpackCompose.screens.RecipeStorageScreen
 import com.bcu.foodtable.JetpackCompose.screens.ProfileScreen
+import com.bcu.foodtable.di.ChannelRepository
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = viewModel(),
-    navController: NavHostController
+
 ) {
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -119,7 +124,10 @@ fun HomeScreen(
             )
 
             1 -> {
-                SubscribeScreen(navController = navController)
+                LaunchedEffect(Unit) {
+                    val intent = Intent(context, SubscribeActivity::class.java)
+                    context.startActivity(intent)
+                }
             }
 
             2 -> {
@@ -149,15 +157,15 @@ fun HomeScreen(
     @Composable
     fun HomeTopBar(user: User?, onChallengeClick: () -> Unit) {
         Surface(
-            tonalElevation = 6.dp,
-            shadowElevation = 8.dp,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+            tonalElevation = 8.dp,
+            shadowElevation = 12.dp,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
         ) {
             TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     ) {
                         // 프로필 이미지
                         if (user != null) {
@@ -165,32 +173,33 @@ fun HomeScreen(
                                 model = user.image,
                                 contentDescription = "프로필 이미지",
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape),
+                                    .size(50.dp)
+                                    .clip(CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape),
                                 error = rememberVectorPainter(Icons.Outlined.AccountCircle)
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
 
                             Column {
                                 Text(
-                                    text = "안녕하세요!",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
+                                    text = "안녕하세요, ${user.name}!",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
                                 Text(
                                     text = "소금: ${user.point}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                                 )
                             }
                         } else {
                             Icon(
                                 imageVector = Icons.Outlined.AccountCircle,
                                 contentDescription = null,
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(50.dp)
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text("소금: 0", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text("소금: 0", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 },
@@ -199,22 +208,22 @@ fun HomeScreen(
                         onClick = onChallengeClick,
                         modifier = Modifier
                             .size(48.dp)
-                            .padding(end = 4.dp)
+                            .padding(end = 8.dp)
                             .background(
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
                                 shape = CircleShape
                             )
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.baseline_emoji_events_24),
                             contentDescription = "챌린지",
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    scrolledContainerColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
@@ -298,7 +307,12 @@ private fun HomeContent(
                     title = recipe.name,
                     description = recipe.description,
                     imageUrl = recipe.imageResId,
-                    saltReward = recipe.clicked
+                    saltReward = recipe.clicked,
+                    onClick = {
+                        val intent = Intent(context, RecipeCookingActivity::class.java)
+                        intent.putExtra("recipe_id", recipe.id)
+                        context.startActivity(intent)
+                    }
                 )
             }
         }

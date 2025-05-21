@@ -93,7 +93,7 @@
         android:maxSdkVersion="29" />
 
     <application
-        android:name="com.bcu.foodtable.JetpackCompose.Mypage.FoodTableApplication"
+        android:name="com.bcu.foodtable.FoodTableApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -161,10 +161,9 @@
         <activity
             android:name=".ui.myPage.myFridge.FridgeActivity"
             android:exported="false"/>
-        <activity
-            android:name=".HomeAcitivity"
-            android:exported="false"
-            android:label="@string/title_activity_home_acitivity" />
+        <activity android:name=".JetpackCompose.HomeChannelDatil.RecipeCookingActivity" />
+        <activity android:name=".HomeActivity" />
+
         <activity android:name=".JetpackCompose.Mypage.ProfileActivity"
             android:exported="false"/>
 
@@ -172,7 +171,7 @@
             android:name=".LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
-
+        <activity android:name=".JetpackCompose.Channel.SubscribeActivity" />
         <activity
             android:name="com.bcu.foodtable.ui.myPage.ChannelCreationActivity"
             android:exported="false" />

@@ -71,7 +71,7 @@ class LoginActivity : ComponentActivity() {
                                         userData.uid, userData.rankPoint, userData.description
                                     )
                                     Toast.makeText(this, R.string.login_success, Toast.LENGTH_SHORT).show()
-                                    ActivityTransition.startStatic(this, HomeAcitivity::class.java)
+                                    ActivityTransition.startStatic(this, HomeActivity::class.java)
                                 },
                                 onFailure = {
                                     onResult(getString(R.string.login_failure))

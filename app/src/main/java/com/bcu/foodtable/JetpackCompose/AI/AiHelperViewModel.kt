@@ -7,15 +7,12 @@ import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.UserManager
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class AiHelperViewModel @Inject constructor(
+class AiHelperViewModel(
     private val apiClient: OpenAIClient
 ) : ViewModel() {
 
@@ -71,18 +68,17 @@ class AiHelperViewModel @Inject constructor(
         2. 재료 목록은 따로 레시피 제공 전 {}안에 작성합니다. 예: {소고기}{감자}{소금}{후추} 
         3. 제공되는 레시피의 앞과 뒤에는 정규식 구분을 위해 ◆을 붙여 주세요. 예: ◆감자 소금구이◆
         4. 또한, 레시피에 사용되는 재료를 자세한 용량과 함께 레시피 이름 뒤에 괄호로 넣어 주세요. 예: ◆감자 소금구이◆(감자 2개,소금 5g)
-    """.trimIndent()
+        """.trimIndent()
 
         apiClient.sendMessage(
-            prompt = "사용자 입력:${input}",
+            prompt = "사용자 입력:$input",
             role = rule,
             onSuccess = { response ->
                 Log.d("AiHelper", "✅ GPT 응답 수신 완료:\n$response")
 
                 viewModelScope.launch {
                     val ingredientRegex = """\{(.*?)\}""".toRegex()
-                    val ingredients =
-                        ingredientRegex.findAll(response).map { it.groupValues[1] }.toList()
+                    val ingredients = ingredientRegex.findAll(response).map { it.groupValues[1] }.toList()
                     Log.d("AiHelper", "🟢 추출된 재료: $ingredients")
 
                     val recipeRegex = """◆(.*?)◆""".toRegex()
@@ -90,8 +86,7 @@ class AiHelperViewModel @Inject constructor(
                     Log.d("AiHelper", "🟢 추출된 레시피 제목: $recipes")
 
                     val recipeDetailsRegex = """◆.*?◆\((.*?)\)""".toRegex()
-                    val details =
-                        recipeDetailsRegex.findAll(response).map { it.groupValues[1] }.toList()
+                    val details = recipeDetailsRegex.findAll(response).map { it.groupValues[1] }.toList()
                     Log.d("AiHelper", "🟢 추출된 레시피 상세: $details")
 
                     val newPoint = point - aiUseCost
@@ -105,8 +100,8 @@ class AiHelperViewModel @Inject constructor(
                             ingredients = ingredients,
                             recipes = recipes,
                             recipeDetails = details,
-                            resultText = recipes.joinToString("\n"),       // ✅ 추가됨
-                            reasonText = details.joinToString("\n"),       // ✅ 추가됨
+                            resultText = recipes.joinToString("\n"),
+                            reasonText = details.joinToString("\n"),
                             isSending = false
                         )
                     }

@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Mypage
 
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -23,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.ui.health.HealthConnectActivity
@@ -35,65 +35,66 @@ fun ProfileMainScreen(
     paddingValues: PaddingValues,
     viewModel: ProfileViewModel = viewModel()
 ) {
-        val context = LocalContext.current
-        val colorScheme = MaterialTheme.colorScheme
-        val user by viewModel.user.collectAsState()
-        val hasChannel by viewModel.hasChannel.collectAsState()
-        val imageUri by viewModel.imageUri.collectAsState()
-        val isEditing by viewModel.isEditing.collectAsState()
-        val editedDescription by viewModel.editedDescription.collectAsState()
-        val launcher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent()
-        ) { uri ->
-            uri?.let { viewModel.uploadImageToFirebase(it, context) }
+    val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
+    val user by viewModel.user.collectAsState()
+    val hasChannel by viewModel.hasChannel.collectAsState()
+    val imageUri by viewModel.imageUri.collectAsState()
+    val isEditing by viewModel.isEditing.collectAsState()
+    val editedDescription by viewModel.editedDescription.collectAsState()
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { viewModel.uploadImageToFirebase(it, context) }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.checkIfChannelExists()
+    }
+
+    Scaffold(
+        topBar = {
+            ProfileTopBar(user = user, onChallengeClick = {
+                context.startActivity(Intent(context, HealthConnectActivity::class.java))
+            })
         }
+    ) { innerPadding ->
 
-        LaunchedEffect(Unit) {
-            viewModel.checkIfChannelExists()
-        }
-
-        Scaffold(
-            topBar = {
-                ProfileTopBar(user = user, onChallengeClick = {
-                    context.startActivity(Intent(context, HealthConnectActivity::class.java))
-                })
-            }
-        ) { innerPadding ->
-
-            Column(
+        Column(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Card(
                 modifier = Modifier
-                    .padding(innerPadding)
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorScheme.surface
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Card(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxWidth()) {
 
-                        //  설정 버튼 - 오른쪽 상단
-                        IconButton(
-                            onClick = {
-                                context.startActivity(Intent(context, SettingActivity::class.java))
-                            },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.baseline_settings_24),
-                                contentDescription = "설정",
-                                tint = colorScheme.primary
-                            )
-                        }
+                    //  설정 버튼 - 오른쪽 상단
+                    IconButton(
+                        onClick = {
+                            context.startActivity(Intent(context, SettingActivity::class.java))
+                        },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_settings_24),
+                            contentDescription = "설정",
+                            tint = colorScheme.primary
+                        )
+                    }
+
                     Column(
                         modifier = Modifier.padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -159,7 +160,6 @@ fun ProfileMainScreen(
                                 Text("편집")
                             }
                         }
-
 
                         Spacer(modifier = Modifier.height(16.dp))
 

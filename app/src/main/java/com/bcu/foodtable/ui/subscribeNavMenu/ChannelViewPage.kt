@@ -21,11 +21,7 @@ import com.bcu.foodtable.useful.RecipeAdapter
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 
@@ -36,7 +32,7 @@ class ChannelViewPage : AppCompatActivity() {
     private lateinit var adaptorViewList: GridView
     private lateinit var recipeAdapter: RecipeAdapter
     private lateinit var channelitem: Channel
-    private lateinit var viewModel: ChannelViewModel
+    private lateinit var viewModel: k_ChannelViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -90,7 +86,7 @@ class ChannelViewPage : AppCompatActivity() {
         // 🔹 현재 로그인된 사용자 ID 가져오기
         val user = UserManager.getUser()?.uid ?: ""
         // ViewModel 초기화
-        viewModel = ViewModelProvider(this)[ChannelViewModel::class.java]
+        viewModel = ViewModelProvider(this)[k_ChannelViewModel::class.java]
         // observe 등록
         viewModel.channel.observe(this) { channel ->
             channelitem = channel

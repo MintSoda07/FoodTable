@@ -1,10 +1,9 @@
 package com.bcu.foodtable.JetpackCompose
 
-import com.bcu.foodtable.useful.RecipeItem
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-
+import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -14,9 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class HomeViewModel : ViewModel() {
-
-    private val db = FirebaseFirestore.getInstance()
+class HomeViewModel(
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance() // 기본값 제공
+) : ViewModel() {
 
     // ✅ 레시피 상태
     private val _recipes = MutableStateFlow<List<RecipeItem>>(emptyList())

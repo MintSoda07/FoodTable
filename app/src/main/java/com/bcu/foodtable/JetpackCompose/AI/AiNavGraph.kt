@@ -1,5 +1,8 @@
 package com.bcu.foodtable.JetpackCompose.AI
 
+import com.bcu.foodtable.JetpackCompose.AI.AiChattingViewModel
+import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
+import com.bcu.foodtable.JetpackCompose.AI.AiRecommendationViewModel
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -18,16 +21,25 @@ sealed class AiScreen(val route: String, val label: String) {
 @Composable
 fun AiNavGraph(
     navController: NavHostController,
-    modifier: Modifier = Modifier // ✅ 기본값 포함
+    aiChattingViewModel: AiChattingViewModel,
+    aiHelperViewModel: AiHelperViewModel,
+    aiRecommendationViewModel: AiRecommendationViewModel,
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
         startDestination = AiScreen.Chat.route,
-        modifier = modifier // ✅ 여기 반영
+        modifier = modifier
     ) {
-        composable(AiScreen.Chat.route) { AiChattingScreen() }
-        composable(AiScreen.Helper.route) { AiHelperScreen() }
-        composable(AiScreen.Recommendation.route) { AiRecommendationScreen() }
+        composable(AiScreen.Chat.route) {
+            AiChattingScreen(viewModel = aiChattingViewModel)
+        }
+        composable(AiScreen.Helper.route) {
+            AiHelperScreen(viewModel = aiHelperViewModel)
+        }
+        composable(AiScreen.Recommendation.route) {
+            AiRecommendationScreen(viewModel = aiRecommendationViewModel)
+        }
     }
 }
 

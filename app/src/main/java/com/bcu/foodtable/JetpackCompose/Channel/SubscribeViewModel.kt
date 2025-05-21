@@ -1,9 +1,9 @@
 package com.bcu.foodtable.JetpackCompose.Channel
 
+
+
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.useful.Channel
-import com.bcu.foodtable.useful.UserManager
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.FirebaseFirestore
@@ -11,12 +11,11 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
-class SubscribeViewModel : ViewModel() {
-
-    private val db = FirebaseFirestore.getInstance()
-    private val userId = UserManager.getUser()?.uid ?: ""
+class SubscribeViewModel(
+    private val db: FirebaseFirestore,
+    private val userId: String
+) : ViewModel() {
 
     private val _subscribedChannels = MutableStateFlow<List<Channel>>(emptyList())
     val subscribedChannels: StateFlow<List<Channel>> = _subscribedChannels
@@ -60,7 +59,7 @@ class SubscribeViewModel : ViewModel() {
     fun fetchMyChannels() {
         db.collection("channel")
             .whereEqualTo("owner", userId)
-            .orderBy("date")
+            .orderBy("date", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { snapshot ->
                 _myChannels.value = snapshot.documents.mapNotNull { it.toObject(Channel::class.java) }
@@ -76,3 +75,4 @@ class SubscribeViewModel : ViewModel() {
             }
     }
 }
+

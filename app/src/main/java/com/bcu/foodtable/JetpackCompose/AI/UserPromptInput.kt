@@ -1,35 +1,48 @@
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun UserPromptInput(
-    text: String,
-    onTextChange: (String) -> Unit,
+    inputText: String,
+    onInputChange: (String) -> Unit,
     onSendClick: () -> Unit,
-    enabled: Boolean
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically // ✅ 이게 중요
+        modifier = modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primary)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(
-            value = text,
-            onValueChange = onTextChange,
+            value = inputText,
+            onValueChange = onInputChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("재료를 입력하세요 (예: 감자, 소고기...)") },
-            singleLine = true
+            placeholder = { Text("메시지를 입력하세요...") },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.White,
+                unfocusedBorderColor = Color.White
+            )
         )
-
-        Button(
+        IconButton(
             onClick = onSendClick,
-            enabled = enabled
+            modifier = Modifier.padding(start = 8.dp)
         ) {
-            Text("전송")
+            Icon(
+                imageVector = Icons.Default.Send,
+                contentDescription = "전송",
+                tint = Color.White
+            )
         }
     }
 }

@@ -10,7 +10,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-class ChannelViewModel : ViewModel() {
+class k_ChannelViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
 
     private val _channel = MutableLiveData<Channel>()

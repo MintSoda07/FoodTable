@@ -52,7 +52,7 @@ class PurchaseConfirmActivity : AppCompatActivity() {
                     rankPoint = user.rankPoint,
                     description = user.description
                 )
-                ActivityTransition.startStatic(this@PurchaseConfirmActivity,HomeAcitivity::class.java)
+                ActivityTransition.startStatic(this@PurchaseConfirmActivity, HomeActivity::class.java)
             }
                 override fun onFail(response: PaymentResponse.Fail) {
                     AlertDialog.Builder(this@PurchaseConfirmActivity)

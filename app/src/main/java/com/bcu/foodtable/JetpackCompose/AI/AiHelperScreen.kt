@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import com.bcu.foodtable.JetpackCompose.AI.* // AiWarningCard, UserPromptInput 등 정의한 위치에 맞게 수정
 import com.bcu.foodtable.R
@@ -27,7 +26,7 @@ import com.bcu.foodtable.R
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AiHelperScreen(
-    viewModel: AiHelperViewModel = hiltViewModel()
+    viewModel: AiHelperViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
