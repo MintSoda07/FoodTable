@@ -40,6 +40,8 @@ import com.bcu.foodtable.JetpackCompose.HomeViewModel  // ✅ 수정된 ViewMode
 import com.bcu.foodtable.JetpackCompose.HomeTopSection
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import com.bcu.foodtable.JetpackCompose.RecipeCard
+import com.bcu.foodtable.ui.myRecipeStorage.RecipeGalleryScreen
+import com.bcu.foodtable.viewmodel.RecipeGalleryViewModel
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -122,7 +124,18 @@ fun HomeScreen(
                     context.startActivity(Intent(context, AiMainActivity::class.java))
                 }
             }
-            3 -> Text("Recipe Storage Screen")
+            3 -> {
+                val recipeGalleryViewModel: RecipeGalleryViewModel = viewModel()
+
+                RecipeGalleryScreen(
+                    viewModel = recipeGalleryViewModel,
+                    onRecipeClick = { galleryItem ->
+                        navController.navigate("recipe_view/${galleryItem.recipeId}")
+                    },
+                    onGroupClick = { groupId, items ->
+                    }
+                )
+            }
             4 -> {
                 ProfileMainScreen(
                     paddingValues = paddingValues
@@ -301,11 +314,11 @@ private fun HomeContent(
 }
 
 private sealed class Screen(val label: String, val icon: Int) {
-    object Home : Screen("Home", R.drawable.ic_home_black_24dp)
-    object Subscribe : Screen("Subscribe", R.drawable.ic_notifications_black_24dp)
-    object AIService : Screen("AI Service", R.drawable.ic_dashboard_black_24dp)
-    object RecipeStorage : Screen("Recipe Storage", R.drawable.baseline_menu_book_24)
-    object MyPage : Screen("My Page", R.drawable.baseline_person_24)
+    object Home : Screen("홈", R.drawable.ic_home_black_24dp)
+    object Subscribe : Screen("채널", R.drawable.ic_notifications_black_24dp)
+    object AIService : Screen("AI기능", R.drawable.ic_dashboard_black_24dp)
+    object RecipeStorage : Screen("내 레시피", R.drawable.baseline_menu_book_24)
+    object MyPage : Screen("프로필", R.drawable.baseline_person_24)
 }
 
 @Composable
