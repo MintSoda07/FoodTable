@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.Mypage
+package com.bcu.foodtable.JetpackCompose.Mypage.Health
 
 data class StepData(
     val date: String,  // 예: "월", "화", "05.21" 등 X축에 표시될 라벨
