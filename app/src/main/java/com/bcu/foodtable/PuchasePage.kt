@@ -1,111 +1,183 @@
 package com.bcu.foodtable
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.widget.Button
-import android.widget.TextView
-import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import java.text.DecimalFormat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import java.text.NumberFormat
-import java.util.Locale
+import java.util.*
 
-class PuchasePage : AppCompatActivity() {
+class PuchasePage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_puchase_page)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-
-        val btn5000Minus:Button = findViewById(R.id.minus1)
-        val btn10000Minus:Button = findViewById(R.id.minus2)
-        val btn50000Minus:Button = findViewById(R.id.minus3)
-        val btn100000Minus:Button = findViewById(R.id.minus4)
-
-        val btn5000Plus:Button = findViewById(R.id.plus1)
-        val btn10000Plus:Button = findViewById(R.id.plus2)
-        val btn50000Plus:Button = findViewById(R.id.plus3)
-        val btn100000Plus:Button = findViewById(R.id.plus4)
-
-        val purchaseBtn:Button = findViewById(R.id.purchaseBtn)
-
-        val moneyTotal:TextView = findViewById(R.id.moneyText)
-        val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
-        var moneyValue=0;
-        btn5000Minus.setOnClickListener {
-            if (moneyValue <= 5000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 5000
+        setContent {
+            MaterialTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    PurchasePageScreen()
+                }
             }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
         }
-
-        btn10000Minus.setOnClickListener {
-            if (moneyValue <= 10000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 10000
-            }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn50000Minus.setOnClickListener {
-            if (moneyValue <= 50000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 50000
-            }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn100000Minus.setOnClickListener {
-            if (moneyValue <= 100000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 100000
-            }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
+    }
+}
 
 
-        btn5000Plus.setOnClickListener {
-            moneyValue+=5000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn10000Plus.setOnClickListener {
-            moneyValue+=10000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn50000Plus.setOnClickListener {
-            moneyValue+=50000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn100000Plus.setOnClickListener {
-            moneyValue+=100000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        purchaseBtn.setOnClickListener{
-            val intent = Intent(this@PuchasePage, PurchaseConfirmActivity::class.java)
-            intent.putExtra("price", moneyValue.toString())
-            Log.d("Purchase","SEND COST STRING $moneyValue ")
-            this.startActivity(intent)  // 새로운 액티비티로 전환
-            purchaseBtn.isClickable = false
-            purchaseBtn.isActivated = false
+@Composable
+fun PurchasePageScreen(
+    context: Context = LocalContext.current
+) {
+    var moneyValue by remember { mutableStateOf(0) }
+    val animatedMoney by animateIntAsState(
+        targetValue = moneyValue,
+        label = "AnimatedMoney",
+        animationSpec = tween(durationMillis = 300)
+    )
+
+    val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
+    val formattedValue = formatter.format(animatedMoney)
+
+    val primary = MaterialTheme.colorScheme.primary
+    val onPrimary = MaterialTheme.colorScheme.onPrimary
+
+    val haptic = LocalHapticFeedback.current
+
+    // 전체 배경
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(primary.copy(alpha = 0.05f))
+            .padding(24.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -40 })
+            ) {
+                Text(
+                    text = "금액 선택",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = primary
+                )
+            }
+
+            // 금액 카드
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = primary),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text(
+                        text = "₩ $formattedValue",
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = onPrimary
+                    )
+                }
+            }
+
+            // 버튼 영역
+            val buttonPairs = listOf(
+                5000 to "5,000원",
+                10000 to "10,000원",
+                50000 to "50,000원",
+                100000 to "100,000원"
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                buttonPairs.forEach { (amount, label) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ElevatedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                moneyValue = (moneyValue - amount).coerceAtLeast(0)
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("- $label")
+                        }
+
+                        ElevatedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                moneyValue += amount
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("+ $label")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // 결제 버튼
+            AnimatedVisibility(
+                visible = moneyValue > 0,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { 40 })
+            ) {
+                Button(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val intent = Intent(context, PurchaseConfirmActivity::class.java).apply {
+                            putExtra("price", moneyValue.toString())
+                        }
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 10.dp,
+                        pressedElevation = 4.dp
+                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = primary)
+                ) {
+                    Text(
+                        text = "₩ ${formatter.format(moneyValue)} 결제하기",
+                        color = onPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }
