@@ -68,34 +68,5 @@ fun HomeTopSection(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 카테고리 필터
-        FlowRow(
-            mainAxisSpacing = 8.dp,
-            crossAxisSpacing = 8.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            listOf("종류", "조리방식", "재료").forEach { category ->
-                val isSelected = selectedCategory == category
-                FilterChip(
-                    selected = isSelected,
-                    onClick = { onCategorySelect(category) },
-                    label = {
-                        Text(
-                            category,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = primaryColor,
-                        selectedLabelColor = Color.White
-                    ),
-                    border = FilterChipDefaults.filterChipBorder(
-                        enabled = true,
-                        selected = isSelected,
-                        borderColor = if (isSelected) primaryColor else Color.LightGray
-                    )
-                )
-            }
-        }
     }
 }

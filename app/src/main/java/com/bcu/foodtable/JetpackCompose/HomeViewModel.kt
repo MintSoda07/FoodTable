@@ -4,10 +4,12 @@ import com.bcu.foodtable.useful.RecipeItem
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bcu.foodtable.useful.Channel
 
 import com.bcu.foodtable.useful.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.toObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +19,24 @@ import kotlinx.coroutines.tasks.await
 class HomeViewModel : ViewModel() {
 
     private val db = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
+    private val _popularChannels = MutableStateFlow<List<Channel>>(emptyList())
+    val popularChannels: StateFlow<List<Channel>> = _popularChannels
+
+    fun loadPopularChannels(limit: Long = 10) {
+        firestore.collection("channel")
+            .orderBy("subscribers", Query.Direction.DESCENDING)
+            .limit(limit)
+            .get()
+            .addOnSuccessListener { result ->
+                val channels = result.mapNotNull { it.toObject(Channel::class.java) }
+                _popularChannels.value = channels
+            }
+            .addOnFailureListener { e ->
+                Log.e("Firestore", "채널 불러오기 실패", e)
+            }
+    }
     // ✅ 레시피 상태
     private val _recipes = MutableStateFlow<List<RecipeItem>>(emptyList())
     val recipes: StateFlow<List<RecipeItem>> = _recipes
