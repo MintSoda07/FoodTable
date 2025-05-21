@@ -39,27 +39,30 @@ class PuchasePage : ComponentActivity() {
     }
 }
 
-
 @Composable
 fun PurchasePageScreen(
     context: Context = LocalContext.current
 ) {
     var moneyValue by remember { mutableStateOf(0) }
-    val animatedMoney by animateIntAsState(
-        targetValue = moneyValue,
-        label = "AnimatedMoney",
-        animationSpec = tween(durationMillis = 300)
-    )
-
     val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
-    val formattedValue = formatter.format(animatedMoney)
+    val formattedValue = formatter.format(moneyValue)
 
+    // ✅ 화면 전환용 상태
+    var paymentComplete by remember { mutableStateOf(false) }
+
+    if (paymentComplete) {
+        // ✅ 결제 완료 화면으로 전환
+        PurchaseCompleteScreen(cost = moneyValue.toLong()) {
+            (context as? ComponentActivity)?.finish()
+        }
+        return
+    }
+
+    // 💳 기존 결제 화면
     val primary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
-
     val haptic = LocalHapticFeedback.current
 
-    // 전체 배경
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -73,19 +76,13 @@ fun PurchasePageScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -40 })
-            ) {
-                Text(
-                    text = "금액 선택",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = primary
-                )
-            }
+            Text(
+                text = "금액 선택",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = primary
+            )
 
-            // 금액 카드
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -94,10 +91,7 @@ fun PurchasePageScreen(
                 colors = CardDefaults.cardColors(containerColor = primary),
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     Text(
                         text = "₩ $formattedValue",
                         style = MaterialTheme.typography.displaySmall,
@@ -107,7 +101,6 @@ fun PurchasePageScreen(
                 }
             }
 
-            // 버튼 영역
             val buttonPairs = listOf(
                 5000 to "5,000원",
                 10000 to "10,000원",
@@ -148,7 +141,7 @@ fun PurchasePageScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 결제 버튼
+            // ✅ 결제 버튼 → Compose 전환
             AnimatedVisibility(
                 visible = moneyValue > 0,
                 enter = fadeIn() + slideInVertically(initialOffsetY = { 40 })
@@ -156,10 +149,7 @@ fun PurchasePageScreen(
                 Button(
                     onClick = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        val intent = Intent(context, PurchaseConfirmActivity::class.java).apply {
-                            putExtra("price", moneyValue.toString())
-                        }
-                        context.startActivity(intent)
+                        paymentComplete = true // 화면 전환 트리거
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -181,3 +171,4 @@ fun PurchasePageScreen(
         }
     }
 }
+
