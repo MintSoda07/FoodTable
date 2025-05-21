@@ -1,4 +1,3 @@
-
 package com.bcu.foodtable.JetpackCompose.Mypage
 
 import android.os.Bundle
@@ -15,7 +14,7 @@ class HealthConnectActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            HealthConnectScreen(viewModel)
+            HealthConnectScreen(viewModel = viewModel)
         }
     }
 }

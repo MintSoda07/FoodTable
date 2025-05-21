@@ -1,10 +1,9 @@
-
 package com.bcu.foodtable.JetpackCompose.Mypage
 
-import java.time.DayOfWeek
-import android.app.Application
-import android.content.pm.PackageManager
-import android.util.Log
+import android.content.Context
+import android.widget.Toast
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
@@ -12,78 +11,59 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.R
-import dagger.hilt.android.lifecycle.HiltViewModel
+import com.bcu.foodtable.ui.myPage.FoodItem
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import javax.inject.Inject
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
-data class StepData(val date: String, val steps: Int)
+class HealthConnectViewModel : ViewModel() {
 
-@HiltViewModel
-class HealthConnectViewModel @Inject constructor(
-    private val app: Application
-) : ViewModel() {
+    data class HealthUiState(
+        val steps: Int = 0,
+        val goal: Int = 20000,
+        val resultText: String = "",
+        val rewardCount: Int = 0,
+        val foodItem: FoodItem? = null
+    )
 
-    private val _uiState = MutableStateFlow(HealthConnectState())
-    val uiState: StateFlow<HealthConnectState> = _uiState
+    private val stepGoals = listOf(5000, 10000, 15000, 20000)
+    private val caloriesPerStep = 0.04
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
+
+    private val _uiState = MutableStateFlow(HealthUiState())
+    val uiState: StateFlow<HealthUiState> = _uiState
 
     private val _stepDataList = MutableStateFlow<List<StepData>>(emptyList())
     val stepDataList: StateFlow<List<StepData>> = _stepDataList
 
-    private val auth = FirebaseAuth.getInstance()
-    private val db = FirebaseFirestore.getInstance()
-
-    private lateinit var healthConnectClient: HealthConnectClient
-
-    val stepGoals = listOf(5000, 10000, 15000, 20000)
-
-    private val permissions: Set<String> = setOf(
+    fun getRequiredPermissions(): Set<String> = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class)
     )
 
-    fun getRequiredPermissions(): Set<String> = permissions
-
-    init {
-        if (isHealthConnectInstalled()) {
-            healthConnectClient = HealthConnectClient.getOrCreate(app)
-        }
-
-        _stepDataList.value = listOf(
-            StepData("월", 4321),
-            StepData("화", 8750),
-            StepData("수", 10000),
-            StepData("목", 6540),
-            StepData("금", 12000),
-            StepData("토", 3000),
-            StepData("일", 0)
-        )
-    }
-
-    fun loadHealthData(client: HealthConnectClient = healthConnectClient) {
+    fun loadHealthData(client: HealthConnectClient) {
         viewModelScope.launch {
             try {
                 val now = LocalDateTime.now()
-                val startTime = now.toLocalDate().atStartOfDay().atZone(ZoneId.systemDefault()).toInstant()
+                val startOfDay = LocalDateTime.of(now.toLocalDate(), LocalTime.MIDNIGHT)
+                val startTime = startOfDay.atZone(ZoneId.systemDefault()).toInstant()
                 val endTime = now.atZone(ZoneId.systemDefault()).toInstant()
 
                 val steps = client.readRecords(
                     ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startTime, endTime))
                 ).records.sumOf { it.count }
 
-                val calories = client.readRecords(
+                val totalCalories = client.readRecords(
                     ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(startTime, endTime))
                 ).records.sumOf { it.energy.inKilocalories }
 
@@ -91,20 +71,23 @@ class HealthConnectViewModel @Inject constructor(
                     ReadRecordsRequest(HeartRateRecord::class, TimeRangeFilter.between(startTime, endTime))
                 ).records.flatMap { it.samples }.maxByOrNull { it.time }?.beatsPerMinute ?: 0
 
-                val estimatedCalories = (steps * 0.04).toInt()
-                val food = getFoodByCalories(estimatedCalories)
+                val estimatedCalories = (steps * caloriesPerStep).toInt()
+                val foodItem = getFoodByCalories(estimatedCalories)
+                val resultText = "걸음 수: $steps\n칼로리: ${totalCalories.toInt()} kcal\n추정: $estimatedCalories kcal\n심박수: $heartRate bpm"
+
+                val nextGoal = stepGoals.find { it > steps } ?: 20000
 
                 _uiState.value = _uiState.value.copy(
                     steps = steps.toInt(),
-                    goal = stepGoals.find { it > steps } ?: 20000,
-                    resultText = "걸음 수: $steps\n칼로리: ${calories.toInt()} kcal\n심박수: $heartRate bpm",
-                    foodItem = food
+                    goal = nextGoal,
+                    resultText = resultText,
+                    foodItem = foodItem
                 )
 
                 rewardUserIfNeeded(steps)
 
             } catch (e: Exception) {
-                Log.e("HealthConnect", "데이터 로딩 실패", e)
+                _uiState.value = _uiState.value.copy(resultText = "데이터 로딩 실패: ${e.message}")
             }
         }
     }
@@ -119,7 +102,7 @@ class HealthConnectViewModel @Inject constructor(
         rewardRef.get().addOnSuccessListener { doc ->
             val receivedCount = doc.getLong("rewardStep")?.toInt() ?: 0
             val rewardableCount = stepGoals.count { currentSteps >= it } - receivedCount
-            _uiState.update { it.copy(rewardCount = rewardableCount.coerceAtLeast(0)) }
+            _uiState.value = _uiState.value.copy(rewardCount = rewardableCount)
         }
     }
 
@@ -139,15 +122,11 @@ class HealthConnectViewModel @Inject constructor(
 
             transaction.update(userRef, "point", newPoint)
             transaction.set(rewardRef, mapOf("rewardStep" to prevReward + 1))
+            newPoint
         }.addOnSuccessListener {
-            _uiState.update { it.copy(rewardCount = (it.rewardCount - 1).coerceAtLeast(0)) }
+            val updatedCount = _uiState.value.rewardCount - 1
+            _uiState.value = _uiState.value.copy(rewardCount = updatedCount)
         }
-    }
-
-    fun getJosa(word: String, josaWithBatchim: String, josaWithoutBatchim: String): String {
-        val lastChar = word.last()
-        val hasBatchim = (lastChar.code - 0xAC00) % 28 != 0
-        return if (hasBatchim) josaWithBatchim else josaWithoutBatchim
     }
 
     private fun getFoodByCalories(calories: Int): FoodItem {
@@ -168,12 +147,10 @@ class HealthConnectViewModel @Inject constructor(
         }
     }
 
-    private fun isHealthConnectInstalled(): Boolean {
-        return try {
-            app.packageManager.getPackageInfo("com.google.android.apps.healthdata", 0)
-            true
-        } catch (e: PackageManager.NameNotFoundException) {
-            false
-        }
+    fun getJosa(word: String, josaWithBatchim: String, josaWithoutBatchim: String): String {
+        val lastChar = word.last()
+        val hasBatchim = (lastChar.code - 0xAC00) % 28 != 0
+        return if (hasBatchim) josaWithBatchim else josaWithoutBatchim
     }
 }
+

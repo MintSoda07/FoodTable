@@ -1,6 +1,7 @@
 package com.bcu.foodtable.JetpackCompose.Mypage
 
 
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,17 +13,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.User
+
 
 @Composable
 fun ProfileTopBar(user: User?, onChallengeClick: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -65,7 +67,17 @@ fun ProfileTopBar(user: User?, onChallengeClick: () -> Unit) {
                     color = colorScheme.onSurfaceVariant
                 )
             }
-
+//            // 설정 버튼
+//            IconButton(onClick = {
+//                context.startActivity(Intent(context, SettingActivity::class.java))
+//            }) {
+//                Icon(
+//                    painter = painterResource(id = R.drawable.baseline_settings_24),
+//                    contentDescription = "설정",
+//                    tint = colorScheme.primary,
+//                    modifier = Modifier.size(24.dp)
+//                )
+//            }
             // 트로피 버튼
             IconButton(onClick = onChallengeClick) {
                 Icon(

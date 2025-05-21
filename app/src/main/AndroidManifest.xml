@@ -152,6 +152,8 @@
         <activity
             android:name=".SearchResultActivity"
             android:exported="false"/>
+        <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity"
+            android:exported="false"/>
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity"
             android:exported="false" />
@@ -163,6 +165,8 @@
             android:name=".HomeAcitivity"
             android:exported="false"
             android:label="@string/title_activity_home_acitivity" />
+        <activity android:name=".JetpackCompose.Mypage.ProfileActivity"
+            android:exported="false"/>
 
         <activity
             android:name=".LoginActivity"

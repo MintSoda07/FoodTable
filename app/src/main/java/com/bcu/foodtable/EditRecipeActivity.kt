@@ -1,6 +1,6 @@
 package com.bcu.foodtable.ui.subscribeNavMenu
 
-import RecipeItem
+
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log

@@ -127,27 +127,11 @@ fun HomeScreen(
             }
             3 -> Text("Recipe Storage Screen")
             4 -> {
-                val currentUser = user
-                if (currentUser != null) {
-                    ProfileMainScreen(
-                        user = currentUser,
-                        paddingValues = paddingValues,
-                        onEditClick = { /* TODO */ },
-                        onPurchaseClick = { /* TODO */ },
-                        onCreateChannelClick = { /* TODO */ },
-                        onHealthCheckClick = {
-                            context.startActivity(
-                                Intent(
-                                    context,
-                                    HealthConnectActivity::class.java
-                                )
-                            ) // ✅ 이동 처리
-                        }
-                    )
-                } else {
-                    Text("사용자 정보를 불러오는 중입니다...", modifier = Modifier.padding(paddingValues))
-                }
+                ProfileMainScreen(
+                    paddingValues = paddingValues
+                )
             }
+
         }
 
 
