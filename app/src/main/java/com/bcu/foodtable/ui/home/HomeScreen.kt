@@ -142,42 +142,79 @@ fun HomeScreen(
 }
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun HomeTopBar(user: User?, onChallengeClick: () -> Unit) { // ✅ nullable User 처리
-        TopAppBar(
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (user != null) {
-                        AsyncImage(
-                            model = user.image,
-                            contentDescription = "프로필 이미지",
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape),
-                            error = rememberVectorPainter(Icons.Outlined.AccountCircle)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "소금: ${user.point}")
-                    } else {
-                        Icon(
-                            imageVector = Icons.Outlined.AccountCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("소금: \\0")
+    fun HomeTopBar(user: User?, onChallengeClick: () -> Unit) {
+        Surface(
+            tonalElevation = 6.dp,
+            shadowElevation = 8.dp,
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+        ) {
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        // 프로필 이미지
+                        if (user != null) {
+                            AsyncImage(
+                                model = user.image,
+                                contentDescription = "프로필 이미지",
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape),
+                                error = rememberVectorPainter(Icons.Outlined.AccountCircle)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = "안녕하세요!",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = "소금: ${user.point}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("소금: 0", style = MaterialTheme.typography.titleMedium)
+                        }
                     }
-                }
-            },
-            actions = {
-                IconButton(onClick = onChallengeClick) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.baseline_emoji_events_24),
-                        contentDescription = "챌린지"
-                    )
-                }
-            }
-        )
+                },
+                actions = {
+                    IconButton(
+                        onClick = onChallengeClick,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(end = 4.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_emoji_events_24),
+                            contentDescription = "챌린지",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
     }
+
 
 @Composable
 private fun HomeContent(
