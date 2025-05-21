@@ -16,12 +16,12 @@ plugins {
 
 android {
     namespace = "com.bcu.foodtable"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.bcu.foodtable"
         minSdk = 28
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
         vectorDrawables.useSupportLibrary = true
@@ -79,13 +79,13 @@ dependencies {
     implementation(libs.converter.gson)  // JSON 변환
 
     // 포트원 결제 라이브러리
-    implementation(libs.android.sdk.v010)
+    implementation("com.github.portone-io:android-sdk:0.1.0")
     implementation(libs.androidx.benchmark.macro)
     implementation(libs.firebase.perf.ktx)
     implementation(libs.firebase.crashlytics.buildtools)
 
     // CoreLibraryDesugaring
-    coreLibraryDesugaring(libs.desugar.jdk.libs.v215)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     // 플랙스 레이아웃 사용을 위한 라이브러리
     implementation(libs.flexbox)
@@ -101,47 +101,48 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.flexbox)
+    implementation("com.google.android.flexbox:flexbox:3.0.0")
 
     // 헬스 커넥트
-    implementation(libs.androidx.connect.client)
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
 
     // 그래프
-    implementation(libs.mpandroidchart)
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     // Vico (Charts for Compose)
-    implementation(libs.compose.m3)
-    implementation(libs.core)
+    implementation("com.patrykandpatrick.vico:compose-m3:1.13.0")
+    implementation("com.patrykandpatrick.vico:core:1.13.0")
 
     implementation (libs.lottie.compose)
     // Material 아이콘 확장 (EmojiEvents, Star, MilitaryTech 등)
-    implementation(libs.androidx.material.icons.extended)
+    implementation("androidx.compose.material:material-icons-extended")
     // Compose BOM
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    implementation(libs.androidx.runtime)
-    implementation(libs.androidx.runtime.livedata)
-    implementation(libs.androidx.foundation)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.navigation.compose)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.fragment.ktx)
-    debugImplementation(libs.androidx.ui.tooling)
+    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.runtime:runtime")
+    implementation("androidx.compose.runtime:runtime-livedata")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose")
+    implementation("androidx.navigation:navigation-compose")
+    implementation("androidx.activity:activity-compose")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Kotlin Serialization
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.accompanist.flowlayout)
-    implementation(libs.coil.compose)
-    implementation(libs.hilt.android)
-    implementation(libs.androidx.hilt.navigation.compose)
-    implementation(libs.androidx.hilt.common)
-    kapt(libs.androidx.hilt.compiler)
-    implementation(libs.activity.compose)
-    implementation(libs.androidx.navigation.compose.v273)
-    implementation(libs.lifecycle.viewmodel.compose)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
+    implementation("com.google.accompanist:accompanist-flowlayout:0.34.0")
+    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("com.google.dagger:hilt-android:2.48")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation("androidx.hilt:hilt-common:1.0.0")
+    kapt("androidx.hilt:hilt-compiler:1.0.0")
+    implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.navigation:navigation-compose:2.7.3")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.1")
 
-    kapt(libs.hilt.compiler)
-
+    kapt("com.google.dagger:hilt-compiler:2.48")
+    //  Kotlin 2.0에서는 필요 없음! → 삭제
+    // implementation("androidx.compose.compiler:compiler:1.5.11")
 }
