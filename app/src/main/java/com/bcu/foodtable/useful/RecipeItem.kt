@@ -1,22 +1,48 @@
 package com.bcu.foodtable.useful
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
-// 레시피의 정보를 저장하기 위한 data class.
-    data class RecipeItem(
-        val name: String = "",
-        val description: String = "",
-        val imageResId: String = "", // Firestore에서 이미지 URL을 불러옴
-        val clicked: Int = 0,
-        val date : Timestamp = Timestamp.now(),
-        val order : String ="",
-        var id: String = "",
-        var C_categories : List<String> = listOf(),
-        var note : String="",
-        var tags : List<String> = listOf(),
-        var ingredients : List<String> = listOf(),
-        val contained_channel : String="",
-        var estimatedCalories: String? = null,
-        val likes : Int = 0,
-        val likedUsers: List<String> = listOf()
-    )
+data class RecipeItem(
+    @PropertyName("name")
+    val name: String = "",
+
+    @PropertyName("description")
+    val description: String = "",
+
+    @PropertyName("imageResId")
+    val imageResId: String = "",
+
+    @PropertyName("clicked")
+    val clicked: Int = 0,
+
+    @PropertyName("date")
+    val date: Timestamp = Timestamp.now(),
+
+    @PropertyName("order")
+    val order: String = "",
+
+    @PropertyName("id")
+    var id: String = "",
+
+    @PropertyName("C_categories")
+    var C_categories: List<String> = listOf(),
+
+    @PropertyName("note")
+    var note: String = "",
+
+    @PropertyName("tags")
+    var tags: List<String> = listOf(),
+
+    @PropertyName("ingredients")
+    var ingredients: List<String> = listOf(),
+
+    @PropertyName("contained_channel")
+    val contained_channel: String = "",
+
+    @PropertyName("estimatedCalories")
+    var estimatedCalories: String? = null,
+
+    @PropertyName("likes")
+    var likes: Int = 0
+)

@@ -52,16 +52,16 @@ class PurchaseConfirmActivity : AppCompatActivity() {
                     rankPoint = user.rankPoint,
                     description = user.description
                 )
-                ActivityTransition.startStatic(this@PurchaseConfirmActivity,HomeAcitivity::class.java)
+                ActivityTransition.startStatic(this@PurchaseConfirmActivity, HomeActivity::class.java)
             }
-                override fun onFail(response: PaymentResponse.Fail) {
-                    AlertDialog.Builder(this@PurchaseConfirmActivity)
-                        .setTitle("결제 실패")
-                        .setMessage(response.toString())
-                        .show()
-                }
+            override fun onFail(response: PaymentResponse.Fail) {
+                AlertDialog.Builder(this@PurchaseConfirmActivity)
+                    .setTitle("결제 실패")
+                    .setMessage(response.toString())
+                    .show()
+            }
 
-            })
+        })
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

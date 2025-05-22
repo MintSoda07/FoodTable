@@ -22,61 +22,66 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            var id by remember { mutableStateOf("") }
-            var pwd by remember { mutableStateOf("") }
+            var email by remember { mutableStateOf("") }
+            var password by remember { mutableStateOf("") }
             var warning by remember { mutableStateOf("") }
 
             LoginScreen(
-                idInput = id,
-                onIdChange = { id = it },
-                pwdInput = pwd,
-                onPwdChange = { pwd = it },
+                email = email,
+                password = password,
+                onEmailChange = { email = it },
+                onPasswordChange = { password = it },
                 warningText = warning,
                 onLoginClick = {
-                    val passwordPattern = Regex("^(?=.*[A-Z])(?=.*[!@#\$%^&*()\\-+=]).{6,48}$")
-                    when {
-                        id.isEmpty() -> warning = getString(R.string.id_empty_warning)
-                        pwd.isEmpty() -> warning = getString(R.string.pwd_empty_warning)
-                        !pwd.matches(passwordPattern) -> warning = getString(R.string.pwd_validate_warning)
-                        else -> {
-                            auth.signInWithEmailAndPassword(id, pwd)
-                                .addOnCompleteListener { task ->
-                                    if (task.isSuccessful) {
-                                        val user = auth.currentUser
-                                        if (user?.isEmailVerified == false && !isDebugging) {
-                                            warning = getString(R.string.email_not_verified_warning)
-                                            return@addOnCompleteListener
-                                        }
-                                        fetchUserData(
-                                            uid = user!!.uid,
-                                            onSuccess = { userData ->
-                                                UserManager.setUser(
-                                                    userData.name, userData.email, userData.image,
-                                                    userData.phoneNumber, userData.point,
-                                                    userData.uid, userData.rankPoint, userData.description
-                                                )
-                                                Toast.makeText(
-                                                    this@LoginActivity,
-                                                    R.string.login_success,
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                                ActivityTransition.startStatic(this@LoginActivity, HomeAcitivity::class.java)
-                                            },
-                                            onFailure = {
-                                                warning = getString(R.string.login_failure)
-                                            }
-                                        )
-                                    } else {
-                                        warning = getString(R.string.login_failure)
-                                    }
-                                }
-                        }
+                    handleLogin(email, password) { result ->
+                        warning = result
                     }
                 },
                 onSignUpClick = {
                     ActivityTransition.startStatic(this, SignUpActivity::class.java)
                 }
             )
+//                warningText = warning
+//            )
+        }
+    }
+
+    private fun handleLogin(email: String, password: String, onResult: (String) -> Unit) {
+        val pattern = Regex("^(?=.*[A-Z])(?=.*[!@#\$%^&*()\\-+=]).{6,48}$")
+
+        when {
+            email.isBlank() -> onResult(getString(R.string.id_empty_warning))
+            password.isBlank() -> onResult(getString(R.string.pwd_empty_warning))
+            !password.matches(pattern) -> onResult(getString(R.string.pwd_validate_warning))
+            else -> {
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            val user = auth.currentUser
+                            if (user?.isEmailVerified == false && !isDebugging) {
+                                onResult(getString(R.string.email_not_verified_warning))
+                                return@addOnCompleteListener
+                            }
+                            fetchUserData(
+                                uid = user!!.uid,
+                                onSuccess = { userData ->
+                                    UserManager.setUser(
+                                        userData.name, userData.email, userData.image,
+                                        userData.phoneNumber, userData.point,
+                                        userData.uid, userData.rankPoint, userData.description
+                                    )
+                                    Toast.makeText(this, R.string.login_success, Toast.LENGTH_SHORT).show()
+                                    ActivityTransition.startStatic(this, HomeActivity::class.java)
+                                },
+                                onFailure = {
+                                    onResult(getString(R.string.login_failure))
+                                }
+                            )
+                        } else {
+                            onResult(getString(R.string.login_failure))
+                        }
+                    }
+            }
         }
     }
 
@@ -85,7 +90,9 @@ class LoginActivity : ComponentActivity() {
         onSuccess: (User) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        FirebaseFirestore.getInstance().collection("user").document(uid)
+        FirebaseFirestore.getInstance()
+            .collection("user")
+            .document(uid)
             .get()
             .addOnSuccessListener { document ->
                 val user = document.toObject(User::class.java)
@@ -96,6 +103,8 @@ class LoginActivity : ComponentActivity() {
                     onFailure(Exception("사용자 데이터 변환 실패"))
                 }
             }
-            .addOnFailureListener { onFailure(it) }
+            .addOnFailureListener { exception ->
+                onFailure(exception)
+            }
     }
 }

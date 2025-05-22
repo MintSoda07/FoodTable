@@ -1,0 +1,44 @@
+name: Build & Deploy APK
+
+on:
+  push:
+    branches:
+      - main6
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ✅ Secret에서 google-services.json 복원
+      - name: Decode google-services.json from Secret
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > app/google-services.json
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build APK (Release)
+        run: ./gradlew assembleRelease
+
+      - name: Copy APK to public folder
+        run: |
+          mkdir -p public/apk
+          cp app/build/outputs/apk/release/app-release.apk public/apk/babsangfriend.apk
+
+      - name: Commit and push APK
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add public/apk/babsangfriend.apk
+          git commit -m "Update APK [skip ci]" || echo "No changes to commit"
+          git push

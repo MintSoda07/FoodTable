@@ -21,16 +21,16 @@
 
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- 녹음 권한-->
-    <queries>
-        <package android:name="com.google.android.apps.healthdata" />
-    </queries>
+<!--    <queries>-->
+<!--        <package android:name="com.google.android.apps.healthdata" />-->
+<!--    </queries>-->
 
     <!--결제대행사 관련 앱 스킴-->
     <queries>
-
+        <package android:name="com.google.android.apps.healthdata" />
         <!-- 간편결제 -->
         <package android:name="com.kftc.bankpay.android" /> <!-- 뱅크페이 -->
-        <package android:name="com.nhnent.payapp" /> <!-- 페이코 -->
+<!--        <package android:name="com.nhnent.payapp" /> &lt;!&ndash; 페이코 &ndash;&gt;-->
         <package android:name="com.lottemembers.android" /> <!-- LPAY -->
         <package android:name="com.ssg.serviceapp.android.egiftcertificate" /> <!-- SSGPAY -->
         <package android:name="com.inicis.kpay" /> <!-- KPAY -->
@@ -61,7 +61,7 @@
         <package android:name="nh.smart.nhallonepay" /> <!-- 농협 -->
         <package android:name="nh.smart.card" /> <!-- 농협 -->
         <package android:name="net.ib.android.smcard" /> <!-- 삼성 모니모 -->
-        <package android:name="kr.co.citibank.citimobile" /> <!-- 씨티 -->
+<!--        <package android:name="kr.co.citibank.citimobile" /> 씨티 -->
         <package android:name="com.wooricard.smartapp" /> <!-- 우리WON카드 -->
         <package android:name="com.wooribank.smart.npib" /> <!-- 우리WON뱅킹 -->
         <!-- 백신 -->
@@ -69,7 +69,7 @@
         <package android:name="com.ahnlab.v3mobileplus" /> <!-- V3 -->
         <package android:name="kr.co.shiftworks.vguardweb" /> <!-- vguard -->
         <!-- 신용카드 공인인증 -->
-        <package android:name="com.hanaskcard.rocomo.potal" /> <!-- 하나 -->
+<!--        <package android:name="com.hanaskcard.rocomo.potal" />  하나 -->
         <package android:name="com.lumensoft.touchenappfree" /> <!-- 현대 -->
         <!-- 계좌이체 -->
         <package android:name="com.kftc.bankpay.android" /> <!-- 뱅크페이 -->
@@ -93,6 +93,7 @@
         android:maxSdkVersion="29" />
 
     <application
+        android:name="com.bcu.foodtable.FoodTableApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -103,7 +104,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.FoodTable"
         tools:ignore="DiscouragedApi"
-        tools:targetApi="35">
+        tools:targetApi="35"
+        >
+        <property
+            android:name="android.adservices.AD_SERVICES_CONFIG"
+            android:resource="@xml/gma_ad_services_config"
+            tools:replace="android:resource" />
+        <activity android:name="com.bcu.foodtable.JetpackCompose.AI.AiMainActivity" />
         <activity
             android:name=".PurchaseConfirmActivity"
             android:exported="false" />
@@ -116,9 +123,9 @@
         <activity
             android:name=".PuchasePage"
             android:exported="false" />
-        <activity
-            android:name=".Setting"
-            android:exported="false" />
+<!--        <activity-->
+<!--            android:name=".Setting"-->
+<!--            android:exported="false" />-->
         <activity
             android:name=".ui.subscribeNavMenu.ChannelViewPage"
             android:exported="false" />
@@ -149,22 +156,26 @@
         <activity
             android:name=".SearchResultActivity"
             android:exported="false"/>
-        <activity
-            android:name=".ui.health.HealthConnectActivity"
+        <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity"
             android:exported="false"/>
         <activity
-            android:name=".ui.myPage.myFridge.FridgeActivity"
-            android:exported="false"/>
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
+            android:exported="false" />
+
         <activity
-            android:name=".HomeAcitivity"
-            android:exported="false"
-            android:label="@string/title_activity_home_acitivity" />
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity"
+            android:exported="false"/>
+        <activity android:name=".JetpackCompose.HomeChannelDatil.RecipeCookingActivity" />
+        <activity android:name=".HomeActivity" />
+
+        <activity android:name=".JetpackCompose.Mypage.ProfileActivity"
+            android:exported="false"/>
 
         <activity
             android:name=".LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
-
+        <activity android:name=".JetpackCompose.Channel.SubscribeActivity" />
         <activity
             android:name="com.bcu.foodtable.ui.myPage.ChannelCreationActivity"
             android:exported="false" />
@@ -180,13 +191,27 @@
         <activity-alias
             android:name=".AndroidURationaleActivity"
             android:exported="true"
-            android:targetActivity=".ui.health.HealthConnectActivity"
+            android:targetActivity="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
             android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+        <activity
+            android:name=".ui.ChallengeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+        <activity
+            android:name=".ui.ChallengeDetailActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+        <activity
+            android:name=".ui.ChallengeHistoryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
     </application>
+
 
 </manifest>
