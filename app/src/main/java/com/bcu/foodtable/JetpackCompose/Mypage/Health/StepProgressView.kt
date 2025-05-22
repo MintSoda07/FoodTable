@@ -1,10 +1,11 @@
-package com.bcu.foodtable.ui.myPage
+package com.bcu.foodtable.JetpackCompose.Mypage.Health
 
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
 
+// 반원형 걸음 수 ProgressView
 class StepProgressView @JvmOverloads constructor(
     context: Context, attrs: AttributeSet? = null
 ) : View(context, attrs) {
@@ -61,8 +62,7 @@ class StepProgressView @JvmOverloads constructor(
         val height = height.toFloat()
         val radius = width / 2.5f
         val centerX = width / 2
-        val centerY = height / 2  //
-        val offsetY = 0f          //
+        val centerY = height / 2  // 중앙 기준으로 수정
 
         val rect = RectF(
             centerX - radius,
@@ -71,16 +71,16 @@ class StepProgressView @JvmOverloads constructor(
             centerY + radius
         )
 
-        // 반원만 위쪽만 나오도록 180도
+        // 배경 반원
         canvas.drawArc(rect, 180f, 180f, false, bgArcPaint)
+        // 진행 반원
         canvas.drawArc(rect, 180f, 180f * progress, false, arcPaint)
 
-        // 텍스트 위치도 기준 변경
-        canvas.drawText("오늘의 걸음 수", centerX, centerY - 40f, labelTextPaint)
-        canvas.drawText(stepText, centerX, centerY + 20f, stepTextPaint)
-        canvas.drawText(goalText, centerX, centerY + 80f, labelTextPaint)
+        // 텍스트
+        canvas.drawText("오늘의 걸음 수", centerX, centerY - 100f, labelTextPaint)
+        canvas.drawText(stepText, centerX, centerY - 40f, stepTextPaint)
+        canvas.drawText(goalText, centerX, centerY + 20f, labelTextPaint)
     }
-
 
     fun setStepData(currentSteps: Int, goalSteps: Int) {
         progress = currentSteps.coerceAtMost(goalSteps).toFloat() / goalSteps

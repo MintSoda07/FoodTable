@@ -1,4 +1,4 @@
-package com.bcu.foodtable.ui.myPage.myFridge
+package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
@@ -10,8 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.bcu.foodtable.ui.myPage.myFridge.Ingredient
-import com.bcu.foodtable.ui.myPage.myFridge.FridgeViewModel
 import java.time.LocalDate
 import androidx.compose.ui.text.input.KeyboardType
 import java.util.UUID

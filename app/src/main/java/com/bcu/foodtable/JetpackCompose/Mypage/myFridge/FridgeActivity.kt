@@ -1,4 +1,4 @@
-package com.bcu.foodtable.ui.myPage.myFridge
+package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -9,7 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
-import com.bcu.foodtable.ui.myPage.myFridge.theme.FridgeTheme //
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.theme.FridgeTheme //
 
 class FridgeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

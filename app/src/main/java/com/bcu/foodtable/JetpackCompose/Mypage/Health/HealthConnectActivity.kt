@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.Mypage
+package com.bcu.foodtable.JetpackCompose.Mypage.Health
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity

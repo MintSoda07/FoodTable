@@ -5,18 +5,16 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.PuchasePage
-import com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity
+import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity
 import com.bcu.foodtable.ui.myPage.ChannelCreationActivity
-import com.bcu.foodtable.ui.myPage.myFridge.FridgeActivity
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity
 import com.bcu.foodtable.useful.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 class ProfileViewModel : ViewModel() {
 

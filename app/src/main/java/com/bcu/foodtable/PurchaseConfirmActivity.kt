@@ -1,23 +1,30 @@
 package com.bcu.foodtable
 
 import android.os.Bundle
-import android.util.Log
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.useful.ActivityTransition
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
-import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.useful.UserManager
-import io.portone.sdk.android.PortOne
-import io.portone.sdk.android.payment.*
-import io.portone.sdk.android.type.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.UUID
+import java.text.NumberFormat
+import java.util.*
 
 class PurchaseConfirmActivity : AppCompatActivity() {
     // 결제 완료/실패 이후 응답을 처리 하기 위한 ResultLauncher 생성
@@ -62,30 +69,120 @@ class PurchaseConfirmActivity : AppCompatActivity() {
                 }
 
             })
+class PurchaseConfirmActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_purchase_confirm)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
         val costStr = intent.getStringExtra("price")
-        val cost: Long = costStr?.toLongOrNull() ?: 0L
-        Log.d("Purchase", "BEFORE STR : $costStr , AFTER LONG : $cost")
+        val cost = costStr?.toLongOrNull() ?: 0L
 
-        PortOne.requestPayment(
-            this,
-            request = PaymentRequest(
-                storeId = "store-38616698-cf3e-4364-9073-494e2127e935",
-                channelKey = "channel-key-14ab4c31-cba3-447a-9543-941396495fd9",
-                paymentId = "babsang-${UUID.randomUUID()}",
-                orderName = "밥상친구 소금 $cost 개",
-                amount = Amount(total = cost , currency = Currency.KRW), // 금액
-                method = PaymentMethod.Card() // 결제수단 관련 정보
-            ),
-            resultLauncher = paymentActivityResultLauncher
-        )
+        setContent {
+            MaterialTheme {
+                Surface {
+                    PurchaseCompleteScreen(cost = cost) {
+                        ActivityTransition.startStatic(this, HomeAcitivity::class.java)
+                        finish()
+                    }
+                }
+            }
+        }
     }
+}
+
+@Composable
+fun PurchaseCompleteScreen(
+    cost: Long,
+    onGoHome: () -> Unit
+) {
+    val context = LocalContext.current
+    val user = remember { UserManager.getUser()!! }
+
+    var showAnimation by remember { mutableStateOf(false) }
+    var displayPoint by remember { mutableStateOf(user.point) }
+
+    // 애니메이션 숫자 증가
+    val animatedPoint by animateIntAsState(
+        targetValue = displayPoint,
+        animationSpec = tween(durationMillis = 1200),
+        label = "AnimatedPoint"
+    )
+
+    // 코루틴으로 포인트 충전 및 애니메이션 표시
+    LaunchedEffect(Unit) {
+        val updatedPoint = user.point + cost.toInt()
+        displayPoint = updatedPoint
+        user.point = updatedPoint
+        UserManager.setUserByDatatype(user)
+        updateFieldById("user", user.uid, "point", updatedPoint.toLong())
+        delay(400)
+        showAnimation = true
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        AnimatedVisibility(
+            visible = showAnimation,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { -30 })
+        ) {
+            Text(
+                text = "결제가 완료되었습니다!",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 동전 드롭 애니메이션 (Lottie)
+        LottieAnimationView(asset = "coin_drop.json", modifier = Modifier.size(180.dp))
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // 소금 포인트 표시
+        Text(
+            text = "보유 소금: ₩ ${NumberFormat.getNumberInstance(Locale.KOREA).format(animatedPoint)}",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        // 홈으로 버튼
+        Button(
+            onClick = onGoHome,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            elevation = ButtonDefaults.buttonElevation(8.dp)
+        ) {
+            Text(
+                text = "홈으로 돌아가기",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun LottieAnimationView(asset: String, modifier: Modifier = Modifier) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.Asset(asset))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever
+    )
+
+    LottieAnimation(
+        composition = composition,
+        progress = { progress },
+        modifier = modifier
+    )
 }
