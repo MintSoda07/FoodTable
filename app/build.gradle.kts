@@ -103,6 +103,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose")
     implementation("androidx.activity:activity-compose")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation(libs.ads.mobile.sdk)
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("com.google.firebase:firebase-firestore-ktx:24.10.0")
     // 보조 라이브러리

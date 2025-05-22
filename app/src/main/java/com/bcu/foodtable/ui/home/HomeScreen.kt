@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.home
 
+import ads_mobile_sdk.h6
 import com.bcu.foodtable.useful.RecipeItem
 import android.content.Context
 import android.content.Intent
@@ -42,7 +43,6 @@ import com.bcu.foodtable.ui.ChallengeActivity
 
 import com.bcu.foodtable.JetpackCompose.HomeViewModel  // ✅ 수정된 ViewModel import 경로
 import com.bcu.foodtable.JetpackCompose.HomeTopSection
-import com.bcu.foodtable.JetpackCompose.Mypage.HealthConnectActivity
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import com.bcu.foodtable.JetpackCompose.RecipeCard
 import com.bcu.foodtable.JetpackCompose.screens.MyChannelScreen
@@ -153,82 +153,54 @@ fun HomeScreen(
         }
     }
 }
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    fun HomeTopBar(user: User?, onChallengeClick: () -> Unit) {
-        Surface(
-            tonalElevation = 8.dp,
-            shadowElevation = 12.dp,
-            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
-        ) {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        // 프로필 이미지
-                        if (user != null) {
-                            AsyncImage(
-                                model = user.image,
-                                contentDescription = "프로필 이미지",
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .clip(CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape),
-                                error = rememberVectorPainter(Icons.Outlined.AccountCircle)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeTopBar(user: User?, onChallengeClick: () -> Unit) {
+    Surface(
+        tonalElevation = 8.dp,
+        shadowElevation = 12.dp,
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.95f)
+    ) {
+        TopAppBar(
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                ) {
+                    // 프로필 이미지
+                    if (user != null) {
+                        AsyncImage(
+                            model = user.image,
+                            contentDescription = "프로필 이미지",
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+                            error = rememberVectorPainter(Icons.Outlined.AccountCircle)
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                            Column {
-                                Text(
-                                    text = "안녕하세요, ${user.name}!",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                                Text(
-                                    text = "소금: ${user.point}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                                )
-                            }
-                        } else {
-                            Icon(
-                                imageVector = Icons.Outlined.AccountCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(50.dp)
+                        Column {
+                            Text(
+                                text = "안녕하세요, ${user.name}!",
+                                style = MaterialTheme.typography.titleLarge
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text("소금: 0", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-                },
-                actions = {
-                    IconButton(
-                        onClick = onChallengeClick,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .padding(end = 8.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
-                                shape = CircleShape
-                            )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_emoji_events_24),
-                            contentDescription = "챌린지",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    scrolledContainerColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
+                }
+            },
+            actions = {
+                IconButton(onClick = onChallengeClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.AccountCircle,
+                        contentDescription = "챌린지",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+        )
     }
-
+}
 
 @Composable
 private fun HomeContent(

@@ -24,11 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.ui.health.HealthConnectActivity
-import com.bcu.foodtable.ui.myPage.myFridge.FridgeActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
