@@ -2,6 +2,8 @@ package com.bcu.foodtable.JetpackCompose.HomeChannelDatil
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent // 추가: URL을 열기 위함
+import android.net.Uri // 추가: URL을 파싱하기 위함
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.speech.tts.TextToSpeech
@@ -11,6 +13,7 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable // 추가: 클릭 가능한 UI를 만들기 위함
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -34,14 +37,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.bcu.foodtable.useful.RecipeItem
+import com.bcu.foodtable.useful.RecipeItem // RecipeItem에 ingredients: List<String> 필드가 있다고 가정
 import com.bcu.foodtable.voice.VoiceCommandController
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-// 상태 데이터 클래스
+// 상태 데이터 클래스 (StepTimerState는 별도 파일에 정의되어 있다고 가정)
 data class CookingStepState(
     val text: String,
     val isDone: Boolean = false,
@@ -80,6 +83,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         timerTitle = method,
                         timerDuration = duration,
                         isCurrent = index == 0
+                        // timerState는 StepTimerState가 실제로 구현될 때 초기화 필요
                     )
                 }
         )
@@ -136,7 +140,8 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     tts.speak("음성 명령을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
                 }
                 VoiceCommandController.CommandType.TIMER -> {
-                    tts.speak("타이머 기능은 아직 구현되지 않았습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer")
+                    // 실제 타이머 기능 연동 시 이 부분 수정 필요
+                    tts.speak("타이머 기능은 아직 완전히 연동되지 않았습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer")
                 }
                 VoiceCommandController.CommandType.NONE -> {
                     tts.speak("명령을 이해하지 못했습니다.", TextToSpeech.QUEUE_FLUSH, null, "fail")
@@ -169,7 +174,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 )
                 AsyncImage(
                     model = recipe.imageResId,
-                    contentDescription = null,
+                    contentDescription = recipe.name, // contentDescription에 레시피 이름 추가
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -212,10 +217,55 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     )
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                LikeButton(recipeId = recipeId)
+
+                // --- START: 재료 목록 섹션 ---
+                // RecipeItem에 ingredients: List<String> 필드가 있다고 가정합니다.
+                // 실제 RecipeItem의 재료 필드명으로 'recipe.ingredients'를 사용하거나 맞게 수정해주세요.
+                if (recipe.ingredients.isNotEmpty()) {
+                    Text(
+                        "재료",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                    )
+                    Column {
+                        recipe.ingredients.forEach { ingredient ->
+                            Text(
+                                text = "• $ingredient",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val encodedQuery = Uri.encode(ingredient)
+                                        val url = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            data = Uri.parse(url)
+                                        }
+                                        try {
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            Toast
+                                                .makeText(context, "웹 브라우저를 열 수 없습니다.", Toast.LENGTH_SHORT)
+                                                .show()
+                                            Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
+                                        }
+                                    }
+                                    .padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                // --- END: 재료 목록 섹션 ---
+
+                LikeButton(recipeId = recipeId) // LikeButton은 별도 파일에 정의되어 있다고 가정
             }
 
-            itemsIndexed(steps, key = { index, step -> "$index-${step.isCurrent}" }) { index, step ->
+            itemsIndexed(steps, key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }) { index, step -> // key를 좀 더 고유하게 변경
                 CookingStepCard(
                     index = index,
                     step = step,
@@ -231,7 +281,8 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = MaterialTheme.colorScheme.primary,
                             fontSize = 24.sp
-                        )
+                        ),
+                        modifier = Modifier.padding(vertical = 16.dp)
                     )
                 }
             }
@@ -260,6 +311,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 }
             }
 
+            // generateRecipeHtml 함수는 별도 파일에 정의되어 있다고 가정
             val html = generateRecipeHtml(recipe)
             item {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -279,7 +331,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
 
             item {
                 Spacer(modifier = Modifier.height(32.dp))
-                CommentSection(recipeId = recipeId)
+                CommentSection(recipeId = recipeId) // CommentSection은 별도 파일에 정의되어 있다고 가정
             }
         }
     }
@@ -294,31 +346,38 @@ fun CookingStepCard(index: Int, step: CookingStepState, onNext: () -> Unit, onRe
             .animateContentSize()
             .shadow(4.dp, RoundedCornerShape(12.dp)),
         colors = CardDefaults.cardColors(
-            containerColor = if (step.isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-        )
+            containerColor = if (step.isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) // 배경색 약간 변경
+        ),
+        shape = RoundedCornerShape(12.dp) // Card 모양 명시
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) { // 패딩 값 통일
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = if (step.isDone) Icons.Default.Check else Icons.Default.Circle,
-                    contentDescription = null,
-                    tint = if (step.isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    contentDescription = if (step.isDone) "완료된 단계" else "현재 단계 표시기", // contentDescription 추가
+                    tint = if (step.isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("○${index + 1}. ${step.text}", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "단계 ${index + 1}. ${step.text}", // "○" 대신 "단계" 사용
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = if (step.isCurrent) FontWeight.Bold else FontWeight.Normal // 현재 단계 굵게
+                    )
+                )
             }
             if (step.showTimer) {
-                StepTimer(durationString = step.timerDuration)
+                StepTimer(durationString = step.timerDuration) // StepTimer는 아래에 플레이스홀더로 정의
             }
-            if (step.isCurrent) {
-                Text("✅ 현재 단계입니다", color = MaterialTheme.colorScheme.primary)
-                Row {
-                    Button(onClick = onRepeat) { Text("읽기") }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = onNext) { Text("다음") }
+            Spacer(modifier = Modifier.height(8.dp)) // 공간 추가
+            if (step.isCurrent && !step.isDone) { // 완료되지 않은 현재 단계일 때만 버튼 표시
+                Text("현재 단계입니다.", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { // 버튼 간 간격
+                    Button(onClick = onRepeat, modifier = Modifier.weight(1f)) { Text("다시 읽기") } // 버튼 텍스트 변경 및 비율 조정
+                    Button(onClick = onNext, modifier = Modifier.weight(1f)) { Text("다음 단계") } // 버튼 텍스트 변경 및 비율 조정
                 }
             } else if (step.isDone) {
-                Text("✅ 완료됨", color = MaterialTheme.colorScheme.secondary)
+                Text("✅ 완료됨", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelMedium) // 완료 색상 변경
             }
         }
     }
@@ -333,19 +392,38 @@ fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe
         override fun onPageFinished(view: WebView?, url: String?) {
             val activity = context as? Activity
             if (activity == null) {
-                Toast.makeText(context, "PDF 저장 실패: Activity context 아님", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "PDF 저장 실패: Activity context가 아닙니다.", Toast.LENGTH_SHORT).show()
+                Log.e("PDFSave", "Context is not an Activity context.")
                 return
             }
 
             val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-            val pdfFileName = "$filename-${sdf.format(Date())}.pdf"
+            val pdfFileName = "${filename.replace(" ", "_")}_${sdf.format(Date())}.pdf" // 파일 이름 형식 약간 변경
 
-            val printManager = activity.getSystemService(Context.PRINT_SERVICE) as PrintManager
-            val printAdapter = webView.createPrintDocumentAdapter(pdfFileName)
-            val jobName = "Recipe PDF"
+            val printManager = activity.getSystemService(Context.PRINT_SERVICE) as? PrintManager
+            if (printManager == null) {
+                Toast.makeText(context, "PDF 저장 실패: PrintManager를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
+                Log.e("PDFSave", "PrintManager is null.")
+                return
+            }
 
-            printManager.print(jobName, printAdapter, PrintAttributes.Builder().build())
-            Toast.makeText(context, "PDF 저장 요청이 시작되었습니다", Toast.LENGTH_SHORT).show()
+            try {
+                val printAdapter = webView.createPrintDocumentAdapter(pdfFileName)
+                val jobName = "${context.packageName}_RecipeDocument" // Job 이름 구체화
+                printManager.print(jobName, printAdapter, PrintAttributes.Builder().build())
+                // 성공 메시지는 시스템에서 처리하므로 앱 토스트는 생략 가능
+                Log.i("PDFSave", "Print job initiated for $pdfFileName")
+            } catch (e: Exception) {
+                Toast.makeText(context, "PDF 저장 중 오류가 발생했습니다: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                Log.e("PDFSave", "Error starting print job", e)
+            }
+        }
+
+        override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
+            super.onReceivedError(view, errorCode, description, failingUrl)
+            Log.e("PDFSave", "WebView error while creating PDF: $errorCode - $description on $failingUrl")
+            Toast.makeText(context, "PDF 생성 중 WebView 오류가 발생했습니다.", Toast.LENGTH_SHORT).show()
         }
     }
 }
+

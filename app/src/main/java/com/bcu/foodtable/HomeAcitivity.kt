@@ -6,13 +6,15 @@ import androidx.activity.compose.setContent
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import com.bcu.foodtable.ui.home.FoodTableTheme
 import com.bcu.foodtable.ui.home.HomeScreen
+import com.bcu.foodtable.di.DependencyProvider
 
 class HomeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ HomeViewModel은 기본 생성자만 사용
-        val homeViewModel = HomeViewModel()
+        // Use DependencyProvider to get HomeViewModel with dependencies
+        val dependencyProvider = DependencyProvider.getInstance()
+        val homeViewModel = dependencyProvider.provideHomeViewModel(applicationContext)
         setContent {
             FoodTableTheme {
                 HomeScreen(viewModel = homeViewModel)
