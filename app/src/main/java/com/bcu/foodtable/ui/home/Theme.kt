@@ -19,13 +19,26 @@ private val LightColors = lightColorScheme(
     onSurface = Color.Black
 )
 
+private val WarmLightColorScheme = lightColorScheme(
+    primary = Color(0xFFE26D47),
+    onPrimary = Color.White,
+    secondary = Color(0xFFFFF3EE),
+    onSecondary = Color(0xFF4B4B4B),
+    background = Color(0xFFFFF9F6),
+    onBackground = Color(0xFF3A3A3A),
+    surface = Color.White,
+    onSurface = Color(0xFF3A3A3A),
+    outline = Color(0xFFE0E0E0)
+)
+
+
 @Composable
 fun FoodTableTheme(
     darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = LightColors,
+        colorScheme = WarmLightColorScheme,
         typography = androidx.compose.material3.Typography(),
         content = content
     )
