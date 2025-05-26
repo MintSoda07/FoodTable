@@ -104,8 +104,11 @@ import com.bcu.foodtable.manager.TimeBasedRecommendationManager
 import com.bcu.foodtable.di.DependencyProvider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.CheckCircle
 import com.bcu.foodtable.useful.UserManager
+import com.google.firebase.Firebase
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestore
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -198,10 +201,10 @@ fun ModernRecipeCard(
     val cardBackgroundColor = MaterialTheme.colorScheme.surface
     val primaryTextColor = MaterialTheme.colorScheme.onSurface
     val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val accentColor = Color(0xFF4CAF50) // 예: 녹색 계열 (좋아요 등에 사용)
+    val accentColor = Color(0xFF4CAF50)
 
-    var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) } // 초기 좋아요 상태 (실제로는 ViewModel에서 관리)
-    val favoriteCount by remember { mutableStateOf(recipe.likes) } // 초기 좋아요 수
+    var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) }
+    val favoriteCount by remember { mutableStateOf(recipe.likes) }
 
     val iconScale by animateFloatAsState(
         targetValue = if (isFavoriteState) 1.2f else 1.0f,
@@ -216,25 +219,34 @@ fun ModernRecipeCard(
     val prepTimeTag = recipe.tags.find { it.startsWith("소요시간:") }?.substringAfter("소요시간:")
     val mainIngredientsSummary = recipe.ingredients.take(2).joinToString(", ")
 
+    val uid = remember { UserManager.getUser()!!.uid }
+    var isPurchased by remember { mutableStateOf(false) }
+
+    LaunchedEffect(recipe.id) {
+        Firebase.firestore
+            .collection("user")
+            .document(uid)
+            .collection("purchased")
+            .document(recipe.id)
+            .get()
+            .addOnSuccessListener { doc ->
+                isPurchased = doc.exists()
+            }
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(20.dp),
-                clip = false
-            ),
+            .shadow(elevation = 6.dp, shape = RoundedCornerShape(20.dp)),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackgroundColor)
     ) {
         Box {
-            Column(
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
+            Column(modifier = Modifier.padding(bottom = 16.dp)) {
                 AsyncImage(
                     model = recipe.imageResId,
-                    contentDescription = recipe.name + " image",
+                    contentDescription = "${recipe.name} image",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -244,7 +256,7 @@ fun ModernRecipeCard(
                     error = painterResource(id = R.drawable.ic_placeholder_dish_error)
                 )
 
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = recipe.name,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
@@ -256,8 +268,8 @@ fun ModernRecipeCard(
 
                     if (recipe.C_categories.isNotEmpty()) {
                         FlowRow {
-                            recipe.C_categories.forEach { category ->
-                                SimpleCategoryTag(categoryName = category)
+                            recipe.C_categories.forEach {
+                                SimpleCategoryTag(categoryName = it)
                             }
                         }
                         Spacer(modifier = Modifier.height(10.dp))
@@ -295,7 +307,7 @@ fun ModernRecipeCard(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.clickable {
                                 isFavoriteState = !isFavoriteState
-                                // TODO: ViewModel을 통해 좋아요 수 업데이트 로직 연결
+                                // TODO: 좋아요 기능 연동
                             }
                         ) {
                             Icon(
@@ -317,37 +329,37 @@ fun ModernRecipeCard(
                 }
             }
 
-            // 오른쪽 상단에 "소금" 가격 표시
-            if (recipe.cost > 0) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 12.dp, end = 12.dp)
-                        .background(
-                            color = Color(0xFFFFF9C4), // 밝은 노란색 배경
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Filled.AttachMoney, // 아이콘 대체 가능
-                            contentDescription = "Salt",
-                            tint = Color(0xFF8D6E63),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "${recipe.cost} 소금",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFF4E342E)
-                        )
-                    }
+            // 가격 or 구매 완료 표시
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 12.dp, end = 12.dp)
+                    .background(
+                        color = if (isPurchased) Color(0xFFB2DFDB) else Color(0xFFFFF9C4),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isPurchased) Icons.Filled.CheckCircle else Icons.Filled.AttachMoney,
+                        contentDescription = "PurchaseStatus",
+                        tint = if (isPurchased) Color(0xFF00796B) else Color(0xFF8D6E63),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isPurchased) "구매 완료" else "${recipe.cost} 소금",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isPurchased) Color(0xFF004D40) else Color(0xFF4E342E)
+                    )
                 }
             }
         }
     }
 }
+
+
 
 
 /**
