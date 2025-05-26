@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
     implementation(libs.converter.gson)
+    implementation("com.airbnb.android:lottie-compose:6.1.0")
 
     // 포트원 결제
     implementation("com.github.portone-io:android-sdk:0.1.0")
