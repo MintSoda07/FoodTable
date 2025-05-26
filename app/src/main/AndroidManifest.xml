@@ -157,6 +157,9 @@
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
             android:exported="false" />
+        <activity
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity"
+            android:exported="false" />
 
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity"
