@@ -3,6 +3,7 @@ package com.bcu.foodtable.ui.home
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -35,7 +36,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Grain
@@ -102,6 +102,10 @@ import com.bcu.foodtable.ai.AIRecommendationService
 import com.bcu.foodtable.data.UserBehaviorTracker
 import com.bcu.foodtable.manager.TimeBasedRecommendationManager
 import com.bcu.foodtable.di.DependencyProvider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
+import com.bcu.foodtable.useful.UserManager
+import com.google.firebase.firestore.FirebaseFirestore
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -208,7 +212,6 @@ fun ModernRecipeCard(
         label = "favoriteIconScale"
     )
 
-    // 난이도, 소요 시간 정보는 별도로 처리하거나, 필요시 다른 위치에 InfoTag로 표시
     val difficultyTag = recipe.tags.find { it.startsWith("난이도:") }?.substringAfter("난이도:")
     val prepTimeTag = recipe.tags.find { it.startsWith("소요시간:") }?.substringAfter("소요시간:")
     val mainIngredientsSummary = recipe.ingredients.take(2).joinToString(", ")
@@ -225,92 +228,119 @@ fun ModernRecipeCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackgroundColor)
     ) {
-        Column(
-            modifier = Modifier.padding(bottom = 16.dp)
-        ) {
-            AsyncImage(
-                model = recipe.imageResId,
-                contentDescription = recipe.name + " image",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-                placeholder = painterResource(id = R.drawable.ic_placeholder_dish),
-                error = painterResource(id = R.drawable.ic_placeholder_dish_error)
-            )
-
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Text(
-                    text = recipe.name,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = primaryTextColor
+        Box {
+            Column(
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                AsyncImage(
+                    model = recipe.imageResId,
+                    contentDescription = recipe.name + " image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
+                    placeholder = painterResource(id = R.drawable.ic_placeholder_dish),
+                    error = painterResource(id = R.drawable.ic_placeholder_dish_error)
                 )
-                Spacer(modifier = Modifier.height(10.dp))
 
-                // C_categories를 FlowRow를 사용하여 여러 줄로 표시
-                if (recipe.C_categories.isNotEmpty()) {
-                    FlowRow {
-                        recipe.C_categories.forEach { category ->
-                            SimpleCategoryTag(categoryName = category)
-                        }
-                    }
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(
+                        text = recipe.name,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = primaryTextColor
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
-                }
 
-                // 주요 재료 (카테고리 태그 아래로 이동)
-                if (mainIngredientsSummary.isNotBlank()) {
-                    InfoTag(icon = Icons.Filled.RestaurantMenu, text = "주요: $mainIngredientsSummary")
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                Text(
-                    text = recipe.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = secondaryTextColor
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 하단 정보: 칼로리, (필요시 난이도/소요시간), 좋아요
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.weight(1f)) { // 왼쪽 정렬을 위해 Column 사용
-                        recipe.estimatedCalories?.let {
-                            InfoTag(icon = Icons.Filled.LocalFireDepartment, text = "$it kcal")
+                    if (recipe.C_categories.isNotEmpty()) {
+                        FlowRow {
+                            recipe.C_categories.forEach { category ->
+                                SimpleCategoryTag(categoryName = category)
+                            }
                         }
-                        // 필요하다면 여기에 난이도/소요시간 InfoTag 추가
-                        Row {
-                            difficultyTag?.let { InfoTag(icon = Icons.Filled.Speed, text = it) }
-                            prepTimeTag?.let { InfoTag(icon = Icons.Filled.Schedule, text = it) }
-                        }
+                        Spacer(modifier = Modifier.height(10.dp))
                     }
+
+                    if (mainIngredientsSummary.isNotBlank()) {
+                        InfoTag(icon = Icons.Filled.RestaurantMenu, text = "주요: $mainIngredientsSummary")
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    Text(
+                        text = recipe.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = secondaryTextColor
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable {
-                            isFavoriteState = !isFavoriteState
-                            // TODO: ViewModel을 통해 실제 좋아요 수 업데이트 로직 호출
-                        }
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            recipe.estimatedCalories?.let {
+                                InfoTag(icon = Icons.Filled.LocalFireDepartment, text = "$it kcal")
+                            }
+                            Row {
+                                difficultyTag?.let { InfoTag(icon = Icons.Filled.Speed, text = it) }
+                                prepTimeTag?.let { InfoTag(icon = Icons.Filled.Schedule, text = it) }
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable {
+                                isFavoriteState = !isFavoriteState
+                                // TODO: ViewModel을 통해 좋아요 수 업데이트 로직 연결
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (isFavoriteState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = "Favorite",
+                                tint = if (isFavoriteState) accentColor else secondaryTextColor,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .graphicsLayer(scaleX = iconScale, scaleY = iconScale)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$favoriteCount",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = secondaryTextColor
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 오른쪽 상단에 "소금" 가격 표시
+            if (recipe.cost > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 12.dp, end = 12.dp)
+                        .background(
+                            color = Color(0xFFFFF9C4), // 밝은 노란색 배경
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (isFavoriteState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (isFavoriteState) accentColor else secondaryTextColor,
-                            modifier = Modifier
-                                .size(26.dp)
-                                .graphicsLayer(scaleX = iconScale, scaleY = iconScale)
+                            imageVector = Icons.Filled.AttachMoney, // 아이콘 대체 가능
+                            contentDescription = "Salt",
+                            tint = Color(0xFF8D6E63),
+                            modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "$favoriteCount",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = secondaryTextColor
+                            text = "${recipe.cost} 소금",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color(0xFF4E342E)
                         )
                     }
                 }
@@ -318,6 +348,7 @@ fun ModernRecipeCard(
         }
     }
 }
+
 
 /**
  * 시간대에 따라 다른 환영 메시지를 반환하는 함수.
@@ -1265,21 +1296,155 @@ private fun HomeContent(
                 key = { recipe -> recipe.id.ifBlank { recipe.name + recipe.hashCode() } }, // 고유 키 보장
             ) { recipe ->
                 val cardModifier = Modifier.animateItemPlacement(tween(durationMillis = 300))
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
+                val db = FirebaseFirestore.getInstance()
+
+                var showPurchaseDialog by remember { mutableStateOf(false) }
+                var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+
                 ModernRecipeCard(
                     recipe = recipe,
                     onClick = {
-                        // 🔍 사용자 행동 추적 추가!
-                        homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
-                        
-                        val intent = Intent(context, RecipeCookingActivity::class.java)
-                        intent.putExtra("recipe_id", recipe.id)
-                        context.startActivity(intent)
+                        scope.launch {
+                            val uid = UserManager.getUser()!!.uid
+
+                            db.collection("user")
+                                .document(uid)
+                                .collection("purchased")
+                                .document(recipe.id)
+                                .get()
+                                .addOnSuccessListener { document ->
+                                    if (document.exists()) {
+                                        // ✅ 이미 구매함 → 바로 이동
+                                        homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
+                                        val intent = Intent(context, RecipeCookingActivity::class.java)
+                                        intent.putExtra("recipe_id", recipe.id)
+                                        context.startActivity(intent)
+                                    } else {
+                                        // ❌ 미구매 → 모달 표시
+                                        selectedRecipe = recipe
+                                        showPurchaseDialog = true
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    Toast.makeText(context, "구매 여부 확인 실패", Toast.LENGTH_SHORT).show()
+                                }
+                        }
                     },
                     modifier = cardModifier
                 )
+
+// 🔽 모달창 (결제 다이얼로그)
+                if (showPurchaseDialog && selectedRecipe != null) {
+                    PurchaseDialog(
+                        recipeName = selectedRecipe!!.name,
+                        cost = selectedRecipe!!.cost,
+                        onConfirm = {
+                            showPurchaseDialog = false
+
+                            val uid = UserManager.getUser()!!.uid
+                            val userRef = db.collection("user").document(uid)
+
+                            userRef.get().addOnSuccessListener { document ->
+                                val currentPoint = document.getLong("point")?.toInt() ?: 0
+
+                                if (currentPoint >= selectedRecipe!!.cost) {
+                                    val newPoint = currentPoint - selectedRecipe!!.cost
+
+                                    // 1. 포인트 차감
+                                    userRef.update("point", newPoint)
+                                        .addOnSuccessListener {
+                                            // 2. purchased 등록
+                                            userRef.collection("purchased")
+                                                .document(selectedRecipe!!.id)
+                                                .set(mapOf("purchased" to true))
+                                                .addOnSuccessListener {
+                                                    Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
+
+                                                    // 3. 다음 화면으로 이동
+                                                    val intent = Intent(context, RecipeCookingActivity::class.java)
+                                                    intent.putExtra("recipe_id", selectedRecipe!!.id)
+                                                    context.startActivity(intent)
+                                                }
+                                                .addOnFailureListener {
+                                                    Toast.makeText(context, "구매 처리 실패", Toast.LENGTH_SHORT).show()
+                                                }
+                                        }
+                                        .addOnFailureListener {
+                                            Toast.makeText(context, "포인트 차감 실패", Toast.LENGTH_SHORT).show()
+                                        }
+                                } else {
+                                    Toast.makeText(
+                                        context,
+                                        "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }.addOnFailureListener {
+                                Toast.makeText(context, "사용자 정보 조회 실패", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onDismiss = {
+                            showPurchaseDialog = false
+                        }
+                    )
+                }
+
+                @Composable
+                fun PurchaseDialog(
+                    recipeName: String,
+                    cost: Int,
+                    onConfirm: () -> Unit,
+                    onDismiss: () -> Unit
+                ) {
+                    AlertDialog(
+                        onDismissRequest = onDismiss,
+                        title = { Text(text = "레시피 구매") },
+                        text = {
+                            Text("레시피 \"$recipeName\"을 ${cost} 소금을 사용해 구매하시겠습니까?")
+                        },
+                        confirmButton = {
+                            TextButton(onClick = onConfirm) {
+                                Text("구매하기")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = onDismiss) {
+                                Text("취소")
+                            }
+                        }
+                    )
+                }
+
             }
         }
     }
+}
+@Composable
+fun PurchaseDialog(
+    recipeName: String,
+    cost: Int,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "레시피 구매") },
+        text = {
+            Text(text = "\"$recipeName\" 레시피를 ${cost} 소금을 사용하여 구매하시겠습니까?")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("구매하기")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
 }
 
 // --- 최상위 화면 컴포저블 ---

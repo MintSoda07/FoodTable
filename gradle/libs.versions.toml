@@ -41,6 +41,7 @@ firebaseCrashlyticsBuildtools = "3.0.3"
 navigationCompose = "2.8.0"
 roomRuntimeAndroid = "2.7.1"
 adsMobileSdk = "0.15.1-alpha01"
+firebaseDatabaseKtx = "21.0.0"
 
 [libraries]
 accompanist-flowlayout = { module = "com.google.accompanist:accompanist-flowlayout", version.ref = "accompanistFlowlayout" }
@@ -99,6 +100,7 @@ firebase-perf-ktx = { group = "com.google.firebase", name = "firebase-perf-ktx",
 firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 androidx-room-runtime-android = { group = "androidx.room", name = "room-runtime-android", version.ref = "roomRuntimeAndroid" }
 ads-mobile-sdk = { group = "com.google.android.libraries.ads.mobile.sdk", name = "ads-mobile-sdk", version.ref = "adsMobileSdk" }
+firebase-database-ktx = { group = "com.google.firebase", name = "firebase-database-ktx", version.ref = "firebaseDatabaseKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
