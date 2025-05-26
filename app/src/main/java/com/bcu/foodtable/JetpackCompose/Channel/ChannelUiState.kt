@@ -9,4 +9,6 @@ data class ChannelUiState(
     val isSubscribed: Boolean = false,
     val subscriberCount: Int = 0,
     val isLoading: Boolean = false
-)
+) {
+
+}

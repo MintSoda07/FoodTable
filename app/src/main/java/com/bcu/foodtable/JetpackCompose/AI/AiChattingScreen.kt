@@ -20,13 +20,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.AIChatting
 
 @Composable
 fun AiChattingScreen(
-    viewModel: AiHelperViewModel = hiltViewModel()
+    viewModel: AiChattingViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -53,31 +52,13 @@ fun AiChattingScreen(
             )
         }
 
-        // 경고 카드
-        if (uiState.showWarning) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                shape = RoundedCornerShape(25.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFA000))
-            ) {
-                Text(
-                    text = stringResource(R.string.ai_cost, 40), // 포맷 값 전달!
-                    color = Color.White,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
-        }
-
-
         // 채팅 내용
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
                 .padding(8.dp)
         ) {
-            items(uiState.recipes.zip(uiState.recipeDetails)) { (title, detail) ->
+            items(uiState.chatList) { chat ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -86,8 +67,12 @@ fun AiChattingScreen(
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
                     Column(modifier = Modifier.padding(8.dp)) {
-                        Text(text = title, fontWeight = FontWeight.Bold)
-                        Text(text = detail, fontSize = 14.sp)
+                        Text(text = chat.content, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = chat.chatDate?.toDate()?.toString() ?: "날짜 없음",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
                     }
                 }
             }
@@ -105,7 +90,7 @@ fun AiChattingScreen(
                 value = uiState.inputText,
                 onValueChange = viewModel::onInputChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("재료를 입력하세요 (예: 감자, 소고기...)") },
+                placeholder = { Text("메시지를 입력하세요...") },
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.White,

@@ -9,17 +9,15 @@ import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class AiChattingViewModel @Inject constructor(
+class AiChattingViewModel(
+
     private val apiClient: OpenAIClient,
-    private val db: FirebaseFirestore   // 🔥 주입된 Firestore 인스턴스
+    private val db: FirebaseFirestore = FirebaseFirestore.getInstance() // ✅ Manual DI
 ) : ViewModel() {
 
     data class UiState(

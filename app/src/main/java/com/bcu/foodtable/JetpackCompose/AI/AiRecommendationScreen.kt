@@ -17,23 +17,18 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.bcu.foodtable.JetpackCompose.AI.AiWarningCard
-import com.bcu.foodtable.JetpackCompose.AI.RecommendationCard
 import com.bcu.foodtable.R
-
-// Compose UI 변환: AiRecommendationActivity XML 기반
 
 @Composable
 fun AiRecommendationScreen(
-    viewModel: AiHelperViewModel = hiltViewModel()
+    viewModel: AiRecommendationViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     AiRecommendationScreenContent(
         uiState = uiState,
         onInputChange = viewModel::onInputChange,
-        onSendClick = viewModel::sendMessage
+        onSendClick = viewModel::sendRecommendation
     )
 }
 @Composable
@@ -182,5 +177,3 @@ fun AiRecommendationScreenContent(
         }
     }
 }
-
-

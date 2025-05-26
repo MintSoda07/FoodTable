@@ -5,29 +5,20 @@ import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class AiRecommendationViewModel @Inject constructor(
+
+
+
+class AiRecommendationViewModel(
     private val apiClient: OpenAIClient
 ) : ViewModel() {
 
-    data class UiState(
-        val inputText: String = "",
-        val isSending: Boolean = false,
-        val userPoint: Int = 0,
-        val resultText: String = "",
-        val reasonText: String = "",
-        val showWarning: Boolean = true
-    )
-
-    private val _uiState = MutableStateFlow(UiState())
-    val uiState: StateFlow<UiState> = _uiState
+    private val _uiState = MutableStateFlow(AiUiState()) // ✅ 외부 통일된 상태
+    val uiState: StateFlow<AiUiState> = _uiState
 
     private val user = UserManager.getUser()
     private val aiUseCost = 40
@@ -55,7 +46,7 @@ class AiRecommendationViewModel @Inject constructor(
             it.copy(isSending = true, showWarning = false, resultText = "", reasonText = "")
         }
 
-        val prompt1 = "사용자 입력:${input}"
+        val prompt1 = "사용자 입력:$input"
         val role1 = "당신은 사용자에게 알맞은 레시피를 추천하는 친절한 도우미입니다. 추천 이유는 대답해주면 안 됩니다."
 
         apiClient.sendMessage(

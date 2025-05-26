@@ -2,6 +2,7 @@ package com.bcu.foodtable.useful
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.PropertyName
+import com.google.firebase.firestore.DocumentId
 
 data class RecipeItem(
     @PropertyName("name")
@@ -25,6 +26,15 @@ data class RecipeItem(
     @PropertyName("id")
     var id: String = "",
 
+    @PropertyName("authorId")
+    val authorId: String = "",
+
+    @PropertyName("authorName")
+    val authorName: String = "",
+
+    @PropertyName("priceInSalt")
+    val priceInSalt: Int = 0,
+
     @PropertyName("C_categories")
     var C_categories: List<String> = listOf(),
 
@@ -44,5 +54,8 @@ data class RecipeItem(
     var estimatedCalories: String? = null,
 
     @PropertyName("likes")
-    var likes: Int = 0
+    var likes: Int = 0,
+
+    @PropertyName("likedUsers")
+    var likedUsers: List<String> = listOf()
 )
