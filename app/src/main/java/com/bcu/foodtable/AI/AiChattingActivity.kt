@@ -1,4 +1,4 @@
-package com.bcu.foodtable.AI
+package com.bcu.foodtable.ai
 
 import android.os.Bundle
 import android.os.Handler

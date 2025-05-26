@@ -1,111 +1,177 @@
+// 🌟 Ultra Glamorous Purchase Page (Compose + Lottie + 배경 + 컬러 강조 + 텍스트 효과 포함)
+
 package com.bcu.foodtable
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import java.text.DecimalFormat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.*
 import java.text.NumberFormat
-import java.util.Locale
+import java.util.*
 
-class PuchasePage : AppCompatActivity() {
+class PuchasePage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_puchase_page)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-
-        val btn5000Minus:Button = findViewById(R.id.minus1)
-        val btn10000Minus:Button = findViewById(R.id.minus2)
-        val btn50000Minus:Button = findViewById(R.id.minus3)
-        val btn100000Minus:Button = findViewById(R.id.minus4)
-
-        val btn5000Plus:Button = findViewById(R.id.plus1)
-        val btn10000Plus:Button = findViewById(R.id.plus2)
-        val btn50000Plus:Button = findViewById(R.id.plus3)
-        val btn100000Plus:Button = findViewById(R.id.plus4)
-
-        val purchaseBtn:Button = findViewById(R.id.purchaseBtn)
-
-        val moneyTotal:TextView = findViewById(R.id.moneyText)
-        val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
-        var moneyValue=0;
-        btn5000Minus.setOnClickListener {
-            if (moneyValue <= 5000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 5000
+        setContent {
+            MaterialTheme(colorScheme = lightColorScheme()) {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    PurchaseScreen()
+                }
             }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
         }
+    }
+}
 
-        btn10000Minus.setOnClickListener {
-            if (moneyValue <= 10000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 10000
-            }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn50000Minus.setOnClickListener {
-            if (moneyValue <= 50000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 50000
-            }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn100000Minus.setOnClickListener {
-            if (moneyValue <= 100000) {
-                moneyValue = 0
-            }else{
-                moneyValue -= 100000
-            }
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
+@Composable
+fun PurchaseScreen() {
+    val context = LocalContext.current
+    var moneyValue by remember { mutableStateOf(0) }
+    val animatedMoney by animateIntAsState(
+        targetValue = moneyValue,
+        animationSpec = spring(dampingRatio = 0.7f), label = "animatedMoney"
+    )
+    val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
 
+    val lottieAsset = if (moneyValue >= 5000) "bonus_shine.json" else "coin_idle.json"
+    val composition by rememberLottieComposition(LottieCompositionSpec.Asset(lottieAsset))
+    val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
 
-        btn5000Plus.setOnClickListener {
-            moneyValue+=5000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn10000Plus.setOnClickListener {
-            moneyValue+=10000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn50000Plus.setOnClickListener {
-            moneyValue+=50000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        btn100000Plus.setOnClickListener {
-            moneyValue+=100000
-            val formattedValue = formatter.format(moneyValue)
-            moneyTotal.text = formattedValue
-        }
-        purchaseBtn.setOnClickListener{
-            val intent = Intent(this@PuchasePage, PurchaseConfirmActivity::class.java)
-            intent.putExtra("price", moneyValue.toString())
-            Log.d("Purchase","SEND COST STRING $moneyValue ")
-            this.startActivity(intent)  // 새로운 액티비티로 전환
-            purchaseBtn.isClickable = false
-            purchaseBtn.isActivated = false
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFFFFF8E1), Color(0xFFFFECB3), Color(0xFFFFD54F))
+                )
+            )
+    ) {
+//        Image(
+//            painter = painterResource(id = R.drawable.bg_pattern), // 🎨 반투명한 배경 패턴
+//            contentDescription = null,
+//            contentScale = ContentScale.Crop,
+//            modifier = Modifier.fillMaxSize().alpha(0.08f)
+//        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.SpaceAround,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            Text(
+                text = "소금 충전소",
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF6D4C41)
+            )
+
+            LottieAnimation(
+                composition = composition,
+                progress = { progress },
+                modifier = Modifier.size(240.dp)
+            )
+
+            Text(
+                text = "₩ ${formatter.format(animatedMoney)}",
+                style = TextStyle(
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF4E342E)
+                )
+            )
+
+            if (moneyValue >= 5000) {
+                Text(
+                    text = "보너스 +${moneyValue / 10} 소금 예정!",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFE65100)
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                listOf(5000, 10000, 50000, 100000).forEach { amount ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = { moneyValue = maxOf(0, moneyValue - amount) },
+                            modifier = Modifier
+                                .size(60.dp)
+                                .shadow(4.dp, CircleShape)
+                                .background(Color(0xFFFFCDD2), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = null, tint = Color.Red)
+                        }
+
+                        Text(
+                            text = "₩ ${formatter.format(amount)}",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.CenterVertically)
+                        )
+
+                        IconButton(
+                            onClick = { moneyValue += amount },
+                            modifier = Modifier
+                                .size(60.dp)
+                                .shadow(4.dp, CircleShape)
+                                .background(Color(0xFFC8E6C9), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFF388E3C))
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    if (moneyValue < 100) {
+                        Toast.makeText(context, "최소 100원 이상 충전해주세요", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val intent = Intent(context, PurchaseConfirmActivity::class.java)
+                        intent.putExtra("price", moneyValue.toString())
+                        context.startActivity(intent)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8F00))
+            ) {
+                Text("결제 진행하기", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
         }
     }
 }

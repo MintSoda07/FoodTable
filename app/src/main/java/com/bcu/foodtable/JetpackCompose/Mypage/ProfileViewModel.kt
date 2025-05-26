@@ -5,9 +5,10 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
+import com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity
 import com.bcu.foodtable.PuchasePage
 import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity
-import com.bcu.foodtable.ui.myPage.ChannelCreationActivity
+
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity
 import com.bcu.foodtable.useful.User
 import com.google.firebase.auth.FirebaseAuth

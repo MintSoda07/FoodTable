@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
     implementation(libs.converter.gson)
+    implementation("com.airbnb.android:lottie-compose:6.1.0")
 
     // 포트원 결제
     implementation("com.github.portone-io:android-sdk:0.1.0")
@@ -104,6 +105,7 @@ dependencies {
     implementation("androidx.activity:activity-compose")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation(libs.ads.mobile.sdk)
+    implementation(libs.firebase.database.ktx)
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("com.google.firebase:firebase-firestore-ktx:24.10.0")
     // 보조 라이브러리

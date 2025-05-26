@@ -8,12 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.rememberNavController
-import com.bcu.foodtable.AI.OpenAIClient
-import com.bcu.foodtable.JetpackCompose.AI.AiChattingViewModel
-import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
-import com.bcu.foodtable.JetpackCompose.AI.AiRecommendationViewModel
-import com.bcu.foodtable.JetpackCompose.AI.BottomNavigationBar
-import com.bcu.foodtable.JetpackCompose.AI.AiNavGraph
+import com.bcu.foodtable.ai.OpenAIClient
 // Import navigation components from HomeScreen
 import com.bcu.foodtable.ui.home.HomeTopBar
 import com.bcu.foodtable.ui.home.AppBottomNavigationBar

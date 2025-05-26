@@ -137,15 +137,15 @@
             android:exported="false" />
         <activity android:name=".JetpackCompose.RecipeStorage.RecipeStorageActivity" />
         <activity
-            android:name=".AI.AiHelperActivity"
+            android:name=".ai.AiHelperActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".AI.AiChattingActivity"
+            android:name=".ai.AiChattingActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
         <activity
-            android:name=".AI.AiRecommendationActivity"
+            android:name=".ai.AiRecommendationActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
         <activity
@@ -161,6 +161,9 @@
             android:exported="false"/>
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
+            android:exported="false" />
+        <activity
+            android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity"
             android:exported="false" />
 
         <activity

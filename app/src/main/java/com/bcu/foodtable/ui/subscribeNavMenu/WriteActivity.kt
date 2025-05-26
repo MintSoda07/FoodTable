@@ -21,10 +21,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bcu.foodtable.AI.OpenAIClient
 import com.bcu.foodtable.IngredientAdapter
 import com.bcu.foodtable.R
-import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FlexAdaptor
 import com.bcu.foodtable.useful.RecipeDetailRecyclerAdaptor
@@ -36,7 +34,6 @@ import com.google.android.flexbox.FlexboxLayoutManager
 import com.google.android.flexbox.JustifyContent
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.Timestamp
-import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.UUID
 
