@@ -1,64 +1,54 @@
 package com.bcu.foodtable.JetpackCompose.HomeChannelDatil
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import StepTimerState
+import android.util.Log
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 @Composable
-fun StepTimer(durationString: String) {
-    val totalMillis = remember(durationString) {
-        parseDuration(durationString)
+fun StepTimer(
+    timerState: StepTimerState,
+    onFinish: () -> Unit
+) {
+    val remaining by timerState.remainingTime
+    val total = remember { timerState.remainingTime.value }
+    val progress = remaining.toFloat() / total
+    val timeText = formatMillis(remaining)
+
+    LaunchedEffect(Unit) {
+        timerState.start(onFinish)
     }
 
-    var remainingMillis by remember { mutableStateOf(totalMillis) }
-    var isRunning by remember { mutableStateOf(false) }
-
-    val formattedTime = remember(remainingMillis) {
-        formatMillis(remainingMillis)
-    }
-
-    LaunchedEffect(isRunning) {
-        if (isRunning) {
-            while (remainingMillis > 0) {
-                delay(1000L)
-                remainingMillis -= 1000L
-            }
-            isRunning = false
-        }
-    }
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("남은 시간: $formattedTime", style = MaterialTheme.typography.bodyLarge)
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (!isRunning) {
-            Button(onClick = { isRunning = true }) {
-                Text("타이머 시작")
-            }
-        } else {
-            Button(onClick = {
-                isRunning = false
-                remainingMillis = totalMillis
-            }) {
-                Text("초기화")
-            }
-        }
+    Column {
+        LinearProgressIndicator(
+            progress = progress,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+        Text("남은 시간: $timeText", modifier = Modifier.padding(top = 6.dp))
     }
 }
+
+
+
+fun formatMillis(millis: Long): String {
+    val totalSec = millis / 1000
+    val min = (totalSec % 3600) / 60
+    val sec = totalSec % 60
+    return String.format("%02d:%02d", min, sec)
+}
+
 fun parseDuration(duration: String): Long {
     val parts = duration.split(":").map { it.toIntOrNull() ?: 0 }
     return when (parts.size) {
@@ -66,16 +56,4 @@ fun parseDuration(duration: String): Long {
         2 -> (parts[0] * 60 + parts[1]) * 1000L
         else -> 0L
     }
-}
-
-fun formatMillis(millis: Long): String {
-    val totalSeconds = millis / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-
-    return if (hours > 0)
-        String.format("%02d:%02d:%02d", hours, minutes, seconds)
-    else
-        String.format("%02d:%02d", minutes, seconds)
 }
