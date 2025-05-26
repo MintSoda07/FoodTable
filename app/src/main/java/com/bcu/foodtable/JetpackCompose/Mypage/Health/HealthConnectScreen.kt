@@ -56,7 +56,8 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
 
         StepSyncManager(context, client, viewModel).syncIfNewDay()
 
-        val granted = viewModel.getHealthClient()?.permissionController?.getGrantedPermissions() ?: emptySet()
+        val granted =
+            viewModel.getHealthClient()?.permissionController?.getGrantedPermissions() ?: emptySet()
         val needed = viewModel.getRequiredPermissions() - granted
         if (needed.isNotEmpty()) {
             permissionLauncher.launch(needed)
@@ -86,7 +87,13 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                         0 -> (context as? androidx.activity.ComponentActivity)?.finish()
                         1 -> context.startActivity(Intent(context, SubscribeActivity::class.java))
                         2 -> context.startActivity(Intent(context, AiMainActivity::class.java))
-                        3 -> context.startActivity(Intent(context, RecipeStorageActivity::class.java))
+                        3 -> context.startActivity(
+                            Intent(
+                                context,
+                                RecipeStorageActivity::class.java
+                            )
+                        )
+
                         4 -> selectedTab = newTab // Stay here
                     }
                 }
@@ -97,37 +104,50 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // 반원형 Progress
+            //  반원형 Progress 그래프
             AndroidView(
                 factory = { StepProgressView(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 32.dp)
-                    .height(230.dp),
+                    .padding(top = 8.dp)
+                    .height(240.dp),
                 update = { it.setStepData(state.steps, state.goal) }
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
+            //  보상 버튼
             if (state.rewardCount > 0) {
                 Button(
                     onClick = viewModel::claimReward,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
                 ) {
-                    Text("🎁 ${state.rewardCount} 보상 수령")
+                    Text("🎁 ${state.rewardCount} 보상 수령", fontSize = 16.sp)
                 }
             }
 
-            Text("걸음 수: ${state.steps}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("추정 칼로리: ${(state.steps * 0.04).toInt()} kcal", fontSize = 18.sp)
+            // 👟 걸음 수 및 칼로리
+            Text(
+                text = "걸음 수: ${state.steps}",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "추정 칼로리: ${(state.steps * 0.04).toInt()} kcal",
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 🍽️ 소모 음식 정보
             state.foodItem?.let { foodItem ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -139,21 +159,34 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                         modifier = Modifier.size(80.dp)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text("오늘 ${foodItem.name}${viewModel.getJosa(foodItem.name, "을", "를")} 불태웠어요!", fontSize = 16.sp)
+                    Text(
+                        text = "오늘 ${foodItem.name}${
+                            viewModel.getJosa(
+                                foodItem.name,
+                                "을",
+                                "를"
+                            )
+                        } 불태웠어요!",
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            //  주간 걸음 차트
             val stepData by viewModel.stepDataList.collectAsState()
             Log.d("StepChart", "Compose에서 받은 데이터: $stepData")
             StepBarChart(
                 stepData = stepData,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp)
+                    .height(240.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
+
     }
 }
