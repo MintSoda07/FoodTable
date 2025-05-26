@@ -2,7 +2,7 @@ package com.bcu.foodtable.JetpackCompose.AI
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.bcu.foodtable.AI.OpenAIClient
+import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.AIChatting
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.UserManager

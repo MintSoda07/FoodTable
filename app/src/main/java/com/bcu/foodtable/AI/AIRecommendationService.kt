@@ -1,6 +1,7 @@
 package com.bcu.foodtable.ai
 
 import android.util.Log
+import com.bcu.foodtable.useful.ApiKeyManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -16,21 +17,24 @@ import java.net.URL
  * GPT API를 활용하여 시간대별로 메인, 서브, 디저트 메뉴를 추천합니다.
  */
 class AIRecommendationService {
-    
+
     companion object {
         private const val TAG = "AIRecommendationService"
         private const val OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-        
-        // TODO: 실제 운영 시에는 BuildConfig나 안전한 저장소에서 API 키를 가져와야 합니다
-        private const val OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE" // 실제 API 키로 교체 필요
+
+
+        private var OPENAI_API_KEY: String = ""
     }
+    /**
+     * API 키가 비어 있을 경우 자동 초기화 시도
+     */
 
     /**
      * 시간대별 추천 레시피 데이터 클래스
      */
     data class TimeBasedRecommendation(
         val mainDish: String,           // 메인 메뉴
-        val subDish: String,            // 서브 메뉴  
+        val subDish: String,            // 서브 메뉴
         val dessert: String,            // 디저트
         val timeMessage: String,        // 시간대별 맞춤 메시지
         val recommendationReason: String // 추천 이유
@@ -45,30 +49,40 @@ class AIRecommendationService {
     suspend fun getTimeBasedRecommendation(
         currentHour: Int,
         userPreferences: List<String> = emptyList()
-    ): TimeBasedRecommendation {
-        return withContext(Dispatchers.IO) {
-            try {
-                Log.d(TAG, "🤖 AI 추천 요청 시작 - 시간: ${currentHour}시, 선호도: $userPreferences")
-                
-                // 시간대별 맞춤 프롬프트 생성
-                val prompt = createTimeBasedPrompt(currentHour, userPreferences)
-                
-                // GPT API 호출
-                val gptResponse = callGPTAPI(prompt)
-                
-                // 응답 파싱
-                val recommendation = parseGPTResponse(gptResponse, currentHour)
-                
-                Log.d(TAG, "✅ AI 추천 완료: ${recommendation.mainDish}, ${recommendation.subDish}, ${recommendation.dessert}")
-                recommendation
-                
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ AI 추천 실패, 기본 추천 반환", e)
-                // API 실패 시 기본 추천 반환
-                getDefaultRecommendation(currentHour)
-            }
+    ): TimeBasedRecommendation = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "🤖 AI 추천 요청 시작 - 시간: ${currentHour}시, 선호도: $userPreferences")
+
+            ensureApiKeyInitialized()
+
+            val prompt = createTimeBasedPrompt(currentHour, userPreferences)
+            val gptResponse = callGPTAPI(prompt)
+            val recommendation = parseGPTResponse(gptResponse, currentHour)
+
+            Log.d(TAG, "✅ AI 추천 완료: ${recommendation.mainDish}, ${recommendation.subDish}, ${recommendation.dessert}")
+            recommendation
+
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ AI 추천 실패, 기본 추천 반환", e)
+            getDefaultRecommendation(currentHour)
         }
     }
+    private suspend fun ensureApiKeyInitialized() {
+        val existingKey = ApiKeyManager.getGptApi()?.KEY_VALUE
+        if (existingKey != null && existingKey.startsWith("sk-")) {
+            OPENAI_API_KEY = existingKey // 전역 변수에도 반영
+            Log.i(TAG, "🔑 이미 등록된 API 키 사용 중")
+            return
+        }
+
+        val client = OpenAIClient()
+        val info = client.setAIWithAPIAsync()
+        ApiKeyManager.setGptApiKey(info.KEY_NAME!!, info.KEY_VALUE!!)
+        OPENAI_API_KEY = info.KEY_VALUE!! // 동적으로 전역 키 초기화
+        Log.i(TAG, "✅ API 키 자동 초기화 성공: ${info.KEY_NAME}")
+    }
+
+
 
     /**
      * 시간대별 맞춤 프롬프트를 생성합니다.
@@ -83,7 +97,7 @@ class AIRecommendationService {
             in 22..23, in 0..5 -> "야식/늦은 시간대 (22시-새벽5시)"
             else -> "일반 시간대"
         }
-        
+
         val preferenceText = if (userPreferences.isNotEmpty()) {
             "사용자 선호 음식: ${userPreferences.joinToString(", ")}"
         } else {
@@ -195,16 +209,16 @@ class AIRecommendationService {
     private fun parseGPTResponse(response: String, currentHour: Int): TimeBasedRecommendation {
         return try {
             Log.d(TAG, "🔍 GPT 응답 파싱 중: $response")
-            
+
             val jsonResponse = JSONObject(response)
             val choices = jsonResponse.getJSONArray("choices")
             val message = choices.getJSONObject(0).getJSONObject("message")
             val content = message.getString("content")
-            
+
             // GPT 응답에서 JSON 부분 추출
             val cleanedContent = content.trim()
             val recommendationJson = JSONObject(cleanedContent)
-            
+
             TimeBasedRecommendation(
                 mainDish = recommendationJson.getString("mainDish"),
                 subDish = recommendationJson.getString("subDish"),
@@ -212,7 +226,7 @@ class AIRecommendationService {
                 timeMessage = recommendationJson.getString("timeMessage"),
                 recommendationReason = recommendationJson.getString("recommendationReason")
             )
-            
+
         } catch (e: Exception) {
             Log.e(TAG, "GPT 응답 파싱 실패", e)
             // 파싱 실패 시 기본 추천 반환
@@ -269,7 +283,9 @@ class AIRecommendationService {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "👤 맞춤 추천 요청: 선호-$userPreferences, 회피-$avoidCategories")
-                
+
+                ensureApiKeyInitialized()
+
                 val prompt = """
                     사용자의 취향을 분석해서 맞춤 메뉴를 추천해주세요.
                     
@@ -292,10 +308,10 @@ class AIRecommendationService {
                     4. 한국어로 응답
                     5. JSON 형식 정확히 지키기
                 """.trimIndent()
-                
+
                 val gptResponse = callGPTAPI(prompt)
                 parseGPTResponse(gptResponse, 12) // 기본 시간으로 12시 사용
-                
+
             } catch (e: Exception) {
                 Log.e(TAG, "맞춤 추천 실패", e)
                 // 선호도 기반 기본 추천
@@ -309,4 +325,4 @@ class AIRecommendationService {
             }
         }
     }
-} 
+}

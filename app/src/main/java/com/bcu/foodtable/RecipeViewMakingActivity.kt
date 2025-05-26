@@ -1,8 +1,6 @@
 package com.bcu.foodtable
 
-import android.app.Activity
 import android.content.Intent
-import android.media.Image
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -17,8 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
-import com.bcu.foodtable.AI.OpenAIClient
-import com.bcu.foodtable.useful.ApiKey
+import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FlexAdaptor
@@ -28,7 +25,6 @@ import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayoutManager
 import com.google.android.flexbox.JustifyContent
-import com.google.android.material.textfield.TextInputEditText
 
 class RecipeViewMakingActivity : AppCompatActivity() {
 

@@ -13,7 +13,7 @@ import android.widget.ImageButton
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.bcu.foodtable.AI.OpenAIClient
+import com.bcu.foodtable.ai.OpenAIClient
 import android.Manifest
 import android.speech.tts.TextToSpeech
 import com.bcu.foodtable.R

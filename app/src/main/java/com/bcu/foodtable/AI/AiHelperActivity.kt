@@ -1,4 +1,4 @@
-package com.bcu.foodtable.AI
+package com.bcu.foodtable.ai
 
 import android.content.Intent
 import android.os.Bundle
@@ -20,8 +20,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.R
 import com.bcu.foodtable.RecipeDetailViewByHelperActivity
-import com.bcu.foodtable.RecipeViewActivity
-import com.bcu.foodtable.RecipeViewMakingActivity
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.FlexAdaptor
