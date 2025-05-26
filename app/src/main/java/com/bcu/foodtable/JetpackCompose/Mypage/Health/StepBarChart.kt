@@ -3,6 +3,7 @@ package com.bcu.foodtable.JetpackCompose.Mypage.StepBarChart
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -14,6 +15,8 @@ import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.bcu.foodtable.JetpackCompose.Mypage.Health.StepData
 import com.bcu.foodtable.R
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun StepBarChart(
@@ -37,7 +40,30 @@ fun StepBarChart(
                     setDrawGridLines(false)
                     granularity = 1f
                     position = XAxis.XAxisPosition.BOTTOM
-                    valueFormatter = IndexAxisValueFormatter(stepData.map { it.date })
+                    val dates = stepData.map {
+                        Log.d("StepChart", "xAxis 라벨 확인: ${it.date}")
+                        it.date
+                    }
+                    valueFormatter = IndexAxisValueFormatter(
+                        stepData.map { raw ->
+                            Log.d("StepChart", "날짜 포맷 시도: ${raw.date}")
+                            try {
+                                val parsed = when (raw.date.length) {
+                                    8 -> LocalDate.parse(raw.date, DateTimeFormatter.ofPattern("yyyyMMdd"))
+                                    4 -> LocalDate.parse("${LocalDate.now().year}${raw.date}", DateTimeFormatter.ofPattern("yyyyMMdd"))
+
+
+                                    else -> return@map raw.date
+                                }
+                                parsed.format(DateTimeFormatter.ofPattern("MM.dd"))
+                            } catch (e: Exception) {
+                                Log.e("StepChart", "날짜 포맷 실패: ${raw.date}", e)
+                                raw.date
+
+                            }
+                        }
+                    )
+                    setLabelCount(stepData.size, true)
                     textSize = 14f
                     typeface = Typeface.DEFAULT_BOLD
                     labelRotationAngle = 45f
