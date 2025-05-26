@@ -57,5 +57,8 @@ data class RecipeItem(
     var likes: Int = 0,
 
     @PropertyName("likedUsers")
-    var likedUsers: List<String> = listOf()
+    var likedUsers: List<String> = listOf(),
+
+    @PropertyName("likedUsers")
+    var cost: Int = 0,
 )

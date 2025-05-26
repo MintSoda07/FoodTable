@@ -7,8 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.navigation.compose.rememberNavController
-import com.bcu.foodtable.AI.OpenAIClient
-import com.bcu.foodtable.R
+import com.bcu.foodtable.ai.OpenAIClient
 
 
 class AiMainActivity : ComponentActivity() {

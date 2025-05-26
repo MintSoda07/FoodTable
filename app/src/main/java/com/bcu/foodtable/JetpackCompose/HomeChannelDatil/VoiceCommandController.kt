@@ -13,7 +13,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.bcu.foodtable.AI.OpenAIClient
+import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.ApiKeyManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

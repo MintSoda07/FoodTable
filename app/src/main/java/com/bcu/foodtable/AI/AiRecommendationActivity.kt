@@ -1,4 +1,4 @@
-package com.bcu.foodtable.AI
+package com.bcu.foodtable.ai
 
 import android.os.Bundle
 import android.os.Handler
@@ -42,19 +42,6 @@ class AiRecommendationActivity : AppCompatActivity() {
         // 소금 텍스트뷰
         val saltView = findViewById<TextView>(R.id.AIRecommendSalt)
         val submitBtn = findViewById<Button>(R.id.submitAiSendButton)
-
-        val responseBodyBox = findViewById<CardView>(R.id.AIResponseRecommendationCard)
-        var responseViewBody = findViewById<TextView>(R.id.AiResponseResult)
-        val responseReasonBox = findViewById<CardView>(R.id.AiResponseRecommendationReasonCard)
-        var responseViewReason = findViewById<TextView>(R.id.AiResponseReason)
-
-        val userInputBox = findViewById<TextInputEditText>(R.id.userAIPromptInput)
-        val userWarningBox = findViewById<CardView>(R.id.warningCard)
-        var userWarningText = findViewById<TextView>(R.id.warningTextCredit)
-
-        val userSendingArea = findViewById<View>(R.id.Sending)
-        val BackgroundText = findViewById<TextView>(R.id.BackgroundText)
-
         // Ai 불러오기
         val aIServiceAgent = OpenAIClient()
 
@@ -74,6 +61,19 @@ class AiRecommendationActivity : AppCompatActivity() {
             aIServiceAgent.apiKeyInfo = ApiKeyManager.getGptApi()!!
             Log.i("OpenAI","API Name: ${aIServiceAgent.apiKeyInfo}")
         }
+        val responseBodyBox = findViewById<CardView>(R.id.AIResponseRecommendationCard)
+        var responseViewBody = findViewById<TextView>(R.id.AiResponseResult)
+        val responseReasonBox = findViewById<CardView>(R.id.AiResponseRecommendationReasonCard)
+        var responseViewReason = findViewById<TextView>(R.id.AiResponseReason)
+
+        val userInputBox = findViewById<TextInputEditText>(R.id.userAIPromptInput)
+        val userWarningBox = findViewById<CardView>(R.id.warningCard)
+        var userWarningText = findViewById<TextView>(R.id.warningTextCredit)
+
+        val userSendingArea = findViewById<View>(R.id.Sending)
+        val BackgroundText = findViewById<TextView>(R.id.BackgroundText)
+
+
 
 
 

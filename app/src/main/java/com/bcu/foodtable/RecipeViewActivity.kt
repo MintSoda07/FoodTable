@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -22,7 +21,6 @@ import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.GridView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -31,17 +29,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bcu.foodtable.AI.OpenAIClient
-import com.bcu.foodtable.R.id.likeCountText
+import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.RecipeViewActivity.Comment
 import com.bcu.foodtable.ui.subscribeNavMenu.EditRecipeActivity
-import com.bcu.foodtable.ui.subscribeNavMenu.WriteActivity
 import com.bcu.foodtable.useful.*
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.google.android.flexbox.FlexDirection
@@ -54,11 +48,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.google.firebase.firestore.Query
-import android.Manifest
 import com.bcu.foodtable.ui.home.RecommendManager
-import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
-import androidx.activity.result.ActivityResultLauncher
 import com.bcu.foodtable.Whisper.TextToSpeechProvider
 import com.bcu.foodtable.Whisper.VoiceCookingManager
 import java.util.Locale

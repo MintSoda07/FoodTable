@@ -1,16 +1,14 @@
 package com.bcu.foodtable.ui.aiServiceNavMenu
 
-import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import androidx.fragment.app.Fragment
-import com.bcu.foodtable.AI.AiChattingActivity
-import com.bcu.foodtable.AI.AiHelperActivity
-import com.bcu.foodtable.AI.AiRecommendationActivity
+import com.bcu.foodtable.ai.AiChattingActivity
+import com.bcu.foodtable.ai.AiHelperActivity
+import com.bcu.foodtable.ai.AiRecommendationActivity
 import com.bcu.foodtable.databinding.FragmentAiBinding
 import com.bcu.foodtable.useful.ActivityTransition
 import com.bcu.foodtable.useful.ViewAnimator

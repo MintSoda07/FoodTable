@@ -29,7 +29,6 @@ class HomeViewModel(
     private val timeManager: TimeBasedRecommendationManager? = null
 ) : ViewModel() {
 
-    // ✅ 기본 상태들
     private val _recipes = MutableStateFlow<List<RecipeItem>>(emptyList())
     val recipes: StateFlow<List<RecipeItem>> = _recipes
 

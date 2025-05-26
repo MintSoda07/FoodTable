@@ -11,7 +11,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bcu.foodtable.AI.OpenAIClient
+import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FlexAdaptor
 import com.bcu.foodtable.useful.RecipeDetailRecyclerAdaptor

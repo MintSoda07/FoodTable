@@ -1,4 +1,4 @@
-package com.bcu.foodtable.AI
+package com.bcu.foodtable.ai
 
 
 import android.util.Log
@@ -11,12 +11,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.asRequestBody
-import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 //  사용 예시. setAIWithAPI로 API Key를 받아 준비한 뒤, Success 시 sendMeesage 실행할 것!
 //  순서 잘못될 시 오류를 반환함. (Key가 null)
@@ -51,6 +51,17 @@ class OpenAIClient @Inject constructor() {
     private val baseUrl = "https://api.openai.com/v1/chat/completions"
 
     // API 키 정보를 가져오는 함수 (콜백을 사용하여 성공 및 오류 처리)
+    suspend fun setAIWithAPIAsync(): ApiKey = suspendCoroutine { continuation ->
+        val client = OpenAIClient()
+        client.setAIWithAPI(
+            onSuccess = { apiKey ->
+                continuation.resume(apiKey)
+            },
+            onError = { errorMsg ->
+                continuation.resumeWithException(Exception(errorMsg))
+            }
+        )
+    }
     fun setAIWithAPI(onSuccess: (ApiKey) -> Unit, onError: (String) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
