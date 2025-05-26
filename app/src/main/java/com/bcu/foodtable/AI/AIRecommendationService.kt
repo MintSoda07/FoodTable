@@ -118,7 +118,7 @@ class AIRecommendationService {
      */
     private suspend fun callGPTAPI(prompt: String): String {
         // ====== ✅ 실제 GPT API 호출 코드 (나중에 사용하려면 주석 해제하세요) ======
-        /*
+
         return withContext(Dispatchers.IO) {
             val url = URL(OPENAI_API_URL)
             val connection = url.openConnection() as HttpURLConnection
@@ -154,9 +154,10 @@ class AIRecommendationService {
                         reader.readText()
                     }
                 } else {
-                    val errorResponse = BufferedReader(InputStreamReader(connection.errorStream)).use { reader ->
-                        reader.readText()
-                    }
+                    val errorResponse =
+                        BufferedReader(InputStreamReader(connection.errorStream)).use { reader ->
+                            reader.readText()
+                        }
                     Log.e(TAG, "GPT API 오류 (코드: $responseCode): $errorResponse")
                     throw Exception("GPT API 호출 실패: $responseCode")
                 }
@@ -165,28 +166,29 @@ class AIRecommendationService {
                 connection.disconnect()
             }
         }
-        */
 
-        // ====== ✅ 현재는 테스트용 더미 응답 사용 중 ======
-        Log.w(TAG, "⚠️ GPT API 우회 모드: 더미 응답 반환 중")
 
-        return """
-    {
-        "choices": [{
-            "message": {
-                "content": "{ 
-                    \"mainDish\": \"라면\", 
-                    \"subDish\": \"김치\", 
-                    \"dessert\": \"아이스크림\", 
-                    \"timeMessage\": \"간단한 야식 추천입니다 🍜\", 
-                    \"recommendationReason\": \"가볍게 먹기 좋고 간편해서 추천합니다.\" 
-                }"
-            }
-        }]
+//        // ====== ✅ 현재는 테스트용 더미 응답 사용 중 ======
+//        Log.w(TAG, "⚠️ GPT API 우회 모드: 더미 응답 반환 중")
+//
+//        return """
+//    {
+//        "choices": [{
+//            "message": {
+//                "content": "{
+//                    \"mainDish\": \"라면\",
+//                    \"subDish\": \"김치\",
+//                    \"dessert\": \"아이스크림\",
+//                    \"timeMessage\": \"간단한 야식 추천입니다 🍜\",
+//                    \"recommendationReason\": \"가볍게 먹기 좋고 간편해서 추천합니다.\"
+//                }"
+//            }
+//        }]
+//    }
+//    """.trimIndent()
+//    }
+
     }
-    """.trimIndent()
-    }
-
     /**
      * GPT API 응답을 파싱합니다.
      */
