@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.HomeChannelDatil
 
+import StepTimerState
 import android.app.Activity
 import android.content.Context
 import android.content.Intent // 추가: URL을 열기 위함
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.bcu.foodtable.useful.RecipeItem // RecipeItem에 ingredients: List<String> 필드가 있다고 가정
 import com.bcu.foodtable.voice.VoiceCommandController
+import kotlinx.coroutines.CoroutineScope
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -52,9 +54,9 @@ data class CookingStepState(
     val timerTitle: String = "",
     val timerDuration: String = "",
     val isCurrent: Boolean = false,
-    val timerState: StepTimerState? = null
-)
+    val timerState: StepTimerState? = null // ← 여기까지가 맞습니다!
 
+)
 
 @Composable
 fun RecipeCookingScreen(recipe: RecipeItem) {
@@ -64,6 +66,8 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             language = Locale.KOREAN
         }
     }
+    Log.d("RecipeOrderRaw", recipe.order)
+
 
     val recipeId = recipe.id.ifBlank { UUID.randomUUID().toString() }
     var steps by remember {
@@ -71,23 +75,31 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             recipe.order.split("○")
                 .filter { it.isNotBlank() }
                 .mapIndexed { index, raw ->
-                    val regex = Regex("""\d+\.\s*\((.*?)\)\s*(.*?)(?:\(([^,]+),([^)]+)\))?$""")
-                    val match = regex.find(raw)
-                    val title = match?.groupValues?.get(1) ?: ""
-                    val description = match?.groupValues?.get(2) ?: raw
+                    val regex = Regex("""^\s*○?\s*\d+\.\s*\(([^)]+)\)\s*(.*?)(?:\s*\(([^()]+?),\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\))?$""")
+                    val match = regex.find(raw.trim())
+
+                    val title = match?.groupValues?.getOrNull(1) ?: ""
+                    val description = match?.groupValues?.getOrNull(2) ?: raw
                     val method = match?.groupValues?.getOrNull(3) ?: ""
                     val duration = match?.groupValues?.getOrNull(4) ?: ""
+
+                    Log.d("✅ StepParser", "🟨 raw=$raw")
+                    Log.d("✅ StepParser", "🟩 index=$index | title=$title | method=$method | duration=$duration | showTimer=${method.isNotEmpty() && duration.isNotEmpty()}")
+
                     CookingStepState(
                         text = "$title: $description",
                         showTimer = method.isNotEmpty() && duration.isNotEmpty(),
                         timerTitle = method,
                         timerDuration = duration,
-                        isCurrent = index == 0
-                        // timerState는 StepTimerState가 실제로 구현될 때 초기화 필요
+                        isCurrent = index == 0,
+                                timerState = if (duration.isNotEmpty()) StepTimerState(parseDuration(duration)) else null
                     )
                 }
         )
     }
+
+
+
 
     if (steps.isEmpty()) {
         Log.e("RecipeCookingScreen", "레시피 단계가 없습니다. order: ${recipe.order}")
@@ -271,6 +283,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     step = step,
                     onNext = { goToNextStep() },
                     onRepeat = { repeatStep() }
+
                 )
             }
 
@@ -338,50 +351,153 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
 }
 
 @Composable
-fun CookingStepCard(index: Int, step: CookingStepState, onNext: () -> Unit, onRepeat: () -> Unit) {
+fun CookingStepCard(
+    index: Int,
+    step: CookingStepState,
+    onNext: () -> Unit,
+    onRepeat: () -> Unit,
+) {
+    Log.d(
+        "CookingStepCardCheck",
+        "index=$index | isCurrent=${step.isCurrent} | showTimer=${step.showTimer} | duration=${step.timerDuration}"
+    )
+
+    val cardBackground = when {
+        step.isCurrent -> Brush.horizontalGradient(
+            listOf(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+            )
+        )
+        step.isDone -> Brush.horizontalGradient(
+            listOf(
+                MaterialTheme.colorScheme.secondaryContainer,
+                MaterialTheme.colorScheme.surfaceVariant
+            )
+        )
+        else -> Brush.horizontalGradient(
+            listOf(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
+            )
+        )
+    }
+
     Card(
         modifier = Modifier
             .padding(vertical = 6.dp)
             .fillMaxWidth()
-            .animateContentSize()
-            .shadow(4.dp, RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(
-            containerColor = if (step.isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) // 배경색 약간 변경
-        ),
-        shape = RoundedCornerShape(12.dp) // Card 모양 명시
+            .shadow(6.dp, RoundedCornerShape(14.dp))
+            .background(cardBackground)
+            .animateContentSize(),
+        shape = RoundedCornerShape(14.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) { // 패딩 값 통일
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Icon(
                     imageVector = if (step.isDone) Icons.Default.Check else Icons.Default.Circle,
-                    contentDescription = if (step.isDone) "완료된 단계" else "현재 단계 표시기", // contentDescription 추가
+                    contentDescription = if (step.isDone) "완료된 단계" else "현재 단계 표시기",
                     tint = if (step.isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "단계 ${index + 1}. ${step.text}", // "○" 대신 "단계" 사용
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = if (step.isCurrent) FontWeight.Bold else FontWeight.Normal // 현재 단계 굵게
+                    "단계 ${index + 1}.",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 )
             }
-            if (step.showTimer) {
-                StepTimer(durationString = step.timerDuration) // StepTimer는 아래에 플레이스홀더로 정의
-            }
-            Spacer(modifier = Modifier.height(8.dp)) // 공간 추가
-            if (step.isCurrent && !step.isDone) { // 완료되지 않은 현재 단계일 때만 버튼 표시
-                Text("현재 단계입니다.", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { // 버튼 간 간격
-                    Button(onClick = onRepeat, modifier = Modifier.weight(1f)) { Text("다시 읽기") } // 버튼 텍스트 변경 및 비율 조정
-                    Button(onClick = onNext, modifier = Modifier.weight(1f)) { Text("다음 단계") } // 버튼 텍스트 변경 및 비율 조정
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                step.text,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    lineHeight = 22.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            )
+
+            if (step.showTimer && step.timerState != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                StepTimer(
+                    timerState = step.timerState,
+                    onFinish = onNext
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { step.timerState.pause() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("⏸ 일시정지")
+                    }
+
+                    OutlinedButton(
+                        onClick = { step.timerState.resume() },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("▶ 다시시작")
+                    }
                 }
-            } else if (step.isDone) {
-                Text("✅ 완료됨", color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.labelMedium) // 완료 색상 변경
+            }
+
+            if (step.isCurrent && !step.isDone) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "현재 단계입니다.",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedButton(
+                        onClick = onRepeat,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("🔁 다시 읽기")
+                    }
+
+                    Button(
+                        onClick = onNext,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("➡ 다음 단계", color = Color.White)
+                    }
+                }
+            }
+
+            if (step.isDone) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "✅ 완료됨",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
             }
         }
     }
 }
+
 
 fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe") {
     val webView = WebView(context)
