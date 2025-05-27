@@ -35,19 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-// import com.bcu.foodtable.R // Assuming R is not needed for this specific redesign preview
-
-// Dummy ViewModel for preview if not running in full app context
-// class ChannelCreationViewModel : ViewModel() {
-//     val channelName = MutableStateFlow("")
-//     val channelDescription = MutableStateFlow("")
-//     val selectedImageUri = MutableStateFlow<Uri?>(null)
-//     val selectedBackgroundUri = MutableStateFlow<Uri?>(null)
-//     val isUploading = MutableStateFlow(false)
-//     fun setImageUri(uri: Uri?) { selectedImageUri.value = uri }
-//     fun setBackgroundUri(uri: Uri?) { selectedBackgroundUri.value = uri }
-//     fun createChannel(context: android.content.Context, onComplete: () -> Unit) { /* ... */ }
-// }
 
 
 @OptIn(ExperimentalMaterial3Api::class)
