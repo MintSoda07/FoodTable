@@ -62,7 +62,7 @@ fun MainAiScreen(
                 selectedTab = selectedTab,
                 onTabSelected = { newTab ->
                     when (newTab) {
-                        0 -> { // Home
+                        0 -> { // Homezz
                             (context as? androidx.activity.ComponentActivity)?.finish()
                         }
                         1 -> { // Channel
