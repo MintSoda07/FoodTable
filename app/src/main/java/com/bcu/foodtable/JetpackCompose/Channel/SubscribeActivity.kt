@@ -11,12 +11,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.bcu.foodtable.FoodTableApplication
 import com.bcu.foodtable.di.ChannelRepository
 import com.bcu.foodtable.ui.home.FoodTableTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-// Import navigation components from HomeScreen
 import com.bcu.foodtable.ui.home.HomeTopBar
 import com.bcu.foodtable.ui.home.AppBottomNavigationBar
 import com.bcu.foodtable.ui.home.Screen
@@ -35,8 +38,7 @@ class SubscribeActivity : ComponentActivity() {
         setContent {
             FoodTableTheme {
                 SubscribeScreenWithNavigation(
-                    subscribeViewModel = viewModel,
-                    context = this
+                    subscribeViewModel = viewModel
                 )
             }
         }
@@ -50,19 +52,17 @@ class SubscribeActivity : ComponentActivity() {
 @Composable
 fun SubscribeScreenWithNavigation(
     subscribeViewModel: SubscribeViewModel,
-    context: ComponentActivity,
     homeViewModel: HomeViewModel = viewModel()
 ) {
-    // Navigation state
-    var selectedTab by remember { mutableStateOf(1) } // Channel tab index
-    val user by homeViewModel.user.collectAsState()
-    
+    val navController = rememberNavController()
     val screens = listOf(
         Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
     )
+    var selectedTab by remember { mutableStateOf(1) }
+    val user by homeViewModel.user.collectAsState()
 
     LaunchedEffect(Unit) {
-        homeViewModel.loadUserInfo() // Load user info for top bar
+        homeViewModel.loadUserInfo()
     }
 
     Scaffold(
@@ -70,10 +70,11 @@ fun SubscribeScreenWithNavigation(
             HomeTopBar(
                 user = user,
                 onProfileClick = {
+                    navController.navigate(Screen.MyPage.route)
                     selectedTab = screens.indexOf(Screen.MyPage)
                 },
                 onChallengeClick = {
-                    context.startActivity(Intent(context, ChallengeActivity::class.java))
+                    navController.context.startActivity(Intent(navController.context, ChallengeActivity::class.java))
                 }
             )
         },
@@ -81,42 +82,47 @@ fun SubscribeScreenWithNavigation(
             AppBottomNavigationBar(
                 screens = screens,
                 selectedTab = selectedTab,
-                onTabSelected = { newTab ->
-                    when (newTab) {
-                        0 -> { // Home
-                            context.finish()
+                onTabSelected = { index ->
+                    selectedTab = index
+                    navController.navigate(screens[index].route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
                         }
-                        1 -> { // Channel - stay here
-                            selectedTab = newTab
-                        }
-                        2 -> { // AI Service
-                            context.startActivity(Intent(context, AiMainActivity::class.java))
-                        }
-                        3 -> { // Recipe Storage
-                            context.startActivity(Intent(context, RecipeStorageActivity::class.java))
-                        }
-                        4 -> { // Profile
-                            selectedTab = newTab
-                        }
+                        launchSingleTop = true
+                        restoreState = true
                     }
                 }
             )
         }
     ) { paddingValues ->
-        when (selectedTab) {
-            4 -> { // Profile tab
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Subscribe.route,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable(Screen.Subscribe.route) {
+                SubscribeScreen(
+                    viewModel = subscribeViewModel,
+                    navController = navController,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            composable(Screen.MyPage.route) {
                 ProfileMainScreen(paddingValues = paddingValues)
             }
-            else -> { // Channel content
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                ) {
-                    SubscribeScreen(
-                        viewModel = subscribeViewModel,
-                        context = context
-                    )
+            composable(Screen.AIService.route) {
+                LaunchedEffect(Unit) {
+                    navController.context.startActivity(Intent(navController.context, AiMainActivity::class.java))
+                }
+            }
+            composable(Screen.RecipeStorage.route) {
+                LaunchedEffect(Unit) {
+                    navController.context.startActivity(Intent(navController.context, RecipeStorageActivity::class.java))
+                }
+            }
+            composable(Screen.Home.route) {
+                LaunchedEffect(Unit) {
+                    (navController.context as? ComponentActivity)?.finish() // Return to home
                 }
             }
         }
