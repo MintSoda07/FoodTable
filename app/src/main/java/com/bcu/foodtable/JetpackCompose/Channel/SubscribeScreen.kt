@@ -26,7 +26,7 @@ fun SubscribeScreen(
     val subscribedChannels by viewModel.subscribedChannels.collectAsState()
     val myChannels by viewModel.myChannels.collectAsState()
     val recommendedChannels by viewModel.recommendedChannels.collectAsState()
-
+    Log.d("SubscribeUI", "UI에서 받은 채널 수: ${myChannels.size}")
     LaunchedEffect(Unit) {
         viewModel.fetchSubscribedChannels()
         viewModel.fetchMyChannels()

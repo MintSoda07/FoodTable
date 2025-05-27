@@ -2,6 +2,7 @@ package com.bcu.foodtable.JetpackCompose.Channel
 
 
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.bcu.foodtable.useful.Channel
 import com.google.android.gms.tasks.Task
@@ -57,12 +58,19 @@ class SubscribeViewModel(
     }
 
     fun fetchMyChannels() {
+        Log.d("fetchMyChannels", "userId = $userId")
+
         db.collection("channel")
             .whereEqualTo("owner", userId)
-            .orderBy("date", Query.Direction.DESCENDING)
+            // .orderBy("date", Query.Direction.DESCENDING) <- 일단 주석처리
             .get()
             .addOnSuccessListener { snapshot ->
-                _myChannels.value = snapshot.documents.mapNotNull { it.toObject(Channel::class.java) }
+                val list = snapshot.documents.mapNotNull { it.toObject(Channel::class.java) }
+                Log.d("fetchMyChannels", "가져온 문서 수 = ${list.size}")
+                _myChannels.value = list
+            }
+            .addOnFailureListener {
+                Log.e("fetchMyChannels", "쿼리 실패: ${it.message}")
             }
     }
 

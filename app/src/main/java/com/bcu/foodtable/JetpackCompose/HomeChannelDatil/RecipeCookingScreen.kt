@@ -13,7 +13,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable // 추가: 클릭 가능한 UI를 만들기 위함
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,6 +60,7 @@ data class CookingStepState(
 
 )
 
+
 @Composable
 fun RecipeCookingScreen(recipe: RecipeItem) {
     val context = LocalContext.current
@@ -92,14 +95,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         timerTitle = method,
                         timerDuration = duration,
                         isCurrent = index == 0,
-                                timerState = if (duration.isNotEmpty()) StepTimerState(parseDuration(duration)) else null
+                        timerState = if (duration.isNotEmpty()) StepTimerState(parseDuration(duration)) else null
                     )
                 }
         )
     }
-
-
-
 
     if (steps.isEmpty()) {
         Log.e("RecipeCookingScreen", "레시피 단계가 없습니다. order: ${recipe.order}")
@@ -152,7 +152,6 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     tts.speak("음성 명령을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
                 }
                 VoiceCommandController.CommandType.TIMER -> {
-                    // 실제 타이머 기능 연동 시 이 부분 수정 필요
                     tts.speak("타이머 기능은 아직 완전히 연동되지 않았습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer")
                 }
                 VoiceCommandController.CommandType.NONE -> {
@@ -166,56 +165,68 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
         modifier = Modifier
             .fillMaxSize()
             .background(
-                brush = Brush.verticalGradient(
+                brush = Brush.verticalGradient( // Adjusted gradient
                     colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.3f),
                         MaterialTheme.colorScheme.background
-                    )
+                    ),
+                    startY = 0f,
+                    endY = 800f // Adjust endY for smoother transition over a larger area
                 )
             )
     ) {
-        LazyColumn(modifier = Modifier.padding(16.dp)) {
+        LazyColumn(
+            modifier = Modifier.padding(horizontal = 16.dp), // Main content padding
+            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp) // Padding for scrollable content
+        ) {
             item {
                 Text(
                     recipe.name,
-                    style = MaterialTheme.typography.headlineMedium.copy(
+                    style = MaterialTheme.typography.displaySmall.copy( // Enhanced title style
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 28.sp
-                    )
+                        color = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
                 AsyncImage(
                     model = recipe.imageResId,
-                    contentDescription = recipe.name, // contentDescription에 레시피 이름 추가
+                    contentDescription = recipe.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(250.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .shadow(8.dp)
-                        .padding(vertical = 8.dp)
+                        .height(280.dp) // Slightly taller image
+                        .padding(vertical = 12.dp)
+                        .clip(RoundedCornerShape(20.dp)) // More rounded corners
+                        .border( // Added subtle border
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            RoundedCornerShape(20.dp)
+                        )
+                        .shadow(6.dp, RoundedCornerShape(20.dp)) // Adjusted shadow
                         .animateContentSize()
                 )
                 Text(
                     "설명: ${recipe.description}",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         color = MaterialTheme.colorScheme.onBackground,
-                        lineHeight = 24.sp
-                    )
+                        lineHeight = 26.sp // Increased line height for readability
+                    ),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
                 )
                 Text(
                     "예상 칼로리: ${recipe.estimatedCalories}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontStyle = FontStyle.Italic
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy( // Changed from Italic
+                        color = MaterialTheme.colorScheme.onSurfaceVariant // Softer color
+                    ),
+                    modifier = Modifier.padding(top = 6.dp)
                 )
                 Text(
                     "카테고리: ${recipe.C_categories.joinToString()}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontStyle = FontStyle.Italic
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy( // Changed from Italic
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier.padding(top = 6.dp)
                 )
                 Text(
                     text = "태그: " + recipe.tags.joinToString(" ") { tag ->
@@ -223,31 +234,34 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     },
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontStyle = FontStyle.Italic
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy( // Changed from Italic
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    modifier = Modifier.padding(top = 6.dp)
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp)) // Increased spacer
 
-                // --- START: 재료 목록 섹션 ---
-                // RecipeItem에 ingredients: List<String> 필드가 있다고 가정합니다.
-                // 실제 RecipeItem의 재료 필드명으로 'recipe.ingredients'를 사용하거나 맞게 수정해주세요.
                 if (recipe.ingredients.isNotEmpty()) {
                     Text(
                         "재료",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge.copy( // Enhanced style
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
                         ),
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                     )
-                    Column {
+                    Divider( // Added divider
+                        modifier = Modifier.padding(bottom = 12.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                    )
+                    Column(modifier = Modifier.padding(bottom = 8.dp)) { // Added bottom padding to Column
                         recipe.ingredients.forEach { ingredient ->
                             Text(
                                 text = "• $ingredient",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 22.sp // Adjusted line height
                                 ),
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -266,24 +280,22 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                                             Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
                                         }
                                     }
-                                    .padding(vertical = 4.dp)
+                                    .padding(vertical = 7.dp, horizontal = 8.dp) // Adjusted padding
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp)) // Increased spacer
                 }
-                // --- END: 재료 목록 섹션 ---
-
-                LikeButton(recipeId = recipeId) // LikeButton은 별도 파일에 정의되어 있다고 가정
+                LikeButton(recipeId = recipeId)
+                Spacer(modifier = Modifier.height(16.dp)) // Spacer before step list
             }
 
-            itemsIndexed(steps, key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }) { index, step -> // key를 좀 더 고유하게 변경
+            itemsIndexed(steps, key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }) { index, step ->
                 CookingStepCard(
                     index = index,
                     step = step,
                     onNext = { goToNextStep() },
                     onRepeat = { repeatStep() }
-
                 )
             }
 
@@ -291,11 +303,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 item {
                     Text(
                         "🎉 모든 조리 과정을 완료했습니다!",
-                        style = MaterialTheme.typography.titleLarge.copy(
+                        style = MaterialTheme.typography.headlineSmall.copy( // Adjusted style
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 24.sp
+                            fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(vertical = 16.dp)
+                        modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp) // Adjusted padding
                     )
                 }
             }
@@ -312,23 +324,24 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             isListening.value = false
                         }
                     },
+                    shape = RoundedCornerShape(12.dp), // More rounded shape
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isListening.value) Color.Red else MaterialTheme.colorScheme.primary
+                        containerColor = if (isListening.value) Color.Red.copy(alpha = 0.8f) else MaterialTheme.colorScheme.primary
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(52.dp) // Standardized height
                         .padding(vertical = 8.dp)
                         .animateContentSize()
                 ) {
-                    Text(if (isListening.value) "음성 명령 중지" else "음성 명령 시작", color = Color.White)
+                    Text(if (isListening.value) "음성 명령 중지" else "음성 명령 시작", color = Color.White, fontSize = 16.sp)
                 }
             }
 
-            // generateRecipeHtml 함수는 별도 파일에 정의되어 있다고 가정
             val html = generateRecipeHtml(recipe)
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton( // Changed to OutlinedButton for variety
                     onClick = {
                         saveAsPdfWithHtml(
                             context = context,
@@ -336,15 +349,20 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             filename = recipe.name
                         )
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(12.dp), // More rounded shape
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp) // Standardized height
+                        .padding(vertical = 4.dp)
                 ) {
-                    Text("📄 PDF 저장")
+                    Text("📄 PDF 저장", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
                 }
             }
 
             item {
                 Spacer(modifier = Modifier.height(32.dp))
-                CommentSection(recipeId = recipeId) // CommentSection은 별도 파일에 정의되어 있다고 가정
+                CommentSection(recipeId = recipeId)
             }
         }
     }
@@ -365,34 +383,48 @@ fun CookingStepCard(
     val cardBackground = when {
         step.isCurrent -> Brush.horizontalGradient(
             listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), // Slightly more pronounced
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
             )
         )
         step.isDone -> Brush.horizontalGradient(
             listOf(
-                MaterialTheme.colorScheme.secondaryContainer,
-                MaterialTheme.colorScheme.surfaceVariant
+                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), // Adjusted for completed look
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             )
         )
-        else -> Brush.horizontalGradient(
+        else -> Brush.horizontalGradient( // Subtle for upcoming steps
             listOf(
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
+                MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                MaterialTheme.colorScheme.surfaceColorAtElevation(0.5.dp)
             )
         )
     }
 
     Card(
         modifier = Modifier
-            .padding(vertical = 6.dp)
+            .padding(vertical = 8.dp) // Consistent vertical padding
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp))
-            .background(cardBackground)
-            .animateContentSize(),
-        shape = RoundedCornerShape(14.dp)
+            .animateContentSize()
+            .then( // Conditional border for current step
+                if (step.isCurrent) {
+                    Modifier.border(
+                        2.dp,
+                        MaterialTheme.colorScheme.primary,
+                        RoundedCornerShape(16.dp)
+                    )
+                } else Modifier
+            ),
+        shape = RoundedCornerShape(16.dp), // More rounded corners
+        elevation = CardDefaults.cardElevation(defaultElevation = if (step.isCurrent) 3.dp else 1.dp), // Subtle elevation
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent) // To allow modifier.background to show
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(cardBackground) // Apply dynamic background here
+                .padding(16.dp)
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -400,51 +432,64 @@ fun CookingStepCard(
                 Icon(
                     imageVector = if (step.isDone) Icons.Default.Check else Icons.Default.Circle,
                     contentDescription = if (step.isDone) "완료된 단계" else "현재 단계 표시기",
-                    tint = if (step.isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = when { // Adjusted tint logic
+                        step.isDone -> MaterialTheme.colorScheme.primary
+                        step.isCurrent -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    },
+                    modifier = Modifier.size(22.dp) // Slightly larger icon
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp)) // Adjusted spacer
                 Text(
                     "단계 ${index + 1}.",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground
+                    style = MaterialTheme.typography.titleMedium.copy( // Bolder title
+                        fontWeight = FontWeight.Bold,
+                        color = if (step.isCurrent || step.isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp)) // Adjusted spacer
 
             Text(
                 step.text,
                 style = MaterialTheme.typography.bodyLarge.copy(
-                    lineHeight = 22.sp,
+                    lineHeight = 24.sp, // Better line height
                     color = MaterialTheme.colorScheme.onSurface
-                )
+                ),
+                modifier = Modifier.padding(start = 32.dp) // Indent text
             )
 
             if (step.showTimer && step.timerState != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                StepTimer(
-                    timerState = step.timerState,
-                    onFinish = onNext
-                )
+                Box(modifier = Modifier.padding(start = 32.dp)) { // Indent Timer
+                    StepTimer(
+                        timerState = step.timerState,
+                        onFinish = onNext
+                    )
+                }
+
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(top = 12.dp, start = 32.dp), // Indent buttons
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedButton(
                         onClick = { step.timerState.pause() },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp), // More rounded
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                     ) {
                         Text("⏸ 일시정지")
                     }
 
                     OutlinedButton(
                         onClick = { step.timerState.resume() },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp), // More rounded
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                     ) {
                         Text("▶ 다시시작")
                     }
@@ -456,19 +501,21 @@ fun CookingStepCard(
                 Text(
                     "현재 단계입니다.",
                     color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.padding(start = 32.dp) // Indent text
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().padding(start = 32.dp) // Indent buttons
                 ) {
                     OutlinedButton(
                         onClick = onRepeat,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(10.dp), // More rounded
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary) // Stronger border for primary action
                     ) {
                         Text("🔁 다시 읽기")
                     }
@@ -476,7 +523,7 @@ fun CookingStepCard(
                     Button(
                         onClick = onNext,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp), // More rounded
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("➡ 다음 단계", color = Color.White)
@@ -488,10 +535,11 @@ fun CookingStepCard(
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
                     "✅ 완료됨",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    style = MaterialTheme.typography.bodyMedium.copy( // Consistent typography
+                        color = MaterialTheme.colorScheme.primary, // Use primary for positive feedback
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    modifier = Modifier.padding(start = 32.dp) // Indent text
                 )
             }
         }
@@ -514,7 +562,7 @@ fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe
             }
 
             val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
-            val pdfFileName = "${filename.replace(" ", "_")}_${sdf.format(Date())}.pdf" // 파일 이름 형식 약간 변경
+            val pdfFileName = "${filename.replace(" ", "_")}_${sdf.format(Date())}.pdf"
 
             val printManager = activity.getSystemService(Context.PRINT_SERVICE) as? PrintManager
             if (printManager == null) {
@@ -525,9 +573,8 @@ fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe
 
             try {
                 val printAdapter = webView.createPrintDocumentAdapter(pdfFileName)
-                val jobName = "${context.packageName}_RecipeDocument" // Job 이름 구체화
+                val jobName = "${context.packageName}_RecipeDocument"
                 printManager.print(jobName, printAdapter, PrintAttributes.Builder().build())
-                // 성공 메시지는 시스템에서 처리하므로 앱 토스트는 생략 가능
                 Log.i("PDFSave", "Print job initiated for $pdfFileName")
             } catch (e: Exception) {
                 Toast.makeText(context, "PDF 저장 중 오류가 발생했습니다: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
@@ -542,4 +589,3 @@ fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe
         }
     }
 }
-
