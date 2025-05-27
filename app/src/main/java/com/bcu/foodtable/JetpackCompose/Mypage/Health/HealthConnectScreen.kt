@@ -5,10 +5,12 @@ import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -87,14 +89,8 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                         0 -> (context as? androidx.activity.ComponentActivity)?.finish()
                         1 -> context.startActivity(Intent(context, SubscribeActivity::class.java))
                         2 -> context.startActivity(Intent(context, AiMainActivity::class.java))
-                        3 -> context.startActivity(
-                            Intent(
-                                context,
-                                RecipeStorageActivity::class.java
-                            )
-                        )
-
-                        4 -> selectedTab = newTab // Stay here
+                        3 -> context.startActivity(Intent(context, RecipeStorageActivity::class.java))
+                        4 -> selectedTab = newTab
                     }
                 }
             )
@@ -107,47 +103,50 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
-            //  반원형 Progress 그래프
+            // 반원형 그래프
             AndroidView(
                 factory = { StepProgressView(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .height(240.dp),
-                update = { it.setStepData(state.steps, state.goal) }
-            )
+                    .height(220.dp)
+            ) {
+                it.setStepData(state.steps, state.goal)
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            //  보상 버튼
+            // 보상 수령 버튼
             if (state.rewardCount > 0) {
+                Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = viewModel::claimReward,
-                    modifier = Modifier
-                        .padding(bottom = 8.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF7043) // 홈 화면 계열의 오렌지톤
+                    ),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text("🎁 ${state.rewardCount} 보상 수령", fontSize = 16.sp)
+                    Text("🎁 ${state.rewardCount} 보상 수령", fontSize = 16.sp, color = Color.White)
                 }
             }
 
-            // 👟 걸음 수 및 칼로리
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 걸음 수 및 칼로리 정보
             Text(
                 text = "걸음 수: ${state.steps}",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
-
             Text(
                 text = "추정 칼로리: ${(state.steps * 0.04).toInt()} kcal",
                 fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.primary
+                color = Color(0xFFEF6C00), // 톤다운된 주황 강조
+                fontWeight = FontWeight.Medium
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 🍽️ 소모 음식 정보
+            // 음식 아이템 표시
             state.foodItem?.let { foodItem ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -156,17 +155,11 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                     Image(
                         painter = painterResource(id = foodItem.imageResId),
                         contentDescription = null,
-                        modifier = Modifier.size(80.dp)
+                        modifier = Modifier.size(70.dp)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = "오늘 ${foodItem.name}${
-                            viewModel.getJosa(
-                                foodItem.name,
-                                "을",
-                                "를"
-                            )
-                        } 불태웠어요!",
+                        text = "오늘 ${foodItem.name}${viewModel.getJosa(foodItem.name, "을", "를")} 불태웠어요!",
                         fontSize = 16.sp,
                         lineHeight = 22.sp
                     )
@@ -175,7 +168,7 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            //  주간 걸음 차트
+            // 주간 걸음 그래프
             val stepData by viewModel.stepDataList.collectAsState()
             Log.d("StepChart", "Compose에서 받은 데이터: $stepData")
             StepBarChart(
@@ -185,8 +178,8 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                     .height(240.dp)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(36.dp))
         }
-
     }
+
 }

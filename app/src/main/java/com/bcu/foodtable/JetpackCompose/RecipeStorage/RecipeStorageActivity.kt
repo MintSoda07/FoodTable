@@ -11,9 +11,11 @@ class RecipeStorageActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {// 사용자님의 앱 테마를 적용합니다.
-                Surface { // Material Design의 Surface로 감싸는 것이 좋습니다.
+                FoodTableTheme {
+                  // Material Design의 Surface로 감싸는 것이 좋습니다.
                     MyRecipeStorageScreen() // 바로 이 Composable을 여기서 호출!
                 }
             }
         }
-    }
+}
+
