@@ -38,7 +38,10 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
     val user by homeViewModel.user.collectAsState()
 
     val client = remember { HealthConnectClient.getOrCreate(context) }
+    val rawData by viewModel.stepDataList.collectAsState()
 
+    Log.d("StepDebug", "original dates = ${rawData.map { it.date }}")
+    val weeklyData = fillWeeklyStepData(rawData)
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()
     ) { grantedPermissions: Set<String> ->
@@ -100,7 +103,7 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp),
+                .padding(horizontal = 50.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(28.dp))
@@ -166,19 +169,19 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(0.dp))
 
             // 주간 걸음 그래프
             val stepData by viewModel.stepDataList.collectAsState()
             Log.d("StepChart", "Compose에서 받은 데이터: $stepData")
             StepBarChart(
-                stepData = stepData,
+                stepData = weeklyData,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp)
+                    .height(220.dp)
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(48.dp))
         }
     }
 

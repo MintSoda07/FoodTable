@@ -28,6 +28,8 @@ private val WarmLightColorScheme = lightColorScheme(
     onBackground = Color(0xFF3A3A3A),
     surface = Color.White,
     onSurface = Color(0xFF3A3A3A),
+    surfaceVariant = Color(0xFFFFE2D6), //  추가: 살구색 느낌 (연한 primary 변형)
+    onSurfaceVariant = Color(0xFF5F5F5F), //  추가: 대비용 텍스트 색
     outline = Color(0xFFE0E0E0)
 )
 
