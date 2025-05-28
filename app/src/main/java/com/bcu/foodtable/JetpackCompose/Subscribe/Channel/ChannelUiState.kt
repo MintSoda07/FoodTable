@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.Channel
+package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem

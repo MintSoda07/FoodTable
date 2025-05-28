@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.Channel
+package com.bcu.foodtable.JetpackCompose.Subscribe
 
 import android.util.Log
 import androidx.compose.foundation.layout.*
@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelCard
 import com.bcu.foodtable.useful.Channel
 
 @Composable

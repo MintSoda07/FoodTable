@@ -127,7 +127,7 @@
 <!--            android:name=".Setting"-->
 <!--            android:exported="false" />-->
         <activity
-            android:name=".ui.subscribeNavMenu.ChannelViewPage"
+            android:name=".JetpackCompose.Subscribe.Channel.ChannelViewPage"
             android:exported="false" />
         <activity
             android:name=".RecipeDetailViewByHelperActivity"
@@ -179,7 +179,7 @@
             android:name=".LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustPan" />
-        <activity android:name=".JetpackCompose.Channel.SubscribeActivity" />
+        <activity android:name=".JetpackCompose.Subscribe.SubscribeActivity" />
         <activity
             android:name="com.bcu.foodtable.ui.myPage.ChannelCreationActivity"
             android:exported="false" />

@@ -1,7 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.RecipeStorage
 
 import android.content.Intent
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -37,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage // Coil import
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity // 변경된 import
 import com.bcu.foodtable.useful.GalleryItem // 사용자 경로
 import com.bcu.foodtable.viewmodel.RecipeGalleryViewModel // 사용자 경로
@@ -46,14 +43,7 @@ import coil.compose.AsyncImagePainter // AsyncImage의 상태를 사용하기 �
 import androidx.compose.foundation.Image // Explicit import for Image composable
 import coil.compose.rememberAsyncImagePainter // Add this import
 // Import navigation components from HomeScreen
-import com.bcu.foodtable.ui.home.HomeTopBar
-import com.bcu.foodtable.ui.home.AppBottomNavigationBar
-import com.bcu.foodtable.ui.home.Screen
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
-import com.bcu.foodtable.ui.ChallengeActivity
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
-import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
-import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState

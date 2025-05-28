@@ -6,8 +6,6 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -30,7 +28,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,20 +41,15 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusManager
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -72,13 +64,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.User
-import com.bcu.foodtable.ui.ChallengeActivity
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import androidx.compose.material.icons.filled.Category
@@ -93,34 +82,19 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
-import com.bcu.foodtable.JetpackCompose.RecipeStorage.RecipeStorageActivity
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import java.util.Calendar
-import java.util.TimeZone
 import kotlinx.coroutines.launch
 import com.bcu.foodtable.ai.AIRecommendationService
-import com.bcu.foodtable.data.UserBehaviorTracker
-import com.bcu.foodtable.manager.TimeBasedRecommendationManager
-import com.bcu.foodtable.di.DependencyProvider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.text.font.FontStyle
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.rememberNavController
-import com.bcu.foodtable.JetpackCompose.Channel.ChannelDetailScreen
-import com.bcu.foodtable.JetpackCompose.Channel.ChannelScreen
-import com.bcu.foodtable.JetpackCompose.Channel.ChannelViewModel
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeScreen
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeViewModel
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelDetailScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
 import com.bcu.foodtable.JetpackCompose.screens.SocialScreen
-import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewPageScreen
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -627,7 +601,7 @@ private fun parsePrepTimeTagToMinutes(timeTag: String): Int? {
  * @param onChallengeClick 챌린지 아이콘 클릭 시 호출될 람다.
  */
 
-// ✅ 인사말 생성 함수
+//  인사말 생성 함수
 fun getGreetingText(name: String?): Pair<String, String> {
     val safeName = name ?: "사용자"
     val title = "안녕하세요, $safeName 님!"
@@ -635,6 +609,7 @@ fun getGreetingText(name: String?): Pair<String, String> {
     return Pair(title, subtitle)
 }
 
+// 탑바 ui
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopBar(
@@ -728,6 +703,24 @@ fun HomeTopBar(
         )
     )
 }
+// 탑바 wrapper 함수
+@Composable
+fun AppTopBar(
+    selectedTab: Int,
+    screens: List<Screen>,
+    user: User?
+) {
+    when (screens[selectedTab]) {
+        Screen.Home, Screen.Subscribe, Screen.MyPage -> {
+            HomeTopBar(
+                user = user,
+                onProfileClick = {},        // 클릭 막음
+                onChallengeClick = {}       // 클릭 막음
+            )
+        }
+        else -> {}
+    }
+}
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
@@ -759,32 +752,11 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
     Scaffold(
         topBar = {
-            when (selectedTab) {
-                screens.indexOf(Screen.Home) -> {
-                    HomeTopBar(
-                        user = user,
-                        onProfileClick = {
-                            navController.navigate(Screen.MyPage.route)
-                            selectedTab = screens.indexOf(Screen.MyPage)
-                        },
-                        onChallengeClick = {
-                            context.startActivity(Intent(context, ChallengeActivity::class.java))
-                        }
-                    )
-                }
-
-                screens.indexOf(Screen.MyPage) -> {
-                    HomeTopBar(
-                        user = user,
-                        onProfileClick = {}, // 자기 자신의 프로필이므로 클릭 안함
-                        onChallengeClick = {
-                            context.startActivity(Intent(context, ChallengeActivity::class.java))
-                        }
-                    )
-                }
-
-                else -> {}
-            }
+            AppTopBar(
+                selectedTab = selectedTab,
+                screens = screens,
+                user = user
+            )
         }
         ,
         bottomBar = {

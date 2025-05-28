@@ -2,7 +2,7 @@ package com.bcu.foodtable.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeViewModel
+import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 
 class SubscribeViewModelFactory(

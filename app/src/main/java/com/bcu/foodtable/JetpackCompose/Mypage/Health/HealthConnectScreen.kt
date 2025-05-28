@@ -20,14 +20,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
+import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeActivity
 import com.bcu.foodtable.JetpackCompose.Mypage.StepBarChart.StepBarChart
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.RecipeStorageActivity
 import com.bcu.foodtable.ui.ChallengeActivity
 import com.bcu.foodtable.ui.home.AppBottomNavigationBar
 import com.bcu.foodtable.ui.home.HomeTopBar
 import com.bcu.foodtable.ui.home.Screen
-import com.bcu.foodtable.ui.myPage.StepProgressView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 
@@ -116,6 +115,7 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
                     .height(220.dp)
             ) {
                 it.setStepData(state.steps, state.goal)
+                it.setArcColor("#FF935C")
             }
 
             // 보상 수령 버튼

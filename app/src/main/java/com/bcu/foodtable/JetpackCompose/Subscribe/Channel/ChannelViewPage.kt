@@ -1,4 +1,4 @@
-package com.bcu.foodtable.ui.subscribeNavMenu
+package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -21,10 +20,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewModel
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
 import com.bcu.foodtable.useful.Channel
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
+import kotlinx.coroutines.tasks.await
 
 class ChannelViewPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -74,6 +75,7 @@ fun ChannelViewPageScreen(
         viewModel.loadChannel(channelName)
         viewModel.loadRecipes(channelName)
         viewModel.checkSubscription(channelName, userId)
+        viewModel.loadSubscriberCount(channelName)
     }
 
     Column(modifier = Modifier
@@ -113,8 +115,9 @@ fun ChannelViewPageScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize()) {
-            items(recipes) { recipe: RecipeItem ->
-                RecipeCard(recipe = recipe, onClick = { navController.navigate("recipeView/${recipe.id}") })
+            items(recipes) { recipe: RecipeItem ->RecipeCard(
+                    recipe = recipe,
+                    onClick = { navController.navigate("recipeView/${recipe.id}") })
             }
         }
     }

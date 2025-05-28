@@ -29,7 +29,7 @@ class StepProgressView @JvmOverloads constructor(
         }
 
     private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#990000")
+        color = Color.parseColor("#FF935C")
         strokeWidth = 30f
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
@@ -86,5 +86,14 @@ class StepProgressView @JvmOverloads constructor(
         progress = currentSteps.coerceAtMost(goalSteps).toFloat() / goalSteps
         stepText = "$currentSteps 걸음"
         goalText = "목표 $goalSteps"
+    }
+    //선 색상 동적 처리
+    fun setArcColor(hexColor: String) {
+        try {
+            arcPaint.color = Color.parseColor(hexColor)
+            invalidate()
+        } catch (e: IllegalArgumentException) {
+            e.printStackTrace() // 잘못된 색상 문자열 처리
+        }
     }
 }

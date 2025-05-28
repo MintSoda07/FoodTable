@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.Channel
+package com.bcu.foodtable.JetpackCompose.Subscribe
 
 
 

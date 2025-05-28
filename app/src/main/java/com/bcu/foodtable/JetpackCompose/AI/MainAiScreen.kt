@@ -15,7 +15,7 @@ import com.bcu.foodtable.ui.home.AppBottomNavigationBar
 import com.bcu.foodtable.ui.home.Screen
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import com.bcu.foodtable.ui.ChallengeActivity
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
+import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeActivity
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.RecipeStorageActivity
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 

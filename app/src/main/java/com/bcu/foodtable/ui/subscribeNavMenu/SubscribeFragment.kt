@@ -2,30 +2,16 @@ package com.bcu.foodtable.ui.subscribeNavMenu
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.GridView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.bcu.foodtable.RecipeViewActivity
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelViewPage
 import com.bcu.foodtable.databinding.FragmentSubscribeBinding
-import com.bcu.foodtable.useful.Channel
-import com.bcu.foodtable.useful.GalleryGridAdapter
-import com.bcu.foodtable.useful.GalleryItem
-import com.bcu.foodtable.useful.RecipeItem
-import com.bcu.foodtable.useful.SubscribeItem
 import com.bcu.foodtable.useful.SubscribedChannelGridView
-import com.bcu.foodtable.useful.UserManager
-import com.google.android.gms.tasks.Task
-import com.google.android.gms.tasks.Tasks
-import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+
 class SubscribeFragment : Fragment() {
 
     private var _binding: FragmentSubscribeBinding? = null

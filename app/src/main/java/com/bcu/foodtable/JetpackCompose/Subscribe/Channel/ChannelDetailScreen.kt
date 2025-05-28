@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.Channel
+package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import android.util.Log
 import androidx.compose.foundation.layout.*
@@ -14,7 +14,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.RecipeCard
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
@@ -202,7 +201,7 @@ fun ChannelDetailScreen(
                 "Recipes" -> {
                     LazyColumn {
                         items(recipes.filter { it.contained_channel == ch.name }) { recipe ->
-                            RecipeCard(recipe = recipe) {
+                            com.bcu.foodtable.JetpackCompose.Subscribe.RecipeCard(recipe = recipe) {
                                 navController.navigate("recipeView/${recipe.id}")
                             }
                         }

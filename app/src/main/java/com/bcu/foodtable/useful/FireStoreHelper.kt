@@ -230,4 +230,20 @@ object FireStoreHelper {
             e.printStackTrace()
         }
     }
+    suspend fun updateChannelSubscriberCount(channelName: String, delta: Int): Int {
+        val db = FirebaseFirestore.getInstance()
+        val snapshot = db.collection("channel")
+            .whereEqualTo("name", channelName)
+            .limit(1)
+            .get()
+            .await()
+
+        val doc = snapshot.documents.firstOrNull() ?: return 0
+        val ref = doc.reference
+        val current = doc.getLong("subscribers") ?: 0
+        val updated = (current + delta).coerceAtLeast(0)
+        ref.update("subscribers", updated).await()
+        return updated.toInt()
+    }
+
 }

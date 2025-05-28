@@ -22,6 +22,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bcu.foodtable.IngredientAdapter
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelViewPage
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.FlexAdaptor
