@@ -626,6 +626,15 @@ private fun parsePrepTimeTagToMinutes(timeTag: String): Int? {
  * @param onProfileClick 프로필 이미지 클릭 시 호출될 람다.
  * @param onChallengeClick 챌린지 아이콘 클릭 시 호출될 람다.
  */
+
+// ✅ 인사말 생성 함수
+fun getGreetingText(name: String?): Pair<String, String> {
+    val safeName = name ?: "사용자"
+    val title = "안녕하세요, $safeName 님!"
+    val subtitle = "맛있는 하루 되세요."
+    return Pair(title, subtitle)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopBar(
@@ -633,9 +642,8 @@ fun HomeTopBar(
     onProfileClick: () -> Unit,
     onChallengeClick: () -> Unit
 ) {
-    // User 객체의 point 필드를 사용합니다.
-    val userPoint = user?.point ?: 0 // point 필드가 없다면(user가 null인 경우) 기본값 0으로 표시
-    val greetingText = getGreetingMessage(user?.name)
+    val userPoint = user?.point ?: 0
+    val (greetingTitle, greetingSub) = getGreetingText(user?.name)
 
     TopAppBar(
         title = {
@@ -643,6 +651,7 @@ fun HomeTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(vertical = 8.dp)
             ) {
+                // 프로필 이미지
                 AsyncImage(
                     model = user?.image ?: "",
                     contentDescription = "User Profile Image",
@@ -651,21 +660,31 @@ fun HomeTopBar(
                         .clip(CircleShape)
                         .border(2.dp, MaterialTheme.colorScheme.tertiaryContainer, CircleShape)
                         .clickable(onClick = onProfileClick),
-                    error = rememberVectorPainter(Icons.Filled.AccountCircle),
-                    placeholder = painterResource(id = R.drawable.ic_profile_placeholder)
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
+                    error = rememberVectorPainter(Icons.Filled.AccountCircle)
                 )
+
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+
+                // 인사말 수직 정렬
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
-                        text = greetingText.substringBefore("!") + "!",
+                        text = greetingTitle, // ex: "안녕하세요, 홍길동 님!"
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = greetingText.substringAfter("! ", greetingText),
+                        text = greetingSub, // ex: "맛있는 하루 되세요."
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -675,27 +694,27 @@ fun HomeTopBar(
             }
         },
         actions = {
-            // 포인트 표시 UI
+            // 포인트 표시
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(end = 8.dp) // 챌린지 아이콘과의 간격
+                modifier = Modifier.padding(end = 8.dp)
             ) {
                 Icon(
-                    //painter = painterResource(id = R.drawable.ic_point_icon), // 실제 포인트/재화 아이콘 리소스로 교체 필요
-                    imageVector = Icons.Filled.Grain, // 임시로 Grain 아이콘 사용 (포인트에 맞는 아이콘으로 변경 추천)
+                    imageVector = Icons.Filled.Grain,
                     contentDescription = "포인트",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "$userPoint", // user?.point 값을 표시
+                    text = "$userPoint",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
+            // 챌린지 아이콘
             IconButton(onClick = onChallengeClick) {
                 Icon(
                     imageVector = Icons.Filled.EmojiEvents,
@@ -709,15 +728,6 @@ fun HomeTopBar(
         )
     )
 }
-
-/**
- * 앱의 하단 내비게이션 바 컴포저블.
- * @param screens 내비게이션 항목으로 표시할 화면 목록.
- * @param selectedTab 현재 선택된 탭의 인덱스.
- * @param onTabSelected 탭이 선택되었을 때 호출될 람다 (새로운 탭 인덱스 반환).
- */
-
-// HomeScreen.kt
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
