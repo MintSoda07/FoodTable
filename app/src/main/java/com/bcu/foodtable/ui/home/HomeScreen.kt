@@ -536,19 +536,34 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
     Scaffold(
         topBar = {
-            if (selectedTab == 0) {
-                HomeTopBar(
-                    user = user,
-                    onProfileClick = {
-                        navController.navigate(Screen.MyPage.route)
-                        selectedTab = screens.indexOf(Screen.MyPage)
-                    },
-                    onChallengeClick = {
-                        context.startActivity(Intent(context, ChallengeActivity::class.java))
-                    }
-                )
+            when (selectedTab) {
+                screens.indexOf(Screen.Home) -> {
+                    HomeTopBar(
+                        user = user,
+                        onProfileClick = {
+                            navController.navigate(Screen.MyPage.route)
+                            selectedTab = screens.indexOf(Screen.MyPage)
+                        },
+                        onChallengeClick = {
+                            context.startActivity(Intent(context, ChallengeActivity::class.java))
+                        }
+                    )
+                }
+
+                screens.indexOf(Screen.MyPage) -> {
+                    HomeTopBar(
+                        user = user,
+                        onProfileClick = {}, // 자기 자신의 프로필이므로 클릭 안함
+                        onChallengeClick = {
+                            context.startActivity(Intent(context, ChallengeActivity::class.java))
+                        }
+                    )
+                }
+
+                else -> {}
             }
-        },
+        }
+        ,
         bottomBar = {
             AppBottomNavigationBar(
                 screens = screens,
