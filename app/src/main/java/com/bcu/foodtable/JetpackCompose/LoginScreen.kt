@@ -2,6 +2,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
@@ -16,6 +17,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -283,12 +286,26 @@ fun LoginScreenImproved(
                     .background(Color.Black.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
-                LottieAnimation(
-                    composition = composition,
-                    progress = { progress },
-                    modifier = Modifier.size(120.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(160.dp)
+                        .clip(CircleShape) // ✅ 클리핑 경계
+                        .background(Color.White)
+                        .border(BorderStroke(2.dp, Color(0xFFE0E0E0)), shape = CircleShape), // 테두리
+                    contentAlignment = Alignment.Center
+                ) {
+                    LottieAnimation(
+                        composition = composition,
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(1.2f) // ✅ 클리핑보다 크게 만들어서 바깥이 잘리는 효과
+                    )
+                }
+
             }
         }
+
+
     }
 }
