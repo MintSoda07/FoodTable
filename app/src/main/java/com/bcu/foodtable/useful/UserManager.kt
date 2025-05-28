@@ -12,12 +12,13 @@ object UserManager {
         point: Int,
         uid: String,
         rankPoint: Int,
-        description: String
+        description: String,
+        location : String
     ) {
-        user = User(name, email, imageURL, phoneNumber, point, uid,rankPoint,description)
+        user = User(name, email, imageURL, phoneNumber, point, uid,rankPoint,description,location)
     }
     fun setUserByDatatype(userdata:User){
-        user = User(userdata.name, userdata.email, userdata.image, userdata.phoneNumber, userdata.point, userdata.uid,userdata.rankPoint,userdata.description)
+        user = User(userdata.name, userdata.email, userdata.image, userdata.phoneNumber, userdata.point, userdata.uid,userdata.rankPoint,userdata.description, userdata.location)
     }
 
     fun getUser(): User? {

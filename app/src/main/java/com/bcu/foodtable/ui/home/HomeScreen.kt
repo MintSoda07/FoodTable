@@ -100,6 +100,8 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
+import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -811,6 +813,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
             composable("channelView/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
                 ChannelDetailScreen(channelName = channelName, navController = navController)
+            }
+            composable("write_screen/{channelName}") { backStackEntry ->
+                val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
+                WriteScreen(channelName = channelName, onUploadSuccess = {
+                    // 업로드 성공 시 이전 화면으로 돌아가기
+                    navController.popBackStack()
+                })
             }
 
             composable(Screen.Subscribe.route) {

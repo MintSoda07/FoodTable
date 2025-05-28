@@ -14,5 +14,5 @@ data class User(
     var uid: String = "",
     var rankPoint: Int = 0,
     var description: String = "",
-    val purchasedRecipeIds: List<String> = emptyList()
+    val location : String = "",
 )

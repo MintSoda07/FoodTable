@@ -1,7 +1,8 @@
 package com.bcu.foodtable.JetpackCompose.HomeChannelDatil
-
+import com.google.firebase.auth.FirebaseAuth
 import StepTimerState
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.Intent // 추가: URL을 열기 위함
 import android.net.Uri // 추가: URL을 파싱하기 위함
@@ -12,6 +13,8 @@ import android.util.Log
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -33,7 +36,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,11 +44,27 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.bcu.foodtable.useful.RecipeItem // RecipeItem에 ingredients: List<String> 필드가 있다고 가정
 import com.bcu.foodtable.voice.VoiceCommandController
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import com.google.firebase.functions.ktx.functions
+import android.util.Base64
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.bcu.foodtable.TTS.CookingAiViewModel
+import com.bcu.foodtable.TTS.CookingAiViewModelFactory
+import com.google.firebase.functions.FirebaseFunctionsException
+
+fun byteArrayToBase64(byteArray: ByteArray): String {
+    return Base64.encodeToString(byteArray, Base64.NO_WRAP)
+}
 
 // 상태 데이터 클래스 (StepTimerState는 별도 파일에 정의되어 있다고 가정)
 data class CookingStepState(
@@ -58,15 +76,49 @@ data class CookingStepState(
     val isCurrent: Boolean = false,
     val timerState: StepTimerState? = null // ← 여기까지가 맞습니다!
 
+
 )
 
 
 @Composable
 fun RecipeCookingScreen(recipe: RecipeItem) {
+    val application = LocalContext.current.applicationContext as Application
+    val firebaseFunctionsInstance = remember { Firebase.functions("us-central1") }
+    val aiViewModelFactory = remember { CookingAiViewModelFactory(application, firebaseFunctionsInstance) }
+    val aiViewModel: CookingAiViewModel = viewModel(key = "aiEvaluationViewModel", factory = aiViewModelFactory) // key는 선택 사항
     val context = LocalContext.current
+    // ViewModel 상태 관찰
+    val isLoadingAiEval by aiViewModel.isLoading.collectAsState()
+    val aiEvaluationResultText by aiViewModel.evaluationApiResult.collectAsState()
+    val aiEvalToastMessage by aiViewModel.toastMessage.collectAsState()
+    LaunchedEffect(aiEvalToastMessage) {
+        aiEvalToastMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            aiViewModel.clearToastMessage() // 메시지 표시 후 ViewModel에서 초기화
+        }
+    }
+    var userImageUriForAiEval by remember { mutableStateOf<Uri?>(null) }
+
     val tts = remember {
         TextToSpeech(context, null).apply {
             language = Locale.KOREAN
+        }
+    }
+    var userImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val pickImageLauncherForAiEval = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        userImageUriForAiEval = uri // UI 업데이트용 (선택한 이미지 미리보기 등)
+        uri?.let { selectedUserImageUri ->
+            // CRITICAL: recipe.imageResId가 레시피 원본 이미지의 완전한 HTTP/HTTPS URL 문자열이어야 합니다.
+            val recipeImageStringUrl = recipe.imageResId // 이 변수가 실제 URL인지 확인!
+            if (recipeImageStringUrl.startsWith("http")) { // 간단한 URL 형식 체크
+                aiViewModel.evaluateCookingRecipe(recipeImageStringUrl, selectedUserImageUri)
+            } else {
+                Toast.makeText(context, "레시피 원본 이미지 URL이 유효하지 않습니다. (예: http...)", Toast.LENGTH_LONG).show()
+                Log.e("RecipeCooking_AI", "잘못된 레시피 이미지 URL: $recipeImageStringUrl. 전체 URL이어야 합니다.")
+            }
         }
     }
     Log.d("RecipeOrderRaw", recipe.order)
@@ -78,7 +130,8 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             recipe.order.split("○")
                 .filter { it.isNotBlank() }
                 .mapIndexed { index, raw ->
-                    val regex = Regex("""^\s*○?\s*\d+\.\s*\(([^)]+)\)\s*(.*?)(?:\s*\(([^()]+?),\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\))?$""")
+                    val regex =
+                        Regex("""^\s*○?\s*\d+\.\s*\(([^)]+)\)\s*(.*?)(?:\s*\(([^()]+?),\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\))?$""")
                     val match = regex.find(raw.trim())
 
                     val title = match?.groupValues?.getOrNull(1) ?: ""
@@ -87,7 +140,10 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     val duration = match?.groupValues?.getOrNull(4) ?: ""
 
                     Log.d("✅ StepParser", "🟨 raw=$raw")
-                    Log.d("✅ StepParser", "🟩 index=$index | title=$title | method=$method | duration=$duration | showTimer=${method.isNotEmpty() && duration.isNotEmpty()}")
+                    Log.d(
+                        "✅ StepParser",
+                        "🟩 index=$index | title=$title | method=$method | duration=$duration | showTimer=${method.isNotEmpty() && duration.isNotEmpty()}"
+                    )
 
                     CookingStepState(
                         text = "$title: $description",
@@ -95,7 +151,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         timerTitle = method,
                         timerDuration = duration,
                         isCurrent = index == 0,
-                        timerState = if (duration.isNotEmpty()) StepTimerState(parseDuration(duration)) else null
+                        timerState = if (duration.isNotEmpty()) StepTimerState(
+                            parseDuration(
+                                duration
+                            )
+                        ) else null
                     )
                 }
         )
@@ -110,6 +170,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     var currentIndex by remember { mutableStateOf(0) }
     var isFinished by remember { mutableStateOf(false) }
     val isListening = remember { mutableStateOf(false) }
+
 
     fun goToNextStep() {
         if (currentIndex + 1 < steps.size) {
@@ -151,9 +212,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 VoiceCommandController.CommandType.STOP -> {
                     tts.speak("음성 명령을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
                 }
+
                 VoiceCommandController.CommandType.TIMER -> {
                     tts.speak("타이머 기능은 아직 완전히 연동되지 않았습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer")
                 }
+
                 VoiceCommandController.CommandType.NONE -> {
                     tts.speak("명령을 이해하지 못했습니다.", TextToSpeech.QUEUE_FLUSH, null, "fail")
                 }
@@ -178,7 +241,10 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     ) {
         LazyColumn(
             modifier = Modifier.padding(horizontal = 16.dp), // Main content padding
-            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp) // Padding for scrollable content
+            contentPadding = PaddingValues(
+                top = 16.dp,
+                bottom = 32.dp
+            ) // Padding for scrollable content
         ) {
             item {
                 Text(
@@ -267,7 +333,8 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                                     .fillMaxWidth()
                                     .clickable {
                                         val encodedQuery = Uri.encode(ingredient)
-                                        val url = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
+                                        val url =
+                                            "https://search.shopping.naver.com/search/all?query=$encodedQuery"
                                         val intent = Intent(Intent.ACTION_VIEW).apply {
                                             data = Uri.parse(url)
                                         }
@@ -275,7 +342,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                                             context.startActivity(intent)
                                         } catch (e: Exception) {
                                             Toast
-                                                .makeText(context, "웹 브라우저를 열 수 없습니다.", Toast.LENGTH_SHORT)
+                                                .makeText(
+                                                    context,
+                                                    "웹 브라우저를 열 수 없습니다.",
+                                                    Toast.LENGTH_SHORT
+                                                )
                                                 .show()
                                             Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
                                         }
@@ -290,7 +361,9 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 Spacer(modifier = Modifier.height(16.dp)) // Spacer before step list
             }
 
-            itemsIndexed(steps, key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }) { index, step ->
+            itemsIndexed(
+                steps,
+                key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }) { index, step ->
                 CookingStepCard(
                     index = index,
                     step = step,
@@ -307,7 +380,10 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         ),
-                        modifier = Modifier.padding(vertical = 24.dp, horizontal = 8.dp) // Adjusted padding
+                        modifier = Modifier.padding(
+                            vertical = 24.dp,
+                            horizontal = 8.dp
+                        ) // Adjusted padding
                     )
                 }
             }
@@ -334,7 +410,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         .padding(vertical = 8.dp)
                         .animateContentSize()
                 ) {
-                    Text(if (isListening.value) "음성 명령 중지" else "음성 명령 시작", color = Color.White, fontSize = 16.sp)
+                    Text(
+                        if (isListening.value) "음성 명령 중지" else "음성 명령 시작",
+                        color = Color.White,
+                        fontSize = 16.sp
+                    )
                 }
             }
 
@@ -350,7 +430,10 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         )
                     },
                     shape = RoundedCornerShape(12.dp), // More rounded shape
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+                    border = BorderStroke(
+                        1.dp,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp) // Standardized height
@@ -361,12 +444,53 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             }
 
             item {
+                Spacer(modifier = Modifier.height(8.dp))
+                // (선택 사항) 사용자 이미지 미리보기 - 이 부분은 버튼 위에 추가할 수 있습니다.
+                if (userImageUriForAiEval != null) {
+                    AsyncImage( // coil.compose.AsyncImage 임포트 필요
+                        model = userImageUriForAiEval,
+                        contentDescription = "선택된 AI 평가용 이미지",
+                        modifier = Modifier
+                            .size(100.dp) // 원하는 크기로 조절
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                        // .align(Alignment.CenterHorizontally) // LazyColumn의 item 내부에서는 직접 align이 어려울 수 있음. 필요시 Box로 감싸서 정렬
+                    )
+                }
+                Button(
+                    onClick = {
+                        // 이 버튼은 이제 이미지 선택기를 실행합니다.
+                        // 실제 평가는 pickImageLauncherForAiEval 콜백에서 ViewModel을 통해 이루어집니다.
+                        pickImageLauncherForAiEval.launch("image/*")
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .padding(vertical = 4.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        // 버튼 색상을 다른 주요 액션 버튼과 구분하기 위해 변경 가능 (예: secondary)
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    ),
+                    enabled = !isLoadingAiEval // ViewModel의 로딩 상태 사용
+                ) {
+                    Text(
+                        if (isLoadingAiEval) "AI 평가 중..." else "🤖 AI 요리 사진 평가 받기", // 로딩 상태에 따라 텍스트 변경
+                        color = Color.White, // 또는 MaterialTheme.colorScheme.onSecondary
+                        fontSize = 16.sp
+                    )
+                }
+            }
+
+            item {
                 Spacer(modifier = Modifier.height(32.dp))
-                CommentSection(recipeId = recipeId)
+                CommentSection(recipeId = recipe.id)
             }
         }
     }
 }
+
+
 
 @Composable
 fun CookingStepCard(
@@ -589,3 +713,162 @@ fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe
         }
     }
 }
+
+
+
+
+// evaluateCookingAI 함수 전체를 아래 코드로 교체해주세요.
+// (다른 함수들: uriToByteArray, urlToByteArray, byteArrayToBase64 등은 기존 코드 그대로 둡니다.)
+
+fun evaluateCookingAI(context: Context, recipeImageUrl: String, userImageUri: Uri) {
+    val uiScope = CoroutineScope(Dispatchers.Main) // UI 작업을 위한 스코프
+
+    Log.d("AI_Eval_Flow", "evaluateCookingAI 함수 시작. 원본 이미지 URL: $recipeImageUrl, 사용자 이미지 URI: $userImageUri")
+
+    if (recipeImageUrl.isBlank()) {
+        Log.e("AI_Eval_Input", "원본 레시피 이미지 URL이 비어있습니다.")
+        Toast.makeText(context, "원본 레시피 이미지 정보가 없습니다.", Toast.LENGTH_LONG).show()
+        return
+    }
+
+    uiScope.launch {
+        try {
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            if (currentUser == null) {
+                Log.e("AI_Eval_Auth", "사용자가 로그인되어 있지 않습니다.")
+                Toast.makeText(context, "로그인이 필요한 기능입니다.", Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            Log.d("AI_Eval_Auth", "User UID: ${currentUser.uid}. ID 토큰 새로고침 시도...")
+
+            currentUser.getIdToken(true)
+                .addOnCompleteListener { tokenTask ->
+                    if (tokenTask.isSuccessful) {
+                        val idToken = tokenTask.result?.token
+                        Log.d("AI_Eval_Auth", "ID 토큰 새로고침 성공. 토큰(앞 20자): ${idToken?.take(20)}")
+
+                        uiScope.launch { // 새로운 코루틴 시작 (suspend 함수 호출용)
+                            var referenceImageBase64 = ""
+                            var userImageBase64 = ""
+                            var successLoadingImages = false
+
+                            try {
+                                // --- 실제 이미지 로딩 및 변환 로직으로 복원 ---
+                                Log.d("AI_Eval_Image", "원본 레시피 이미지 로드 시도: $recipeImageUrl")
+                                val referenceBytes = urlToByteArray(recipeImageUrl) // suspend 함수
+                                if (referenceBytes.isEmpty()) {
+                                    Log.e("AI_Eval_Image", "원본 레시피 이미지 -> 바이트 배열 변환 실패 (결과 비어있음). URL: $recipeImageUrl")
+                                    Toast.makeText(context, "원본 레시피 이미지를 불러오는 데 실패했습니다.", Toast.LENGTH_LONG).show()
+                                    return@launch // 현재 코루틴 종료
+                                }
+                                referenceImageBase64 = byteArrayToBase64(referenceBytes)
+                                Log.d("AI_Eval_Image_Content", "원본 레시피 이미지 Base64 변환 완료. 길이: ${referenceImageBase64.length}")
+                                if (referenceImageBase64.isBlank()) {
+                                    Log.e("AI_Eval_Image_Content", "원본 레시피 이미지 Base64 문자열이 비어있거나 공백입니다.")
+                                    Toast.makeText(context, "원본 레시피 이미지 데이터 변환에 실패했습니다.", Toast.LENGTH_LONG).show()
+                                    return@launch
+                                }
+
+                                Log.d("AI_Eval_Image", "사용자 이미지 로드 시도: $userImageUri")
+                                val userBytes = uriToByteArray(context, userImageUri) // suspend 함수
+                                if (userBytes.isEmpty()) {
+                                    Log.e("AI_Eval_Image", "사용자 이미지 -> 바이트 배열 변환 실패 (결과 비어있음). URI: $userImageUri")
+                                    Toast.makeText(context, "선택한 사용자 이미지를 불러오는 데 실패했습니다.", Toast.LENGTH_LONG).show()
+                                    return@launch
+                                }
+                                userImageBase64 = byteArrayToBase64(userBytes)
+                                Log.d("AI_Eval_Image_Content", "사용자 이미지 Base64 변환 완료. 길이: ${userImageBase64.length}")
+                                if (userImageBase64.isBlank()) {
+                                    Log.e("AI_Eval_Image_Content", "사용자 이미지 Base64 문자열이 비어있거나 공백입니다.")
+                                    Toast.makeText(context, "사용자 이미지 데이터 변환에 실패했습니다.", Toast.LENGTH_LONG).show()
+                                    return@launch
+                                }
+                                // --- 실제 이미지 로딩 및 변환 로직 복원 끝 ---
+
+                                successLoadingImages = true // 모든 이미지 로드 및 변환 성공
+
+                            } catch (e: Exception) {
+                                Log.e("AI_Eval_Image_Exception", "이미지 로딩/변환 중 예외 발생", e)
+                                Toast.makeText(context, "이미지 처리 중 오류: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                return@launch // 예외 발생 시 현재 코루틴 종료
+                            }
+
+                            if (successLoadingImages) {
+                                val commonMimeType = "image/jpeg" // 실제 MIME 타입 감지 로직 추가 권장
+
+                                // --- 원래 필드명으로 inputData 구성 ---
+                                val inputData = hashMapOf(
+                                    "userImageBase64" to userImageBase64,
+                                    "referenceImageBase64" to referenceImageBase64,
+                                    "mimeTypeUser" to commonMimeType, // 필요하다면 실제 이미지에서 MIME 타입 추출
+                                    "mimeTypeReference" to commonMimeType // 필요하다면 실제 이미지에서 MIME 타입 추출
+                                )
+                                Log.d("AI_Eval_Params", "Cloud Function 입력 데이터 준비 완료 (실제 데이터). UserImgLen: ${userImageBase64.length}, RefImgLen: ${referenceImageBase64.length}")
+                                // --- 원래 필드명으로 inputData 구성 끝 ---
+
+                                Log.d("AI_Eval_Call", "Cloud Function 'evaluateDish' 호출 시작 (실제 데이터)...")
+                                Firebase.functions("us-central1")
+                                    .getHttpsCallable("evaluateDish")
+                                    .call(inputData) // 원래 inputData 사용
+                                    .addOnSuccessListener { result ->
+                                        val resultData = result.getData()
+                                        Log.d("AI_Result_Success_Raw", "Raw result data (실제 테스트): $resultData")
+                                        val evaluationData = resultData as? Map<String, Any>
+                                        val evaluationText = evaluationData?.get("evaluation") as? String
+                                        Log.d("AI_Result_Success", "AI 평가 결과 텍스트 (실제 테스트): $evaluationText")
+
+                                        if (!evaluationText.isNullOrBlank()) {
+                                            Toast.makeText(context, "AI 요리 평가:\n$evaluationText", Toast.LENGTH_LONG).show()
+                                        } else {
+                                            Toast.makeText(context, "AI 평가 결과를 받았지만 내용이 비어있습니다.", Toast.LENGTH_LONG).show()
+                                            Log.w("AI_Result_Success", "평가 결과 텍스트가 null이거나 비어있습니다.")
+                                        }
+                                    }
+                                    .addOnFailureListener { ex ->
+                                        Log.e("AI_Result_Failure", "Cloud Function 호출 실패 (실제 테스트)", ex)
+                                        val errorMessage = if (ex is FirebaseFunctionsException) {
+                                            "AI 평가 오류 (Code: ${ex.code}): ${ex.message}"
+                                        } else {
+                                            "AI 평가 중 알 수 없는 오류: ${ex.localizedMessage}"
+                                        }
+                                        Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
+                                    }
+                            } else {
+                                Log.e("AI_Eval_Flow", "이미지 로드/변환 실패로 Cloud Function 호출을 진행하지 않습니다.")
+                            }
+                        }
+                    } else {
+                        Log.e("AI_Eval_Auth", "ID 토큰 새로고침 실패.", tokenTask.exception)
+                        Toast.makeText(context, "인증 정보 갱신에 실패했습니다. 다시 시도해주세요.", Toast.LENGTH_LONG).show()
+                    }
+                }
+        } catch (e: Exception) {
+            Log.e("AI_Eval_Outer_Exception", "evaluateCookingAI 함수 로직 외부에서 예외 발생", e)
+            Toast.makeText(context, "AI 평가 준비 중 오류: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+suspend fun uriToByteArray(context: Context, uri: Uri): ByteArray {
+    return withContext(Dispatchers.IO) {
+        context.contentResolver.openInputStream(uri)?.readBytes() ?: ByteArray(0)
+    }
+}
+
+suspend fun urlToByteArray(url: String): ByteArray {
+    return withContext(Dispatchers.IO) {
+        try {
+            val connection = URL(url).openConnection()
+            connection.connect()
+            val inputStream = connection.getInputStream()
+            inputStream.readBytes()
+        } catch (e: Exception) {
+            Log.e("ByteArrayError", "URL 변환 실패: ${e.message}")
+            ByteArray(0)
+        }
+    }
+}
+
+
+
+
