@@ -7,9 +7,7 @@ plugins {
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.0"
-    // Hilt/KSP 제거
-    // id("com.google.devtools.ksp") ❌ 제거
-    // id("dagger.hilt.android.plugin") ❌ 제거
+    // Hilt/KSP 관련 플러그인은 제거되었습니다.
 }
 
 android {
@@ -49,6 +47,7 @@ android {
     buildFeatures {
         viewBinding = true
         compose = true
+        buildConfig  = true
     }
 
     composeOptions {
@@ -57,13 +56,19 @@ android {
 }
 
 dependencies {
-    // Firebase
+    // 1) Firebase BoM으로 버전 일괄 관리
     implementation(platform(libs.firebase.bom))
+
+    // 2) Firebase 핵심 모듈들 (BoM이 버전을 관리)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.storage)
+    implementation(libs.firebase.database.ktx)
+    implementation(libs.firebase.ml.modeldownloader.ktx)
 
+    // 3) Firebase Functions (BoM에 포함되지 않으므로 별도 선언)
+    implementation("com.google.firebase:firebase-functions-ktx:20.3.1")
     // 기타 유틸
     implementation(libs.glide)
     implementation(libs.gson)
@@ -71,7 +76,10 @@ dependencies {
     implementation(libs.logging.interceptor)
     implementation(libs.converter.gson)
     implementation("com.airbnb.android:lottie-compose:6.1.0")
-
+// App Check
+    implementation("com.google.firebase:firebase-appcheck-ktx")
+    implementation("com.google.firebase:firebase-appcheck-playintegrity")
+    implementation("com.google.firebase:firebase-appcheck-debug:18.0.0")
     // 포트원 결제
     implementation("com.github.portone-io:android-sdk:0.1.0")
 
@@ -101,14 +109,14 @@ dependencies {
     implementation("androidx.compose.runtime:runtime-livedata")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose")
-    implementation("androidx.navigation:navigation-compose")
+    implementation("androidx.navigation:navigation-compose:2.7.0")
     implementation("androidx.activity:activity-compose")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
-    implementation(libs.ads.mobile.sdk)
-    implementation(libs.firebase.database.ktx)
     debugImplementation("androidx.compose.ui:ui-tooling")
-    implementation("com.google.firebase:firebase-firestore-ktx:24.10.0")
-    // 보조 라이브러리
+    implementation("androidx.compose.material:material-icons-extended")
+
+    // 광고, 차트, UI 보조
+    implementation(libs.ads.mobile.sdk)
     implementation("com.google.android.flexbox:flexbox:3.0.0")
     implementation("androidx.health.connect:connect-client:1.1.0-alpha08")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
@@ -117,7 +125,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
     implementation("com.google.accompanist:accompanist-flowlayout:0.34.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
-    implementation("androidx.compose.material:material-icons-extended")
+
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
