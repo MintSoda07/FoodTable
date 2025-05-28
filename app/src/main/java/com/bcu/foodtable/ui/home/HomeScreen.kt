@@ -127,6 +127,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
+import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
 
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
@@ -837,7 +839,12 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     }
                 }
             }
-
+            composable("community") {
+                CommunityTab(navToWrite = { navController.navigate("write") })
+            }
+            composable("write") {
+                WritePostScreen(onPostCreated = { navController.popBackStack() }, navController)
+            }
             composable("channelView/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
                 ChannelDetailScreen(channelName = channelName, navController = navController)

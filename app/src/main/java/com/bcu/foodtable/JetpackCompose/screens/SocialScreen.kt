@@ -1,6 +1,8 @@
 package com.bcu.foodtable.JetpackCompose.screens
 
+import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import kotlin.math.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -29,18 +31,26 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
+import com.bcu.foodtable.useful.Comment
 import com.bcu.foodtable.useful.CommunityPost
 import com.bcu.foodtable.useful.UserManager
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -453,9 +463,17 @@ suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatche
 
 // 5. 글쓰기 화면 (예시용)
 @Composable
-fun WritePostScreen(onPostCreated: () -> Unit = {}) {
+fun WritePostScreen(
+    onPostCreated: () -> Unit = {},
+    navController: NavController
+) {
+    val user = UserManager.getUser()!!
+    val context = LocalContext.current
+
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
+    var imageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var isUploading by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         OutlinedTextField(
@@ -473,15 +491,79 @@ fun WritePostScreen(onPostCreated: () -> Unit = {}) {
                 .fillMaxWidth()
                 .height(200.dp)
         )
+
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            // 이미지 선택 로직
+            // TODO: 권한 처리 및 이미지 피커
+        }) {
+            Text("이미지 선택 (${imageUris.size}개)")
+        }
+
         Spacer(Modifier.height(16.dp))
         Button(
+            enabled = !isUploading && title.isNotBlank(),
             onClick = {
-                // TODO: Firestore 업로드 로직
-                onPostCreated()
+                isUploading = true
+                uploadPost(
+                    title, content, user.location, user.uid, imageUris
+                ) {
+                    isUploading = false
+                    Toast.makeText(context, "작성 완료!", Toast.LENGTH_SHORT).show()
+                    onPostCreated()
+                    navController.popBackStack()
+                }
             },
             modifier = Modifier.align(Alignment.End)
         ) {
-            Text("작성 완료")
+            if (isUploading) CircularProgressIndicator(Modifier.size(16.dp))
+            else Text("작성 완료")
         }
     }
+}
+fun uploadPost(
+    title: String,
+    content: String,
+    location: String,
+    userId: String,
+    imageUris: List<Uri>,
+    onComplete: () -> Unit
+) {
+    val firestore = Firebase.firestore
+    val storage = Firebase.storage
+    val postRef = firestore.collection("community").document()
+
+    val uploadImageTasks = imageUris.mapIndexed { idx, uri ->
+        val imageRef = storage.reference.child("posts/${postRef.id}/img_$idx.jpg")
+        imageRef.putFile(uri).continueWithTask { it.result?.storage?.downloadUrl }
+    }
+
+    Tasks.whenAllSuccess<Uri>(uploadImageTasks).addOnSuccessListener { uris ->
+        val postData = mapOf(
+            "title" to title,
+            "content" to content,
+            "location" to location,
+            "imageUrls" to uris.map { it.toString() },
+            "visited" to 0,
+            "likes" to 0,
+            "bookmarks" to 0,
+            "comments" to 0,
+            "createdAt" to Timestamp.now(),
+            "userId" to userId
+        )
+        postRef.set(postData).addOnSuccessListener {
+            onComplete()
+        }
+    }
+}
+
+fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
+    val ref = Firebase.firestore.collection("community").document(postId).collection("comments")
+    val listener = ref.orderBy("createdAt").addSnapshotListener { snapshot, _ ->
+        val comments = snapshot?.documents?.mapNotNull {
+            it.toObject(Comment::class.java)?.copy(id = it.id)
+        } ?: emptyList()
+        trySend(comments)
+    }
+    awaitClose { listener.remove() }
 }
