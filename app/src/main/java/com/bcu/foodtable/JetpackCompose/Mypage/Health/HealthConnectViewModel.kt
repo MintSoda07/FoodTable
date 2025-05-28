@@ -163,7 +163,7 @@ class HealthConnectViewModel : ViewModel() {
         val hasBatchim = (lastChar.code - 0xAC00) % 28 != 0
         return if (hasBatchim) josaWithBatchim else josaWithoutBatchim
     }
-
+    // 어제 데이터 업로드 가져오기 ( 스텝 차트에 포함)
     fun uploadYesterdaySteps(client: HealthConnectClient) {
         val yesterday = LocalDate.now().minusDays(1)
         val uid = auth.currentUser?.uid ?: return
@@ -188,31 +188,59 @@ class HealthConnectViewModel : ViewModel() {
             }
         }
     }
+    // 7일 데이터 가져오기
     fun fetchWeeklySteps() {
         val uid = auth.currentUser?.uid ?: return
         val colRef = db.collection("user").document(uid).collection("step_history")
 
         colRef.orderBy(FieldPath.documentId(), Query.Direction.DESCENDING)
-            .limit(7).get()
+            .limit(6)  // 어제까지 6일치만 가져오고
+            .get()
             .addOnSuccessListener { result ->
-                val data = result.documents.map {
+                val baseList = result.documents.map {
                     val dateStr = it.id // yyyyMMdd
                     val parsedDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd"))
-                    val formatted = parsedDate.format(DateTimeFormatter.ofPattern("MM.dd (E)", Locale.KOREAN))
-                    StepData(formatted, it.getLong("steps")?.toInt() ?: 0)
-                }.reversed() // 최신이 먼저 오므로 뒤집기
-                Log.d("fetchWeeklySteps", "불러온 데이터: $data")
-                _stepDataList.value = data
+                    val isoDate = parsedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                    StepData(isoDate, it.getLong("steps")?.toInt() ?: 0)
+                }.toMutableList()
+
+                // 오늘 날짜 추가
+                val today = LocalDate.now()
+                val todayKey = today.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                val todaySteps = _uiState.value.steps
+
+                baseList.add(StepData(todayKey, todaySteps))
+
+                val fullList = fillWeeklyStepData(baseList)
+                _stepDataList.value = fullList
             }
             .addOnFailureListener {
                 Log.e("HealthViewModel", "7일 걸음 불러오기 실패", it)
             }
     }
+
+
+
     fun updateStepChartData(data: List<StepData>) {
         Log.d("StepChart", "Chart 데이터: $data")
         _stepDataList.value = data
     }
-
-
 }
+
+// 7일 데이터 꽉채우기
+
+fun fillWeeklyStepData(original: List<StepData>): List<StepData> {
+    val today = LocalDate.now()
+    val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd") // ← 이 형식으로 바꿔야 할 수도 있음
+
+    return (0..6).map { i ->
+        val date = today.minusDays((6 - i).toLong())
+        val dateStr = date.format(dateFormatter)
+        val data = original.find { it.date == dateStr }
+
+        Log.d("StepDebug", "찾는 날짜: $dateStr, 결과: ${data?.steps}")
+        data ?: StepData(dateStr, 0)
+    }
+}
+
 

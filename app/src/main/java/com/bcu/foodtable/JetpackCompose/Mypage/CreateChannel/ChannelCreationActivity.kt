@@ -9,8 +9,8 @@ class ChannelCreationActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ChannelCreationScreen {
-                // Optionally handle navigation@
+            com.bcu.foodtable.ui.home.FoodTableTheme {
+                ChannelCreationScreen(onFinish = { finish() })
             }
         }
     }

@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import com.bcu.foodtable.ui.home.FoodTableTheme
 
 class HealthConnectActivity : ComponentActivity() {
 
@@ -12,8 +13,11 @@ class HealthConnectActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            FoodTableTheme {
             HealthConnectScreen(viewModel = viewModel)
+            }
         }
+
     }
 }
 
