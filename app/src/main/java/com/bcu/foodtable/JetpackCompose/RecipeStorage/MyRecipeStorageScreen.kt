@@ -68,24 +68,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 fun MyRecipeStorageScreen(
     modifier: Modifier = Modifier,
     viewModel: RecipeGalleryViewModel = viewModel(),
-    homeViewModel: HomeViewModel = viewModel() // HomeViewModel for user data and navigation
+    homeViewModel: HomeViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val galleryItems by viewModel.galleryItems.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val loadFailed by viewModel.loadFailed.collectAsState()
-    
-    // Navigation state
-    var selectedTab by remember { mutableStateOf(3) } // Recipe Storage tab index
     val user by homeViewModel.user.collectAsState()
-    
-    val screens = listOf(
-        Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
-    )
 
     LaunchedEffect(Unit) {
         viewModel.loadGalleryItems()
-        homeViewModel.loadUserInfo() // Load user info for top bar
+        homeViewModel.loadUserInfo()
     }
 
     val groupedItemsMap = remember(galleryItems) {
@@ -95,150 +88,93 @@ fun MyRecipeStorageScreen(
     }
 
     val displayList = remember(galleryItems, groupedItemsMap) {
-        val groupRepresentativeItems = groupedItemsMap.mapNotNull { (_, itemsInGroup) ->
-            itemsInGroup.firstOrNull() // 각 그룹의 첫 번째 아이템을 대표로 사용
+        val groupRepresentativeItems = groupedItemsMap.mapNotNull { (_, items) ->
+            items.firstOrNull()
         }
         val nonGroupedItems = galleryItems.filter { it.groupId.isBlank() }
-        // 최신순으로 정렬 (creationTimestamp가 있다면 활용, 없다면 이름순 등 다른 기준으로 변경)
-        (groupRepresentativeItems + nonGroupedItems).sortedByDescending { it.creationTimestamp ?: 0L }
+        (groupRepresentativeItems + nonGroupedItems)
+            .sortedByDescending { it.creationTimestamp ?: 0L }
     }
 
     var showGroupDetailOverlay by remember { mutableStateOf<Pair<String, List<GalleryItem>>?>(null) }
-    val itemSize = 180.dp // 그리드 아이템의 권장 크기
+    val itemSize = 180.dp
 
-    Scaffold(
-        topBar = {
-            HomeTopBar(
-                user = user,
-                onProfileClick = {
-                    selectedTab = screens.indexOf(Screen.MyPage)
-                },
-                onChallengeClick = {
-                    context.startActivity(Intent(context, ChallengeActivity::class.java))
-                }
-            )
-        },
-        bottomBar = {
-            AppBottomNavigationBar(
-                screens = screens,
-                selectedTab = selectedTab,
-                onTabSelected = { newTab ->
-                    when (newTab) {
-                        0 -> { // Home
-                            (context as? androidx.activity.ComponentActivity)?.finish()
-                        }
-                        1 -> { // Channel
-                            context.startActivity(Intent(context, SubscribeActivity::class.java))
-                        }
-                        2 -> { // AI Service
-                            context.startActivity(Intent(context, AiMainActivity::class.java))
-                        }
-                        3 -> { // Recipe Storage - stay here
-                            selectedTab = newTab
-                        }
-                        4 -> { // Profile
-                            selectedTab = newTab
-                        }
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        when (selectedTab) {
-            4 -> { // Profile tab
-                ProfileMainScreen(paddingValues = paddingValues)
-            }
-            else -> { // Recipe Storage content
-                Box(
-                    modifier = modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .background(MaterialTheme.colorScheme.surface) // 화면 전체 배경색
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        when {
+            isLoading -> LoadingState()
+            loadFailed -> ErrorState(onRetry = { viewModel.loadGalleryItems() })
+            displayList.isEmpty() -> EmptyState()
+            else -> {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = itemSize),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    when {
-                        isLoading -> {
-                            LoadingState()
-                        }
-                        loadFailed -> {
-                            ErrorState(onRetry = { viewModel.loadGalleryItems() })
-                        }
-                        displayList.isEmpty() && !isLoading -> {
-                            EmptyState()
-                        }
-                        else -> {
-                            LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = itemSize),
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(displayList, key = { item -> item.recipeId + item.groupId }) { item ->
-                                    val isGroup = item.groupId.isNotBlank() && (groupedItemsMap[item.groupId]?.size ?: 0) > 0
+                    items(displayList, key = { it.recipeId + it.groupId }) { item ->
+                        val isGroup = item.groupId.isNotBlank() &&
+                                (groupedItemsMap[item.groupId]?.size ?: 0) > 0
 
-                                    if (isGroup) {
-                                        val itemsInThisGroup = groupedItemsMap[item.groupId] ?: emptyList()
-                                        // 대표 아이템은 displayList에 이미 포함되어 있으므로,
-                                        // 여기서는 해당 groupId를 가진 첫 번째 아이템(대표 아이템)을 찾아서 그룹 정보를 표시합니다.
-                                        val representativeItemInGroup = itemsInThisGroup.firstOrNull { it.recipeId == item.recipeId }
-                                        if (representativeItemInGroup != null) {
-                                            StyledGroupFolderItemCard(
-                                                // groupName 필드가 있으면 사용, 없으면 groupId 사용
-                                                groupName = representativeItemInGroup.groupId ?: representativeItemInGroup.groupId,
-                                                representativeImageUrl = itemsInThisGroup.firstOrNull()?.image, // 그룹의 첫번째 아이템 이미지를 대표로
-                                                itemCount = itemsInThisGroup.size,
-                                                itemSize = itemSize,
-                                                onClick = {
-                                                    Log.d("MyRecipeStorageScreen", "Group clicked: ${item.groupId}, items: ${itemsInThisGroup.size}")
-                                                    showGroupDetailOverlay = (representativeItemInGroup.groupName ?: representativeItemInGroup.groupId) to itemsInThisGroup
-                                                }
-                                            )
-                                        }
-                                    } else {
-                                        StyledRecipeItemCard(
-                                            item = item,
-                                            itemSize = itemSize,
-                                            onClick = {
-                                                val intent = Intent(context, RecipeCookingActivity::class.java)
-                                                intent.putExtra("recipe_id", item.recipeId)
-                                                // RecipeCookingActivity에서 user_id가 필요하다면 추가
-                                                // intent.putExtra("user_id", item.userId)
-                                                context.startActivity(intent)
-                                            }
-                                        )
+                        if (isGroup) {
+                            val itemsInGroup = groupedItemsMap[item.groupId] ?: emptyList()
+                            val representativeItem = itemsInGroup.firstOrNull { it.recipeId == item.recipeId }
+                            if (representativeItem != null) {
+                                StyledGroupFolderItemCard(
+                                    groupName = representativeItem.groupName ?: representativeItem.groupId,
+                                    representativeImageUrl = itemsInGroup.firstOrNull()?.image,
+                                    itemCount = itemsInGroup.size,
+                                    itemSize = itemSize,
+                                    onClick = {
+                                        showGroupDetailOverlay =
+                                            (representativeItem.groupName ?: representativeItem.groupId) to itemsInGroup
                                     }
-                                }
+                                )
                             }
-                        }
-                    }
-
-                    AnimatedVisibility(
-                        visible = showGroupDetailOverlay != null,
-                        enter = fadeIn(),
-                        exit = fadeOut()
-                    ) {
-                        showGroupDetailOverlay?.let { (groupName, items) ->
-                            StyledGroupDetailOverlay(
-                                groupName = groupName,
-                                itemsInGroup = items,
-                                onDismiss = { showGroupDetailOverlay = null },
-                                onItemClick = { clickedItem ->
+                        } else {
+                            StyledRecipeItemCard(
+                                item = item,
+                                itemSize = itemSize,
+                                onClick = {
                                     val intent = Intent(context, RecipeCookingActivity::class.java)
-                                    intent.putExtra("recipe_id", clickedItem.recipeId)
-                                    // RecipeCookingActivity에서 user_id가 필요하다면 추가
-                                    // intent.putExtra("user_id", clickedItem.userId)
+                                    intent.putExtra("recipe_id", item.recipeId)
                                     context.startActivity(intent)
-                                    showGroupDetailOverlay = null // 아이템 클릭 후 오버레이 닫기
-                                },
-                                gridItemSize = itemSize * 0.9f // 오버레이 내 아이템 크기
+                                }
                             )
                         }
                     }
                 }
             }
         }
+
+        // 그룹 상세 보기 오버레이
+        AnimatedVisibility(
+            visible = showGroupDetailOverlay != null,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            showGroupDetailOverlay?.let { (groupName, items) ->
+                StyledGroupDetailOverlay(
+                    groupName = groupName,
+                    itemsInGroup = items,
+                    onDismiss = { showGroupDetailOverlay = null },
+                    onItemClick = { clickedItem ->
+                        val intent = Intent(context, RecipeCookingActivity::class.java)
+                        intent.putExtra("recipe_id", clickedItem.recipeId)
+                        context.startActivity(intent)
+                        showGroupDetailOverlay = null
+                    },
+                    gridItemSize = itemSize * 0.9f
+                )
+            }
+        }
     }
 }
+
 
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
