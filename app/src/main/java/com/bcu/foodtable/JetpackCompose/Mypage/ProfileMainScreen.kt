@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -48,46 +49,47 @@ fun ProfileMainScreen(
     LaunchedEffect(Unit) { viewModel.checkIfChannelExists() }
 
     Scaffold(
-        topBar = {
-            ProfileTopBar(
-                user = user,
-                onChallengeClick = {
-                    context.startActivity(Intent(context, HealthConnectActivity::class.java))
-                }
-            )
-        },
+//        topBar = {
+//            ProfileTopBar(
+//                user = user,
+//                onChallengeClick = {
+//                    context.startActivity(Intent(context, HealthConnectActivity::class.java))
+//                }
+//            )
+//        },
         containerColor = Color.Transparent
     ) { innerPadding ->
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        0f to colorScheme.primaryContainer.copy(alpha = 0.6f),
-                        0.4f to colorScheme.secondaryContainer.copy(alpha = 0.3f),
-                        1f to colorScheme.background
-                    )
-                )
+//                .background( // 상단바 백그라운드 색 변경 (보라색 변경?)
+//                    Brush.verticalGradient(
+//                        0f to colorScheme.primaryContainer.copy(alpha = 0.6f),
+//                        0.4f to colorScheme.secondaryContainer.copy(alpha = 0.3f),
+//                        1f to colorScheme.background
+//                    )
+//                )
         ) {
             Column(
                 modifier = Modifier
-                    .padding(paddingValues)
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .fillMaxSize(),
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Card(
                     modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 24.dp)
-                        .fillMaxWidth()
-                        .shadow(6.dp, RoundedCornerShape(24.dp)),
+                        .padding(8.dp)
+                        .fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(8.dp)
+                    colors = CardDefaults.cardColors(
+                        containerColor = colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxWidth()) {
+
+                        //  설정 버튼 - 오른쪽 상단
                         IconButton(
                             onClick = {
                                 context.startActivity(Intent(context, SettingActivity::class.java))
@@ -102,149 +104,138 @@ fun ProfileMainScreen(
                                 tint = colorScheme.primary
                             )
                         }
-                    }
-
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        AsyncImage(
-                            model = imageUri ?: user.image,
-                            contentDescription = "프로필 이미지",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(CircleShape)
-                                .border(2.dp, colorScheme.primary, CircleShape)
-                                .background(colorScheme.surface)
-                                .clickable { imagePickerLauncher.launch("image/*") },
-                            placeholder = painterResource(id = R.drawable.baseline_person_24),
-                        )
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Text(
-                            user.name,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.onSurface
-                            )
-                        )
-
-                        Spacer(Modifier.height(12.dp))
-
-                        if (isEditing) {
-                            OutlinedTextField(
-                                value = editedDescription,
-                                onValueChange = { viewModel.editedDescription.value = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("자기소개") }
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            AsyncImage(
+                                model = imageUri ?: user.image,
+                                contentDescription = "프로필 이미지",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(CircleShape)
+                                    .background(colorScheme.primary.copy(alpha = 0.2f))
+                                    .clickable { imagePickerLauncher.launch("image/*") },
+                                placeholder = painterResource(id = R.drawable.baseline_person_24),
                             )
 
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = user.name,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    color = colorScheme.onSurface
+                                )
+                            )
+
+                            if (isEditing) {
+                                OutlinedTextField(
+                                    value = editedDescription,
+                                    onValueChange = { viewModel.editedDescription.value = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("자기소개") }
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Button(onClick = { viewModel.saveChanges() }) {
+                                        Text("저장")
+                                    }
+                                    OutlinedButton(onClick = { viewModel.cancelEdit() }) {
+                                        Text("취소")
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = user.description.ifBlank { "자기소개가 없습니다." },
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = colorScheme.onSurfaceVariant
+                                    )
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedButton(
+                                    onClick = { viewModel.startEdit() },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = colorScheme.primary
+                                    )
+                                ) {
+                                    Text("편집")
+                                }
+                            }
+
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "소금 보유량: ${user.point}",
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Medium,
+                                    color = colorScheme.primary
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                horizontalArrangement = Arrangement.Center
                             ) {
+
                                 Button(
-                                    onClick = { viewModel.saveChanges() },
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("저장") }
-
-                                OutlinedButton(
-                                    onClick = { viewModel.cancelEdit() },
-                                    modifier = Modifier.weight(1f)
-                                ) { Text("취소") }
+                                    onClick = { viewModel.navigateToPurchase(context) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = colorScheme.primary,
+                                        contentColor = colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Text("소금 구매")
+                                }
                             }
-                        } else {
-                            Text(
-                                user.description.ifBlank { "자기소개가 없습니다." },
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = colorScheme.onSurfaceVariant
-                                ),
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            )
 
-                            Spacer(Modifier.height(8.dp))
-
-                            OutlinedButton(onClick = { viewModel.startEdit() }) {
-                                Text("편집")
-                            }
-                        }
-
-                        Spacer(Modifier.height(20.dp))
-
-                        Text(
-                            "소금 보유량: ${user.point}",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = colorScheme.tertiary
-                            )
-                        )
-
-                        Spacer(Modifier.height(24.dp))
-
-                        /*** 버튼 그룹화 ***/
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Button(
-                                onClick = { viewModel.navigateToPurchase(context) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = colorScheme.primary,
-                                    contentColor = Color.White
-                                )
-                            ) {
-                                Text("소금 구매")
-                            }
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             if (!hasChannel) {
-                                OutlinedButton(
+                                Button(
                                     onClick = { viewModel.navigateToChannelCreation(context) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(48.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = colorScheme.primary
-                                    ),
-                                    border = BorderStroke(1.dp, colorScheme.primary)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = colorScheme.secondary,
+                                        contentColor = colorScheme.onSecondary
+                                    )
                                 ) {
                                     Text("채널 생성하기")
                                 }
+
+                                Spacer(modifier = Modifier.height(12.dp))
                             }
 
                             Button(
                                 onClick = { viewModel.navigateToHealth(context) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = colorScheme.primary,
-                                    contentColor = Color.White
+                                    containerColor = colorScheme.tertiary,
+                                    contentColor = colorScheme.onTertiary
                                 )
                             ) {
                                 Text("건강 확인하기")
                             }
 
-                            OutlinedButton(
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Button(
                                 onClick = { viewModel.navigateToFridge(context) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = colorScheme.primary
-                                ),
-                                border = BorderStroke(1.dp, colorScheme.primary)
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("나의 냉장고")
                             }
                         }
-
                     }
                 }
             }
