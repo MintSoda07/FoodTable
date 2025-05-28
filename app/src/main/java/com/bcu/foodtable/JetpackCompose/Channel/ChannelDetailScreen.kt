@@ -25,6 +25,8 @@ import kotlinx.coroutines.tasks.await
 
 // ChannelDetailScreen.kt
 
+
+
 @Composable
 fun ChannelDetailScreen(
     channelName: String,
@@ -173,12 +175,23 @@ fun ChannelDetailScreen(
                         Text(if (isSubscribed) "구독중" else "구독하기")
                     }
                 } else {
-                    OutlinedButton(onClick = {
-                        navController.navigate("editChannel/${ch.name}")
-                    }) {
-                        Text("채널 관리")
+                    Row {
+                        Button(
+                            onClick = {
+                                navController.navigate("write_screen/${ch.name}")
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Text("레시피 생성")
+                        }
+
+                        OutlinedButton(onClick = {
+                            navController.navigate("editChannel/${ch.name}")
+                        }) {
+                            Text("채널 관리")
+                        }
                     }
-                }
+                    }
             }
 
             Spacer(Modifier.height(24.dp))
