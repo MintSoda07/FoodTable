@@ -118,7 +118,7 @@ class LoginActivity : ComponentActivity() {
                                     UserManager.setUser(
                                         userData.name, userData.email, userData.image,
                                         userData.phoneNumber, userData.point,
-                                        userData.uid, userData.rankPoint, userData.description
+                                        userData.uid, userData.rankPoint, userData.description, userData.location
                                     )
                                     Toast.makeText(this, R.string.login_success, Toast.LENGTH_SHORT).show()
                                     ActivityTransition.startStatic(this@LoginActivity, HomeActivity::class.java)
