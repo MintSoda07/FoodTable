@@ -1,140 +1,143 @@
 package com.bcu.foodtable.ui.subscribeNavMenu
 
-import android.content.Intent
 import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.AdapterView
-import android.widget.Button
-import android.widget.GridView
-import android.widget.ImageView
-import android.widget.TextView
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import com.bcu.foodtable.R
-import com.bcu.foodtable.RecipeViewActivity
-import com.bcu.foodtable.useful.Channel
-import com.bcu.foodtable.useful.FireStoreHelper
-import com.bcu.foodtable.useful.RecipeAdapter
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewModel
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
+import com.bcu.foodtable.useful.Channel
 
-
-class ChannelViewPage : AppCompatActivity() {
-
-    private val recipeList: MutableList<RecipeItem> = mutableListOf()
-    private lateinit var adaptorViewList: GridView
-    private lateinit var recipeAdapter: RecipeAdapter
-    private lateinit var channelitem: Channel
-    private lateinit var viewModel: k_ChannelViewModel
-
+class ChannelViewPage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_channel_view_page)
-
-        // 윈도우 인셋 적용
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
-        }
-
-        // 채널명과 관련된 UI 요소들 초기화
         val channelName = intent.getStringExtra("channel_name") ?: ""
-        val backgroundImg = findViewById<ImageView>(R.id.channelBackground)
-        val channelImg = findViewById<ImageView>(R.id.channelImage)
-        val channelNameText = findViewById<TextView>(R.id.channelName)
-        val writeButton: Button = findViewById(R.id.btn_write)
-        val subscribeButton: Button = findViewById(R.id.subbtn)
-        adaptorViewList = findViewById<GridView>(R.id.channelItem)
-        val db = FirebaseFirestore.getInstance()
-        val subscriberCountTextView = findViewById<TextView>(R.id.subscriberCount)
+        setContent {
+            MaterialTheme {
+                val navController = rememberNavController()
+                NavHost(navController = navController, startDestination = "channelView") {
+                    composable("channelView") {
+                        ChannelViewPageScreen(
+                            channelName = channelName,
+                            navController = navController
+                        )
+                    }
+                    composable("recipeView/{id}") { backStackEntry ->
+                        val id = backStackEntry.arguments?.getString("id") ?: ""
+                        // TODO: Replace with RecipeViewScreen(id)
+                    }
+                    composable("write/{channelName}") { backStackEntry ->
+                        val name = backStackEntry.arguments?.getString("channelName") ?: ""
+                        // TODO: Replace with WriteScreen(name)
+                    }
+                    composable("editChannel/{channelName}") { backStackEntry ->
+                        val name = backStackEntry.arguments?.getString("channelName") ?: ""
+                        // TODO: Replace with EditChannelScreen(name)
+                    }
+                }
+            }
+        }
+    }
+}
 
+@Composable
+fun ChannelViewPageScreen(
+    channelName: String,
+    viewModel: ChannelViewModel = viewModel(),
+    navController: NavHostController
+) {
+    val channel: Channel? by viewModel.channel.collectAsState()
+    val recipes: List<RecipeItem> by viewModel.recipes.collectAsState(emptyList())
+    val subscriberCount: Int by viewModel.subscriberCount.collectAsState(0)
+    val isSubscribed: Boolean by viewModel.isSubscribed.collectAsState(false)
+    val userId = remember { UserManager.getUser()?.uid ?: "" }
 
+    LaunchedEffect(channelName) {
+        viewModel.loadChannel(channelName)
+        viewModel.loadRecipes(channelName)
+        viewModel.checkSubscription(channelName, userId)
+    }
 
-        // Adapter 초기화
-        recipeAdapter = RecipeAdapter(this@ChannelViewPage, recipeList)
-        adaptorViewList.adapter = recipeAdapter
+    Column(modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
 
-        // 🔹 GridView 아이템 클릭 시 상세 페이지로 이동
-        adaptorViewList.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
-            val clickedRecipe = recipeAdapter.getItem(position) as? RecipeItem
-            clickedRecipe?.let {
-                val id = it.id ?: "" // 🔹 id가 null이면 빈 문자열로 처리
-                Log.d("ChannelViewPage", "RecipeClicked: $id")
+        channel?.let { ch: Channel ->
+            val isMyChannel = userId == ch.owner
 
-                val intent = Intent(this, RecipeViewActivity::class.java)
-                intent.putExtra("recipe_id", id) // 🔹 Firestore 문서 ID 전달
-                startActivity(intent)
+            AsyncImage(model = ch.BackgroundResId, contentDescription = null, modifier = Modifier.fillMaxWidth().height(200.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+                AsyncImage(model = ch.imageResId, contentDescription = null, modifier = Modifier.size(64.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = ch.name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            }
+            Text(text = "$subscriberCount 명", style = MaterialTheme.typography.bodyLarge)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (isMyChannel) {
+                    Button(onClick = { navController.navigate("write/${ch.name}") }) {
+                        Text("글쓰기")
+                    }
+                    OutlinedButton(onClick = { navController.navigate("editChannel/${ch.name}") }) {
+                        Text("채널 편집")
+                    }
+                } else {
+                    Button(onClick = {
+                        viewModel.toggleSubscription(ch.name, userId)
+                    }) {
+                        Text(if (isSubscribed) "구독중" else "구독하기")
+                    }
+                }
             }
         }
 
-        // 🔹 Write 버튼 클릭 리스너
-        writeButton.setOnClickListener {
-            val intent = Intent(this, WriteActivity::class.java)
-            intent.putExtra("channel_name", channelitem.name)  // 🔹 Firestore 문서 ID 전달
-            this.startActivity(intent)
-        }
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // 🔹 현재 로그인된 사용자 ID 가져오기
-        val user = UserManager.getUser()?.uid ?: ""
-        // ViewModel 초기화
-        viewModel = ViewModelProvider(this)[k_ChannelViewModel::class.java]
-        // observe 등록
-        viewModel.channel.observe(this) { channel ->
-            channelitem = channel
-            channelNameText.text = channel.name
-            FireStoreHelper.loadImageFromUrl(channel.BackgroundResId, backgroundImg)
-            FireStoreHelper.loadImageFromUrl(channel.imageResId, channelImg)
-
-            writeButton.visibility = if (user == channel.owner) View.VISIBLE else View.GONE
-            subscribeButton.visibility = if (user != channel.owner) View.VISIBLE else View.GONE
-        }
-
-        viewModel.subscriberCount.observe(this) { count ->
-            subscriberCountTextView.text = "$count 명"
-        }
-
-        viewModel.isSubscribed.observe(this) { isSubscribed ->
-            subscribeButton.text = if (isSubscribed) "구독중" else "구독하기"
-        }
-
-        viewModel.recipes.observe(this) { newRecipes ->
-            recipeList.clear()
-            recipeList.addAll(newRecipes)
-            recipeAdapter.notifyDataSetChanged()
-        }
-
-        // 3. 클릭 리스너 설정
-        subscribeButton.setOnClickListener {
-            viewModel.toggleSubscription(channelitem.name, user)
-        }
-
-        writeButton.setOnClickListener {
-            val intent = Intent(this, WriteActivity::class.java)
-            intent.putExtra("channel_name", channelitem.name)
-            startActivity(intent)
-        }
-
-        adaptorViewList.setOnItemClickListener { _, _, position, _ ->
-            val item = recipeList[position]
-            val intent = Intent(this, RecipeViewActivity::class.java)
-            intent.putExtra("recipe_id", item.id)
-            startActivity(intent)
-        }
-        // 🔹 채널 정보 불러오기
-        lifecycleScope.launch {
-            viewModel.loadChannel(channelName) // 채널 불러오기
-            viewModel.loadRecipes(channelName) // 레시피 불러오기
-            viewModel.checkSubscription(channelName, user) // 구독 여부
+        LazyVerticalGrid(columns = GridCells.Fixed(2), modifier = Modifier.fillMaxSize()) {
+            items(recipes) { recipe: RecipeItem ->
+                RecipeCard(recipe = recipe, onClick = { navController.navigate("recipeView/${recipe.id}") })
+            }
         }
     }
+}
 
+@Composable
+fun RecipeCard(recipe: RecipeItem, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            AsyncImage(
+                model = recipe.imageResId,
+                contentDescription = null,
+                modifier = Modifier
+                    .height(100.dp)
+                    .fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = recipe.name, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
 }

@@ -1,33 +1,26 @@
 package com.bcu.foodtable.JetpackCompose.Channel
 
-import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.bcu.foodtable.JetpackCompose.Channel.ChannelViewModel
-
 import com.bcu.foodtable.useful.Channel
-
 
 @Composable
 fun SubscribeScreen(
     viewModel: SubscribeViewModel,
-    context: android.content.Context,
+    navController: NavHostController,
     modifier: Modifier = Modifier
 ) {
     val subscribedChannels by viewModel.subscribedChannels.collectAsState()
@@ -40,77 +33,81 @@ fun SubscribeScreen(
         viewModel.fetchRecommendedChannels()
     }
 
-    LazyColumn(modifier = modifier.fillMaxSize().padding(16.dp)) {
-        item {
-            Spacer(modifier = Modifier.height(80.dp))
-            Text("구독한 채널", style = MaterialTheme.typography.titleMedium)
-        }
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        sectionHeader("구독한 채널")
+        sectionContent(subscribedChannels, navController, "구독한 채널이 없습니다.", "관심 있는 채널을 구독하면 여기에 표시됩니다!")
 
-        item {
-            if (subscribedChannels.isNotEmpty()) {
-                HorizontalChannelList(subscribedChannels, context)
-            } else {
-                EmptyChannelCard(
-                    title = "구독한 채널이 없습니다.",
-                    description = "관심 있는 채널을 구독하면 여기에 표시됩니다!"
-                )
-            }
-        }
+        sectionSpacer()
+        sectionHeader("내 채널")
+        sectionContent(myChannels, navController, "내가 만든 채널이 없습니다.", "직접 만든 채널은 여기에 표시됩니다.")
 
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("내 채널", style = MaterialTheme.typography.titleMedium)
-        }
+        sectionSpacer()
+        sectionHeader("전체 채널")
+        sectionContent(recommendedChannels, navController, "추천 채널이 없습니다.", "지금은 추천할 채널이 없습니다.")
+    }
+}
 
-        item {
-            if (myChannels.isNotEmpty()) {
-                HorizontalChannelList(myChannels, context)
-            } else {
-                EmptyChannelCard(
-                    title = "내가 만든 채널이 없습니다.",
-                    description = "직접 만든 채널은 여기에 표시됩니다."
-                )
-            }
-        }
+private fun LazyListScope.sectionHeader(title: String) {
+    item {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+    }
+}
 
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("전체 채널", style = MaterialTheme.typography.titleMedium)
-        }
-
-        item {
-            if (recommendedChannels.isNotEmpty()) {
-                HorizontalChannelList(recommendedChannels, context)
-            } else {
-                EmptyChannelCard(
-                    title = "추천 채널이 없습니다.",
-                    description = "지금은 추천할 채널이 없습니다."
-                )
-            }
+private fun LazyListScope.sectionContent(
+    channels: List<Channel>,
+    navController: NavHostController,
+    emptyTitle: String,
+    emptyDesc: String
+) {
+    item {
+        if (channels.isNotEmpty()) {
+            HorizontalChannelList(channels, navController)
+        } else {
+            EmptyChannelCard(title = emptyTitle, description = emptyDesc)
         }
     }
 }
+
+private fun LazyListScope.sectionSpacer() {
+    item {
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
 @Composable
 fun HorizontalChannelList(
     items: List<Channel>,
-    context: android.content.Context
+    navController: NavHostController
 ) {
-    LazyRow(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    val tag = "ChannelNavigation"
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
         items(items, key = { it.name }) { channel ->
             ChannelCard(channel = channel) {
-                val intent = Intent(context, ChannelActivity::class.java).apply {
-                    putExtra("channelName", channel.name)
-                }
-                context.startActivity(intent)
+                Log.d(tag, "Navigating to channel: ${channel.name}")
+                navController.navigate("channelView/${channel.name}")
             }
         }
+    }
+
+    // 리스트 로딩 로그도 추가 가능
+    LaunchedEffect(items) {
+        Log.d(tag, "Loaded ${items.size} channels")
     }
 }
 
 @Composable
 fun EmptyChannelCard(
-    title: String = "구독한 채널이 없습니다.",
-    description: String = "관심 있는 채널을 구독하면 여기에 표시됩니다!"
+    title: String,
+    description: String
 ) {
     Card(
         modifier = Modifier
@@ -147,6 +144,4 @@ fun EmptyChannelCard(
             )
         }
     }
-
 }
-

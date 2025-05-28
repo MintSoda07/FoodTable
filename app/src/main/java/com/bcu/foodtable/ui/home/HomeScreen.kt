@@ -8,6 +8,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -105,8 +108,20 @@ import com.bcu.foodtable.di.DependencyProvider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.rememberNavController
+import com.bcu.foodtable.JetpackCompose.Channel.ChannelDetailScreen
+import com.bcu.foodtable.JetpackCompose.Channel.ChannelScreen
+import com.bcu.foodtable.JetpackCompose.Channel.ChannelViewModel
+import com.bcu.foodtable.JetpackCompose.Channel.SubscribeScreen
+import com.bcu.foodtable.JetpackCompose.Channel.SubscribeViewModel
+import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewPageScreen
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 
@@ -116,14 +131,13 @@ import com.google.firebase.firestore.firestore
  * 하단 내비게이션 바의 각 화면을 정의하는 Sealed Class.
  * 각 화면은 레이블과 아이콘 리소스 ID를 가집니다.
  */
-sealed class Screen(val label: String, val icon: Int) {
-    object Home : Screen("Home", R.drawable.ic_home_black_24dp)
-    object Subscribe : Screen("Channel", R.drawable.ic_notifications_black_24dp)
-    object AIService : Screen("AI", R.drawable.ic_dashboard_black_24dp)
-    object RecipeStorage : Screen("My Recipes", R.drawable.baseline_menu_book_24)
-    object MyPage : Screen("Profile", R.drawable.baseline_person_24)
+sealed class Screen(val route: String, val label: String, val icon: Int) {
+    object Home : Screen("home", "홈", R.drawable.ic_home_black_24dp)
+    object Subscribe : Screen("subscribe", "구독", R.drawable.ic_notifications_black_24dp)
+    object AIService : Screen("ai", "AI 서비스", R.drawable.ic_dashboard_black_24dp)
+    object RecipeStorage : Screen("storage", "레시피 저장소", R.drawable.baseline_menu_book_24)
+    object MyPage : Screen("mypage", "마이페이지", R.drawable.ic_profile_placeholder)
 }
-
 /**
  * 카테고리를 표시하는 개별 필터 칩 컴포저블.
  * @param category 표시할 카테고리 텍스트.
@@ -488,6 +502,125 @@ fun HomeTopBar(
  * @param selectedTab 현재 선택된 탭의 인덱스.
  * @param onTabSelected 탭이 선택되었을 때 호출될 람다 (새로운 탭 인덱스 반환).
  */
+
+// HomeScreen.kt
+
+@Composable
+fun HomeScreen(viewModel: HomeViewModel) {
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+
+    val user by viewModel.user.collectAsState()
+    val recipes by viewModel.recipes.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val loadFailed by viewModel.loadFailed.collectAsState()
+    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+
+    val navController = rememberNavController()
+    val screens = listOf(
+        Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
+    )
+    var selectedTab by remember { mutableStateOf(0) }
+
+    val firestore = FirebaseFirestore.getInstance()
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "defaultUserId"
+    val subscribeViewModel: SubscribeViewModel = viewModel(
+        factory = SubscribeViewModelFactory(firestore, userId)
+    )
+
+    LaunchedEffect(Unit) {
+        viewModel.initializeRecommendationSystem()
+    }
+
+    Scaffold(
+        topBar = {
+            if (selectedTab == 0) {
+                HomeTopBar(
+                    user = user,
+                    onProfileClick = {
+                        navController.navigate(Screen.MyPage.route)
+                        selectedTab = screens.indexOf(Screen.MyPage)
+                    },
+                    onChallengeClick = {
+                        context.startActivity(Intent(context, ChallengeActivity::class.java))
+                    }
+                )
+            }
+        },
+        bottomBar = {
+            AppBottomNavigationBar(
+                screens = screens,
+                selectedTab = selectedTab,
+                onTabSelected = { index ->
+                    selectedTab = index
+                    navController.navigate(screens[index].route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
+            )
+        },
+        modifier = Modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { focusManager.clearFocus() })
+        }
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Home.route,
+            modifier = Modifier.padding(paddingValues)
+        ) {
+            composable(Screen.Home.route) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface)
+                ) {
+                    when {
+                        isLoading -> LoadingState()
+                        loadFailed -> ErrorState(onRetry = { viewModel.loadRecipes() })
+                        recipes.isEmpty() && !isLoading -> EmptyState()
+                        else -> HomeContent(
+                            paddingValues = paddingValues,
+                            recipes = recipes,
+                            user = user,
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { searchQuery = it },
+                            focusManager = focusManager,
+                            context = context,
+                            homeViewModel = viewModel
+                        )
+                    }
+                }
+            }
+
+            composable("channelView/{channelName}") { backStackEntry ->
+                val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
+                ChannelDetailScreen(channelName = channelName, navController = navController)
+            }
+
+            composable(Screen.Subscribe.route) {
+                SubscribeScreen(viewModel = subscribeViewModel, navController = navController)
+            }
+            composable(Screen.AIService.route) {
+                LaunchedEffect(Unit) {
+                    context.startActivity(Intent(context, AiMainActivity::class.java))
+                }
+            }
+            composable(Screen.RecipeStorage.route) {
+                LaunchedEffect(Unit) {
+                    context.startActivity(Intent(context, RecipeStorageActivity::class.java))
+                }
+            }
+            composable(Screen.MyPage.route) {
+                ProfileMainScreen(paddingValues = paddingValues)
+            }
+        }
+    }
+}
 @Composable
 fun AppBottomNavigationBar(
     screens: List<Screen>,
@@ -895,7 +1028,7 @@ fun AIRecommendationCards(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                fontStyle = FontStyle.Italic
             )
         }
     }
@@ -1466,136 +1599,7 @@ fun PurchaseDialog(
  * Scaffold를 사용하여 TopBar, BottomBar, 그리고 화면 콘텐츠를 구성합니다.
  * DependencyProvider를 통한 깔끔한 수동 DI 방식을 사용합니다.
  */
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
-@Composable
-fun HomeScreen(viewModel: HomeViewModel) {
-    val context = LocalContext.current
-    val focusManager = LocalFocusManager.current
 
-    // 🔧 DependencyProvider를 통한 깔끔한 수동 DI
-    // val dependencyProvider = remember { DependencyProvider.getInstance() } REMOVE
-    
-    // HomeViewModel 생성 (의존성들이 자동으로 주입됨)
-    // val viewModel = remember { REMOVE
-    // dependencyProvider.provideHomeViewModel(context) REMOVE
-    // } REMOVE
-
-    var selectedTab by remember { mutableStateOf(0) }
-    val user by viewModel.user.collectAsState()
-    val recipes by viewModel.recipes.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val loadFailed by viewModel.loadFailed.collectAsState()
-    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
-
-    val screens = listOf(
-        Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
-    )
-
-    LaunchedEffect(Unit) {
-        viewModel.initializeRecommendationSystem()
-        
-        // 의존성 상태 로깅 (디버깅용)
-        // dependencyProvider.logDependencyStatus() REMOVE
-    }
-
-    Scaffold(
-        topBar = {
-            HomeTopBar(
-                user = user,
-                onProfileClick = {
-                    selectedTab = screens.indexOf(Screen.MyPage)
-                },
-                onChallengeClick = {
-                    context.startActivity(Intent(context, ChallengeActivity::class.java))
-                }
-            )
-        },
-        bottomBar = {
-            AppBottomNavigationBar(
-                screens = screens,
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
-        },
-        modifier = Modifier.pointerInput(Unit) {
-            detectTapGestures(onTap = { focusManager.clearFocus() })
-        }
-    ) { paddingValues ->
-        when (selectedTab) {
-            0 -> { // Home content with loading/error handling
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .background(MaterialTheme.colorScheme.surface)
-                ) {
-                    when {
-                        isLoading -> {
-                            LoadingState()
-                        }
-                        loadFailed -> {
-                            ErrorState(onRetry = { viewModel.loadRecipes() })
-                        }
-                        recipes.isEmpty() && !isLoading -> {
-                            EmptyState()
-                        }
-                        else -> {
-                            HomeContent(
-                                paddingValues = paddingValues,
-                                recipes = recipes,
-                                user = user,
-                                searchQuery = searchQuery,
-                                onSearchQueryChange = { searchQuery = it },
-                                focusManager = focusManager,
-                                context = context,
-                                homeViewModel = viewModel 
-                            )
-                        }
-                    }
-                }
-            }
-            1 -> {
-                LaunchedEffect(Unit) {
-                    context.startActivity(Intent(context, SubscribeActivity::class.java))
-                    selectedTab = 0
-                }
-                Box(modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-            2 -> {
-                LaunchedEffect(Unit) {
-                    context.startActivity(Intent(context, AiMainActivity::class.java))
-                    selectedTab = 0
-                }
-                Box(modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-            3 -> { // 레시피 저장소 -> 새로운 RecipeStorageActivity 실행
-                LaunchedEffect(selectedTab) {
-                    context.startActivity(Intent(context, RecipeStorageActivity::class.java))
-                    selectedTab = 0 // 홈으로 포커스 복귀
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                    Text("레시피 저장소로 이동 중...", modifier = Modifier.padding(top = 60.dp))
-                }
-            }
-            4 -> ProfileMainScreen(paddingValues = paddingValues)
-        }
-    }
-}
 
 // --- 플레이스홀더 화면 컴포저블 ---
 
