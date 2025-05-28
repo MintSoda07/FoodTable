@@ -52,7 +52,7 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
 
     var selectedTab by remember { mutableStateOf(4) } // Health tab index
     val screens = listOf(
-        Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
+        Screen.Home, Screen.Subscribe, Screen.Social, Screen.RecipeStorage, Screen.MyPage
     )
 
     LaunchedEffect(Unit) {

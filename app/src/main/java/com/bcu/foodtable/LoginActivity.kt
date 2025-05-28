@@ -16,30 +16,43 @@ import com.google.firebase.firestore.FirebaseFirestore
 class LoginActivity : ComponentActivity() {
 
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val isDebugging = true // This flag is used in your handleLogin
+    private val isDebugging = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            FoodTableTheme { // Wrap with your app's theme
+            FoodTableTheme {
                 var email by remember { mutableStateOf("") }
                 var password by remember { mutableStateOf("") }
                 var warning by remember { mutableStateOf("") }
-                var isLoading by remember { mutableStateOf(false) } // For loading indicators
+                var isLoading by remember { mutableStateOf(false) }
+                var isAutoLogin by remember { mutableStateOf(false) }
+
+                // ✅ 자동 로그인 상태 불러오기
+                LaunchedEffect(Unit) {
+                    val prefs = getSharedPreferences("LoginPrefs", MODE_PRIVATE)
+                    isAutoLogin = prefs.getBoolean("AUTO_LOGIN", false)
+                    if (isAutoLogin) {
+                        email = prefs.getString("EMAIL", "") ?: ""
+                        password = prefs.getString("PASSWORD", "") ?: ""
+                    }
+                }
 
                 LoginScreenImproved(
                     email = email,
                     password = password,
+                    isAutoLogin = isAutoLogin,
                     onEmailChange = { email = it },
                     onPasswordChange = { password = it },
+                    onAutoLoginChange = { isAutoLogin = it },
                     warningText = warning,
-                    //isLoading = isLoading, // Pass isLoading state
+                    isLoggingIn = isLoading,
                     onLoginClick = {
-                        isLoading = true // Start loading
-                        handleLogin(email, password) { result ->
+                        isLoading = true
+                        handleLogin(email, password, isAutoLogin) { result ->
                             warning = result
-                            isLoading = false // Stop loading after result
+                            isLoading = false
                         }
                     },
                     onSignUpClick = {
@@ -54,57 +67,51 @@ class LoginActivity : ComponentActivity() {
                         auth.sendPasswordResetEmail(email)
                             .addOnCompleteListener { task ->
                                 isLoading = false
-                                if (task.isSuccessful) {
-                                    warning = "비밀번호 재설정 이메일을 보냈습니다. 이메일을 확인해주세요."
+                                warning = if (task.isSuccessful) {
+                                    "비밀번호 재설정 이메일을 보냈습니다. 이메일을 확인해주세요."
                                 } else {
-                                    warning = task.exception?.localizedMessage ?: "비밀번호 재설정 이메일 전송에 실패했습니다."
+                                    task.exception?.localizedMessage ?: "비밀번호 재설정 이메일 전송에 실패했습니다."
                                 }
                             }
                     },
                     onGoogleLoginClick = {
                         warning = "구글 로그인은 현재 지원되지 않습니다."
-                        // TODO: Implement Google Sign-In
                     },
                     onKakaoLoginClick = {
                         warning = "카카오 로그인은 현재 지원되지 않습니다."
-                        // TODO: Implement Kakao Sign-In
                     }
                 )
             }
         }
     }
 
-    private fun handleLogin(email: String, password: String, onResult: (String) -> Unit) {
-        // Password pattern from your original code. Consider if it's still needed
-        // if Firebase handles password policies, or if this is for client-side pre-validation.
-        // val pattern = Regex("^(?=.*[A-Z])(?=.*[!@#\$%^&*()\\-+=]).{6,48}$")
-
+    private fun handleLogin(email: String, password: String, isAutoLogin: Boolean, onResult: (String) -> Unit) {
         when {
-            email.isBlank() -> {
-                onResult(getString(R.string.id_empty_warning))
-                // isLoading should be set to false here if it was true before calling handleLogin
-            }
-            password.isBlank() -> {
-                onResult(getString(R.string.pwd_empty_warning))
-                // isLoading should be set to false here
-            }
-            // !password.matches(pattern) -> {  // Client-side validation can be useful
-            //     onResult(getString(R.string.pwd_validate_warning))
-            //     // isLoading should be set to false here
-            // }
+            email.isBlank() -> onResult(getString(R.string.id_empty_warning))
+            password.isBlank() -> onResult(getString(R.string.pwd_empty_warning))
             else -> {
-                // isLoading is true at this point (set in onLoginClick)
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener { task ->
-                        // isLoading will be set to false by the calling lambda in onLoginClick
                         if (task.isSuccessful) {
                             val user = auth.currentUser
-                            // Email verification check
                             if (user?.isEmailVerified == false && !isDebugging) {
                                 onResult(getString(R.string.email_not_verified_warning))
                                 return@addOnCompleteListener
                             }
-                            // Fetch user data from Firestore
+
+                            // ✅ 자동 로그인 상태 저장
+                            if (isAutoLogin) {
+                                val prefs = getSharedPreferences("LoginPrefs", MODE_PRIVATE)
+                                prefs.edit()
+                                    .putBoolean("AUTO_LOGIN", true)
+                                    .putString("EMAIL", email)
+                                    .putString("PASSWORD", password)
+                                    .apply()
+                            } else {
+                                val prefs = getSharedPreferences("LoginPrefs", MODE_PRIVATE)
+                                prefs.edit().clear().apply()
+                            }
+
                             fetchUserData(
                                 uid = user!!.uid,
                                 onSuccess = { userData ->
@@ -115,8 +122,7 @@ class LoginActivity : ComponentActivity() {
                                     )
                                     Toast.makeText(this, R.string.login_success, Toast.LENGTH_SHORT).show()
                                     ActivityTransition.startStatic(this@LoginActivity, HomeActivity::class.java)
-                                    finish() // Finish LoginActivity after successful login and transition
-                                    // onResult("") // Clear warning on success or specific success message
+                                    finish()
                                 },
                                 onFailure = { exception ->
                                     onResult(getString(R.string.login_failure) + ": " + exception.localizedMessage)
@@ -136,14 +142,14 @@ class LoginActivity : ComponentActivity() {
         onFailure: (Exception) -> Unit
     ) {
         FirebaseFirestore.getInstance()
-            .collection("user") // Ensure this collection name is correct
+            .collection("user")
             .document(uid)
             .get()
             .addOnSuccessListener { document ->
                 if (document != null && document.exists()) {
                     val user = document.toObject(User::class.java)
                     if (user != null) {
-                        user.uid = uid // Ensure UID is set if not mapped by toObject
+                        user.uid = uid
                         onSuccess(user)
                     } else {
                         onFailure(Exception("사용자 데이터 변환 실패 (null 반환)"))

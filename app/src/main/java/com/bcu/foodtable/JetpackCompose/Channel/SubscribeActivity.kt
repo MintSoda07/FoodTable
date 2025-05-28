@@ -56,7 +56,7 @@ fun SubscribeScreenWithNavigation(
 ) {
     val navController = rememberNavController()
     val screens = listOf(
-        Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
+        Screen.Home, Screen.Subscribe, Screen.Social, Screen.RecipeStorage, Screen.MyPage
     )
     var selectedTab by remember { mutableStateOf(1) }
     val user by homeViewModel.user.collectAsState()
@@ -110,7 +110,7 @@ fun SubscribeScreenWithNavigation(
             composable(Screen.MyPage.route) {
                 ProfileMainScreen(paddingValues = paddingValues)
             }
-            composable(Screen.AIService.route) {
+            composable(Screen.Social.route) {
                 LaunchedEffect(Unit) {
                     navController.context.startActivity(Intent(navController.context, AiMainActivity::class.java))
                 }
