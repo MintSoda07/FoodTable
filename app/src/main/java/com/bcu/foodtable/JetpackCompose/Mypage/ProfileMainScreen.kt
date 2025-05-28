@@ -74,7 +74,7 @@ fun ProfileMainScreen(
                 modifier = Modifier
                     .padding(paddingValues)
                     .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
+                //    .verticalScroll(rememberScrollState()) 스크롤 제거
                     .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -82,6 +82,7 @@ fun ProfileMainScreen(
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 24.dp)
                         .fillMaxWidth()
+                        .weight(1f)
                         .shadow(6.dp, RoundedCornerShape(24.dp)),
                     shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
