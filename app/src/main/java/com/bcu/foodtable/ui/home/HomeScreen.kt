@@ -118,6 +118,7 @@ import com.bcu.foodtable.JetpackCompose.Channel.ChannelScreen
 import com.bcu.foodtable.JetpackCompose.Channel.ChannelViewModel
 import com.bcu.foodtable.JetpackCompose.Channel.SubscribeScreen
 import com.bcu.foodtable.JetpackCompose.Channel.SubscribeViewModel
+import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
 import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewPageScreen
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
@@ -611,9 +612,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 }
             }
             composable(Screen.RecipeStorage.route) {
-                LaunchedEffect(Unit) {
-                    context.startActivity(Intent(context, RecipeStorageActivity::class.java))
-                }
+                MyRecipeStorageScreen()
             }
             composable(Screen.MyPage.route) {
                 ProfileMainScreen(paddingValues = paddingValues)
