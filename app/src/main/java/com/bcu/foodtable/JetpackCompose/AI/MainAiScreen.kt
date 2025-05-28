@@ -31,7 +31,7 @@ fun MainAiScreen(
     val user by homeViewModel.user.collectAsState()
     
     val screens = listOf(
-        Screen.Home, Screen.Subscribe, Screen.AIService, Screen.RecipeStorage, Screen.MyPage
+        Screen.Home, Screen.Subscribe, Screen.Social, Screen.RecipeStorage, Screen.MyPage
     )
 
     // ViewModel 수동 생성

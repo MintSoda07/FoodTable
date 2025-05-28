@@ -16,13 +16,16 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Context
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -37,21 +40,40 @@ private val WarmLightColorScheme = lightColorScheme(
     onSurface = Color(0xFF3A3A3A),
     outline = Color(0xFFE0E0E0)
 )
-
 @Composable
 fun MainLoginScreen(
     onLoginClick: () -> Unit = {},
     onSignUpClick: () -> Unit = {},
-    onAnimationsFinished: () -> Unit = {}
+    onAutoLoginSuccess: () -> Unit = {}, // ✅ 자동 로그인 성공 시 홈으로 이동
+    auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) {
+    val context = LocalContext.current
     val offsetX = remember { Animatable(-600f) }
     var showSubtitle by remember { mutableStateOf(false) }
+    var triedAutoLogin by remember { mutableStateOf(false) }
 
+    // 자동 로그인 체크 및 실행
     LaunchedEffect(Unit) {
         offsetX.animateTo(0f, tween(1000))
         delay(300)
         showSubtitle = true
-        onAnimationsFinished()
+
+        val prefs = context.getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+        val autoLogin = prefs.getBoolean("AUTO_LOGIN", false)
+        val email = prefs.getString("EMAIL", "") ?: ""
+        val password = prefs.getString("PASSWORD", "") ?: ""
+
+        if (autoLogin && email.isNotBlank() && password.isNotBlank()) {
+            auth.signInWithEmailAndPassword(email, password)
+                .addOnSuccessListener {
+                    onAutoLoginSuccess() // ✅ 로그인 성공 시 콜백
+                }
+                .addOnFailureListener {
+                    triedAutoLogin = true // 실패 → 버튼 UI 표시
+                }
+        } else {
+            triedAutoLogin = true // 자동 로그인 조건 미충족
+        }
     }
 
     val subtitleAlpha by animateFloatAsState(
@@ -64,16 +86,12 @@ fun MainLoginScreen(
 
     MaterialTheme(colorScheme = WarmLightColorScheme) {
         Box(modifier = Modifier.fillMaxSize()) {
-
-            // 패치마다 모자 이미지
             Image(
                 painter = painterResource(id = R.drawable.login_background),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize()
             )
-
-            // 상단 그래디언트 + 테스트 오버레이
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -86,72 +104,72 @@ fun MainLoginScreen(
                     )
             )
 
-            // 전체 컨테츠
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 28.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // 상단 테스트
-                Column(modifier = Modifier.padding(top = 100.dp)) {
-                    Text(
-                        text = stringResource(id = R.string.app_name),
-                        color = WarmLightColorScheme.primary,
-                        fontSize = 48.sp,
-                        modifier = Modifier.offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = stringResource(id = R.string.app_name_sub),
-                        color = WarmLightColorScheme.onBackground.copy(alpha = 0.8f),
-                        fontSize = 18.sp,
-                        modifier = Modifier
-                            .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                            .alpha(subtitleAlpha)
-                    )
-                }
-
-                // 하단 버튼
+            // ✅ 자동 로그인 중엔 버튼 숨김
+            if (triedAutoLogin) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 50.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxSize()
+                        .padding(horizontal = 28.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Button(
-                        onClick = onLoginClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = WarmLightColorScheme.primary,
-                            contentColor = WarmLightColorScheme.onPrimary
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .padding(vertical = 8.dp),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(top = 100.dp)) {
                         Text(
-                            text = stringResource(id = R.string.login_button),
-                            fontSize = 16.sp
+                            text = stringResource(id = R.string.app_name),
+                            color = WarmLightColorScheme.primary,
+                            fontSize = 48.sp,
+                            modifier = Modifier.offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = stringResource(id = R.string.app_name_sub),
+                            color = WarmLightColorScheme.onBackground.copy(alpha = 0.8f),
+                            fontSize = 18.sp,
+                            modifier = Modifier
+                                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                                .alpha(subtitleAlpha)
                         )
                     }
 
-                    OutlinedButton(
-                        onClick = onSignUpClick,
-                        border = BorderStroke(1.dp, WarmLightColorScheme.outline),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = WarmLightColorScheme.onSurface
-                        ),
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(14.dp)
+                            .padding(bottom = 50.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = stringResource(id = R.string.signup_button),
-                            fontSize = 14.sp
-                        )
+                        Button(
+                            onClick = onLoginClick,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = WarmLightColorScheme.primary,
+                                contentColor = WarmLightColorScheme.onPrimary
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp)
+                                .padding(vertical = 8.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.login_button),
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = onSignUpClick,
+                            border = BorderStroke(1.dp, WarmLightColorScheme.outline),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = WarmLightColorScheme.onSurface
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.signup_button),
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 }
             }

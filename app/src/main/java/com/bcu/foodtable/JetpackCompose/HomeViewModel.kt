@@ -152,16 +152,6 @@ class HomeViewModel(
      * @param categories 평가할 카테고리들
      * @return 선호도 점수 (0-100)
      */
-    suspend fun getPreferenceScore(categories: List<String>): Int {
-        return timeManager?.evaluateRecommendationScore(categories) ?: 0
-    }
-
-    /**
-     * 🎯 현재 시간대에 적합한 카테고리를 가져옵니다.
-     */
-    fun getCurrentTimeRecommendedCategories(): List<String> {
-        return timeManager?.getRecommendedCategoriesForCurrentTime() ?: emptyList()
-    }
 
     /**
      * 📱 시간 관리자 설정
@@ -259,24 +249,6 @@ class HomeViewModel(
         }
     }
 
-    /**
-     * 📧 추천 시스템 상태 요약 로깅 (디버깅용)
-     */
-    fun logRecommendationSystemStatus() {
-        val timeInfo = timeManager?.currentKoreanTime?.value
-        val preferences = _userPreferences.value
-        val timeRec = _aiTimeRecommendation.value
-        val personalRec = _personalizedRecommendation.value
-
-        Log.d("HomeViewModel", """
-            📊 추천 시스템 상태 요약:
-            ⏰ 현재 시간: ${timeInfo?.hour}:${timeInfo?.minute} (${timeInfo?.timePhase?.displayName})
-            👤 사용자 선호: $preferences
-            🤖 시간대별 추천: ${timeRec?.mainDish} / ${timeRec?.subDish} / ${timeRec?.dessert}
-            ✨ 맞춤 추천: ${personalRec?.mainDish} / ${personalRec?.subDish} / ${personalRec?.dessert}
-            📱 로딩 상태: 기본=${_isLoading.value}, 추천=${_isRecommendationLoading.value}
-        """.trimIndent())
-    }
 
     // ✅ 기존 레시피 로딩 로직 유지 (MyRecipeStorageScreen 방식)
     fun loadRecipes() {
