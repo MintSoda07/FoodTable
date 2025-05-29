@@ -38,6 +38,7 @@ fun RouletteGameScreen(navController: NavController) {
     var showResult by remember { mutableStateOf(false) }
     var spinCount by remember { mutableStateOf(0) }
     var resultIndex by remember { mutableStateOf(-1) }
+    var isSpinning by remember { mutableStateOf(false) } // ⭐ 룰렛 회전 상태
 
     val rotation = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -46,7 +47,7 @@ fun RouletteGameScreen(navController: NavController) {
     val lottieSpec = rememberLottieComposition(LottieCompositionSpec.Asset("spin_boost.json"))
     val lottieAnimState = animateLottieCompositionAsState(
         composition = lottieSpec.value,
-        isPlaying = true,
+        isPlaying = isSpinning, // ⭐ 스핀 중일 때만 재생
         speed = 1.5f,
         restartOnPlay = true
     )
@@ -63,38 +64,42 @@ fun RouletteGameScreen(navController: NavController) {
                 onValueChange = { currentInput = it },
                 label = { Text("음식 입력") },
                 modifier = Modifier.weight(1f),
-                singleLine = true
+                singleLine = true,
+                enabled = !isSpinning
             )
             Spacer(Modifier.width(8.dp))
             Button(onClick = {
                 if (currentInput.isNotBlank()) {
-                    foodItems.add(currentInput.trim())
+                    foodItems = foodItems.toMutableList().apply { add(currentInput.trim()) }
                     currentInput = ""
                 }
-            }) { Text("추가") }
+            }, enabled = !isSpinning) { Text("추가") }
         }
 
         Spacer(Modifier.height(8.dp))
-        if (foodItems.isNotEmpty()) {
-            Text(
-                "💡 추가한 음식은 터치하면 제거할 수 있어요.",
-                style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-            )
+        if (foodItems.isNotEmpty() && !isSpinning) {
+            Text("💡 추가한 음식은 터치하면 제거할 수 있어요.", style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
         }
 
         Spacer(Modifier.height(8.dp))
 
-        LazyRow {
-            itemsIndexed(foodItems) { index, item ->
-                AssistChip(
-                    onClick = { foodItems.removeAt(index) },
-                    label = { Text(item) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (index == resultIndex) Color(0xFFFFE082) else colorScheme.secondaryContainer,
-                        labelColor = colorScheme.onSecondaryContainer
-                    ),
-                    modifier = Modifier.padding(end = 8.dp)
-                )
+        // ⭐ 스핀 중일 때는 Chip을 숨김
+        if (!isSpinning) {
+            LazyRow {
+                itemsIndexed(foodItems) { index, item ->
+                    AssistChip(
+                        onClick = {
+                            foodItems = foodItems.toMutableList().apply { removeAt(index) }
+                            if (index == resultIndex) resultIndex = -1
+                        },
+                        label = { Text(item) },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (index == resultIndex) Color(0xFFFFE082) else colorScheme.secondaryContainer,
+                            labelColor = colorScheme.onSecondaryContainer
+                        ),
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
             }
         }
 
@@ -112,41 +117,43 @@ fun RouletteGameScreen(navController: NavController) {
                     .background(Color.White)
                     .graphicsLayer { rotationZ = rotation.value % 360f }
             ) {
-                val sweep = 360f / foodItems.size
-                val r = size.width / 2
+                if (foodItems.isNotEmpty()) {
+                    val sweep = 360f / foodItems.size
+                    val r = size.width / 2
 
-                foodItems.forEachIndexed { index, item ->
-                    drawArc(
-                        color = Color.hsv((index * 360f / foodItems.size) % 360, 0.6f, 1f),
-                        startAngle = sweep * index,
-                        sweepAngle = sweep,
-                        useCenter = true
+                    foodItems.forEachIndexed { index, item ->
+                        drawArc(
+                            color = Color.hsv((index * 360f / foodItems.size) % 360, 0.6f, 1f),
+                            startAngle = sweep * index,
+                            sweepAngle = sweep,
+                            useCenter = true
+                        )
+                    }
+
+                    foodItems.forEachIndexed { index, item ->
+                        val angle = Math.toRadians((sweep * index + sweep / 2 - 90).toDouble())
+                        val x = center.x + cos(angle) * r * 0.65
+                        val y = center.y + sin(angle) * r * 0.65
+                        drawContext.canvas.nativeCanvas.drawText(
+                            item,
+                            x.toFloat(),
+                            y.toFloat(),
+                            android.graphics.Paint().apply {
+                                textSize = 24f
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                color = android.graphics.Color.BLACK
+                                isFakeBoldText = true
+                            }
+                        )
+                    }
+
+                    drawCircle(
+                        color = Color.Red,
+                        radius = r - 4.dp.toPx(),
+                        style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
                     )
+                    drawCircle(color = colorScheme.primary, radius = 14.dp.toPx(), center = center)
                 }
-
-                foodItems.forEachIndexed { index, item ->
-                    val angle = Math.toRadians((sweep * index + sweep / 2 - 90).toDouble())
-                    val x = center.x + cos(angle) * r * 0.65
-                    val y = center.y + sin(angle) * r * 0.65
-                    drawContext.canvas.nativeCanvas.drawText(
-                        item,
-                        x.toFloat(),
-                        y.toFloat(),
-                        android.graphics.Paint().apply {
-                            textSize = 24f
-                            textAlign = android.graphics.Paint.Align.CENTER
-                            color = android.graphics.Color.BLACK
-                            isFakeBoldText = true
-                        }
-                    )
-                }
-
-                drawCircle(
-                    color = Color.Red,
-                    radius = r - 4.dp.toPx(),
-                    style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round)
-                )
-                drawCircle(color = colorScheme.primary, radius = 14.dp.toPx(), center = center)
             }
 
             Box(
@@ -174,27 +181,28 @@ fun RouletteGameScreen(navController: NavController) {
 
         Button(
             onClick = {
-                val index = Random.nextInt(foodItems.size)
-                resultIndex = index
                 val spins = Random.nextInt(4, 6)
                 val anglePerItem = 360f / foodItems.size
-                val target = 360f * spins + anglePerItem * index + Random.nextDouble(
-                    from = -(anglePerItem / 3).toDouble(),
-                    until = (anglePerItem / 3).toDouble()
-                ).toFloat()
 
+                val selectedIndex = Random.nextInt(foodItems.size)
+                selectedFood = foodItems[selectedIndex]
+                resultIndex = selectedIndex
+
+                val targetAngle = 360f * spins + (360f - (selectedIndex * anglePerItem) - anglePerItem / 2)
+
+                isSpinning = true
                 scope.launch {
                     rotation.snapTo(rotation.value % 360f)
                     rotation.animateTo(
-                        target,
+                        targetAngle,
                         animationSpec = tween(durationMillis = 3500, easing = FastOutSlowInEasing)
                     )
-                    selectedFood = foodItems[index]
                     spinCount++
                     showResult = true
+                    isSpinning = false
                 }
             },
-            enabled = foodItems.size >= 2,
+            enabled = !isSpinning && foodItems.size >= 2,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
             Text("룰렛 돌리기!", style = MaterialTheme.typography.titleMedium)
@@ -202,7 +210,7 @@ fun RouletteGameScreen(navController: NavController) {
 
         Spacer(Modifier.height(16.dp))
 
-        Button(onClick = { navController.popBackStack() }) {
+        Button(onClick = { navController.popBackStack() }, enabled = !isSpinning) {
             Text("뒤로가기")
         }
 
