@@ -127,8 +127,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.screens.CardGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
+import com.bcu.foodtable.JetpackCompose.screens.LadderGameScreen
+import com.bcu.foodtable.JetpackCompose.screens.MiniGameMenu
+import com.bcu.foodtable.JetpackCompose.screens.PayerRouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.PostDetailScreen
+import com.bcu.foodtable.JetpackCompose.screens.RouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
 
 
@@ -841,6 +846,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     }
                 }
             }
+
+            composable("gameMenu") { MiniGameMenu(navController) }
+            composable("rouletteGame") { RouletteGameScreen(navController) }
+            composable("cardGame") { CardGameScreen(navController) }
+            composable("ladderGame") { LadderGameScreen(navController) }
+            composable("payerRouletteGame") { PayerRouletteGameScreen(navController) }
+
             composable("community") {
                 CommunityTab(
                     navToWrite = {
