@@ -467,9 +467,18 @@ fun Timestamp.toRelativeTime(): String {
 
 // 4. Firestore에서 게시글 불러오기
 suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatchers.IO) {
-    val snapshot = Firebase.firestore.collection("community").get().await()
-    snapshot.documents.mapNotNull { doc ->
-        doc.toObject(CommunityPost::class.java)?.copy(id = doc.id)
+    val communityRef = Firebase.firestore.collection("community")
+    val snapshot = communityRef.get().await()
+
+    val posts = snapshot.documents.mapNotNull { doc ->
+        val post = doc.toObject(CommunityPost::class.java)?.copy(id = doc.id)
+        post
+    }
+
+    // 댓글 수 동시 조회
+    posts.map { post ->
+        val commentSnapshot = communityRef.document(post.id).collection("comments").get().await()
+        post.copy(comments = commentSnapshot.size())
     }
 }
 
@@ -579,4 +588,13 @@ fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+fun commentCountFlow(postId: String): Flow<Int> = callbackFlow {
+    val ref = Firebase.firestore.collection("community")
+        .document(postId).collection("comments")
 
+    val listener = ref.addSnapshotListener { snapshot, _ ->
+        trySend(snapshot?.size() ?: 0)
+    }
+
+    awaitClose { listener.remove() }
+}
