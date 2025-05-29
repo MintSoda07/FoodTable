@@ -6,6 +6,8 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -28,6 +30,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -50,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -64,10 +68,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
+import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.User
+import com.bcu.foodtable.ui.ChallengeActivity
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import androidx.compose.material.icons.filled.Category
@@ -82,10 +89,18 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
+import com.bcu.foodtable.JetpackCompose.RecipeStorage.RecipeStorageActivity
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.util.Calendar
+import java.util.TimeZone
 import kotlinx.coroutines.launch
 import com.bcu.foodtable.ai.AIRecommendationService
+import com.bcu.foodtable.data.UserBehaviorTracker
+import com.bcu.foodtable.manager.TimeBasedRecommendationManager
+import com.bcu.foodtable.di.DependencyProvider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
@@ -95,13 +110,16 @@ import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
 import com.bcu.foodtable.JetpackCompose.screens.SocialScreen
+import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewPageScreen
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
-import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelViewPageScreen
+import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
+import com.bcu.foodtable.JetpackCompose.screens.PostDetailScreen
+import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
 
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
@@ -612,7 +630,6 @@ fun getGreetingText(name: String?): Pair<String, String> {
     return Pair(title, subtitle)
 }
 
-// 탑바 ui
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeTopBar(
@@ -810,7 +827,27 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     }
                 }
             }
-
+            composable("community") {
+                CommunityTab(
+                    navToWrite = {
+                    navController.navigate("write")
+                },
+                    navToDetail = { post ->
+                    navController.navigate("postDetail/${post.id}")
+                })
+            }
+            composable("write") {
+                WritePostScreen(
+                    navController = navController,
+                    onPostCreated = {
+                        navController.popBackStack() // 글 작성 후 돌아가기
+                    }
+                )
+            }
+            composable("postDetail/{postId}") { backStackEntry ->
+                val postId = backStackEntry.arguments?.getString("postId") ?: ""
+                PostDetailScreen(postId = postId, navController = navController)
+            }
             composable("channelView/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
                 ChannelViewPageScreen(channelName = channelName, navController = navController)
@@ -832,7 +869,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 SubscribeScreen(viewModel = subscribeViewModel, navController = navController)
             }
             composable(Screen.Social.route) {
-                SocialScreen()
+                SocialScreen(navController = navController)
             }
             composable(Screen.RecipeStorage.route) {
                 MyRecipeStorageScreen()

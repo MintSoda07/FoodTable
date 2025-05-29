@@ -15,4 +15,5 @@ data class User(
     var rankPoint: Int = 0,
     var description: String = "",
     val location : String = "",
+    val manager : Boolean = false,
 )
