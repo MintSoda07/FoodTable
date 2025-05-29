@@ -28,15 +28,16 @@ class SubscribeViewModel(
     val recommendedChannels: StateFlow<List<Channel>> = _recommendedChannels
 
     fun fetchSubscribedChannels() {
-        db.collection("channel_subscribe")
-            .whereEqualTo("userId", userId)
+        val channelList = mutableListOf<Channel>()
+        val tasks = mutableListOf<Task<QuerySnapshot>>()
+
+        db.collection("user")
+            .document(userId)
+            .collection("subscriptions")
             .get()
             .addOnSuccessListener { subsSnapshot ->
-                val channelList = mutableListOf<Channel>()
-                val tasks = mutableListOf<Task<QuerySnapshot>>()
-
                 for (doc in subsSnapshot.documents) {
-                    val channelName = doc.getString("channel") ?: continue
+                    val channelName = doc.id  // 문서 ID를 channelName으로 사용
 
                     val task = db.collection("channel")
                         .whereEqualTo("name", channelName)
@@ -56,6 +57,7 @@ class SubscribeViewModel(
                 }
             }
     }
+
 
     fun fetchMyChannels() {
         Log.d("fetchMyChannels", "userId = $userId")
@@ -79,7 +81,9 @@ class SubscribeViewModel(
             .orderBy("subscribers", Query.Direction.DESCENDING)
             .get()
             .addOnSuccessListener { snapshot ->
-                _recommendedChannels.value = snapshot.documents.mapNotNull { it.toObject(Channel::class.java) }
+                _recommendedChannels.value =
+                    snapshot.documents.mapNotNull { it.toObject(Channel::class.java) }
+                        .filter { it.name.isNotBlank() }
             }
     }
 }

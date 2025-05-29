@@ -18,48 +18,36 @@ import coil.compose.AsyncImage
 import com.bcu.foodtable.useful.RecipeItem
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 
 
 @Composable
+
+
 fun RecipeCard(
     recipe: RecipeItem,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
+            .padding(8.dp)
             .fillMaxWidth()
-            .padding(vertical = 6.dp, horizontal = 12.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
+            .clickable { onClick() }
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-        ) {
+        Column(modifier = Modifier.padding(8.dp)) {
             AsyncImage(
                 model = recipe.imageResId,
-                contentDescription = recipe.name,
+                contentDescription = null,
                 modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
+                    .height(100.dp)
+                    .fillMaxWidth()
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = recipe.name.ifEmpty { "제목 없음" },
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = recipe.description.ifEmpty { "설명 없음" },
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2
-                )
-            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = recipe.name, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
+
+

@@ -166,7 +166,7 @@ object FireStoreHelper {
 
     suspend fun getRecipesForChannel(channelName: String): List<RecipeItem> {
         return try {
-            db.collection("recipes")
+            db.collection("recipe")
                 .whereEqualTo("contained_channel", channelName)
                 .get().await()
                 .documents.mapNotNull { it.toObject<RecipeItem>() }

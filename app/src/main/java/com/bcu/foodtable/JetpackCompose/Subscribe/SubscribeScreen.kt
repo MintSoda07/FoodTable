@@ -85,13 +85,13 @@ fun HorizontalChannelList(
     navController: NavHostController
 ) {
     val tag = "ChannelNavigation"
-
+    val filteredItems = items.filter { it.name.isNotBlank() }
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
     ) {
-        items(items, key = { it.name }) { channel ->
+        items(filteredItems , key = { it.name }) { channel ->
             ChannelCard(channel = channel) {
                 Log.d(tag, "Navigating to channel: ${channel.name}")
                 navController.navigate("channelView/${channel.name}")

@@ -90,7 +90,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.text.font.FontStyle
-import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelDetailScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelViewPageScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
@@ -101,6 +101,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelViewPageScreen
 
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
@@ -812,14 +813,19 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
             composable("channelView/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
-                ChannelDetailScreen(channelName = channelName, navController = navController)
+                ChannelViewPageScreen(channelName = channelName, navController = navController)
             }
-            composable("write_screen/{channelName}") { backStackEntry ->
+            composable("write/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
                 WriteScreen(channelName = channelName, onUploadSuccess = {
                     // 업로드 성공 시 이전 화면으로 돌아가기
                     navController.popBackStack()
                 })
+            }
+            composable("recipeView/{id}") { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: ""
+                ChannelViewPageScreen(channelName = id, navController = navController) //사용하는 실제 화면 Composable
+
             }
 
             composable(Screen.Subscribe.route) {
