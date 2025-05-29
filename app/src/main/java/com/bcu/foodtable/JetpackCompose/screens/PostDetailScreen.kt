@@ -110,9 +110,10 @@ fun PostDetailScreen(postId: String, navController: NavController) {
     val bookmarkAnim = remember { Animatable(1f) }
     val likeColorAnim = remember { Animatable(Color.Gray) }
     val bookmarkColorAnim = remember { Animatable(Color.Gray) }
-    val commentAlpha = remember { Animatable(0f) }
+    val commentAlpha = remember { Animatable(1f) }
 
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val colorScheme = MaterialTheme.colorScheme
+    val primaryColor = colorScheme.primary
     val grayColor = Color.Gray
 
     var isLoading by remember { mutableStateOf(true) }
@@ -153,7 +154,6 @@ fun PostDetailScreen(postId: String, navController: NavController) {
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp)
             ) {
-                // 제목 + 관리자 태그
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(it.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     if (user.manager) AdminTag()
@@ -254,7 +254,7 @@ fun PostDetailScreen(postId: String, navController: NavController) {
                     Text(formatCount(comments.size), style = MaterialTheme.typography.bodySmall)
                 }
 
-                Divider(Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
+                Divider(Modifier.padding(vertical = 12.dp), color = colorScheme.outline)
 
                 Text("댓글 ${comments.size}개", style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(8.dp))
@@ -265,55 +265,17 @@ fun PostDetailScreen(postId: String, navController: NavController) {
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                            .padding(vertical = 4.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        Column(
+                            Modifier
+                                .background(colorScheme.surfaceVariant)
+                                .padding(12.dp)
                         ) {
-                            OutlinedTextField(
-                                value = commentText,
-                                onValueChange = { commentText = it },
-                                placeholder = { Text("댓글을 입력하세요") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .alpha(commentAlpha.value),
-                                colors = outlinedTextFieldColors(
-                                    focusedBorderColor = colorScheme.primary,
-                                    unfocusedBorderColor = colorScheme.outline,
-                                    cursorColor = colorScheme.primary,
-                                    containerColor = colorScheme.surfaceVariant
-                                ),
-                                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
-                                singleLine = true
-                            )
-
-                            IconButton(onClick = {
-                                if (commentText.isNotBlank()) {
-                                    scope.launch {
-                                        val result = addComment(postId, user.uid, user.name, commentText)
-                                        if (result) {
-                                            commentText = ""
-                                            Toast.makeText(context, "댓글이 등록되었습니다", Toast.LENGTH_SHORT).show()
-                                            commentAlpha.snapTo(0f)
-                                        } else {
-                                            Toast.makeText(context, "댓글 등록 실패", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Send,
-                                    contentDescription = "댓글 전송",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
+                            Text("${comment.nickname} • ${formatDate(comment.createdAt)}", style = MaterialTheme.typography.labelSmall, color = grayColor)
+                            Text(comment.content, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
-
-
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -332,12 +294,15 @@ fun PostDetailScreen(postId: String, navController: NavController) {
                             .alpha(commentAlpha.value),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = primaryColor,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            cursorColor = primaryColor
+                            unfocusedBorderColor = colorScheme.outline,
+                            cursorColor = primaryColor,
+                            focusedContainerColor = colorScheme.surfaceVariant,
+                            unfocusedContainerColor = colorScheme.surfaceVariant
                         ),
                         keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Send),
                         singleLine = true
                     )
+
                     IconButton(onClick = {
                         if (commentText.isNotBlank()) {
                             scope.launch {

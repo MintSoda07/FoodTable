@@ -74,8 +74,8 @@ fun SocialScreen(navController: NavHostController) {
             CommunityTab(
             navToWrite = { navController.navigate("write") },
             navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
-        )
-                                                },
+        )},
+        WheelItem(Icons.Default.Fastfood, "오늘밥") { MiniGameTab(navController) },
         WheelItem(Icons.Default.Star, "랭킹") { ScreenStub("랭킹 탭") },
         WheelItem(Icons.Default.Face, "친구") { ScreenStub("친구 탭") },
         WheelItem(Icons.Default.Chat, "채팅") { ScreenStub("채팅 탭") },
@@ -467,9 +467,18 @@ fun Timestamp.toRelativeTime(): String {
 
 // 4. Firestore에서 게시글 불러오기
 suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatchers.IO) {
-    val snapshot = Firebase.firestore.collection("community").get().await()
-    snapshot.documents.mapNotNull { doc ->
-        doc.toObject(CommunityPost::class.java)?.copy(id = doc.id)
+    val communityRef = Firebase.firestore.collection("community")
+    val snapshot = communityRef.get().await()
+
+    val posts = snapshot.documents.mapNotNull { doc ->
+        val post = doc.toObject(CommunityPost::class.java)?.copy(id = doc.id)
+        post
+    }
+
+    // 댓글 수 동시 조회
+    posts.map { post ->
+        val commentSnapshot = communityRef.document(post.id).collection("comments").get().await()
+        post.copy(comments = commentSnapshot.size())
     }
 }
 
@@ -579,4 +588,71 @@ fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+fun commentCountFlow(postId: String): Flow<Int> = callbackFlow {
+    val ref = Firebase.firestore.collection("community")
+        .document(postId).collection("comments")
+
+    val listener = ref.addSnapshotListener { snapshot, _ ->
+        trySend(snapshot?.size() ?: 0)
+    }
+
+    awaitClose { listener.remove() }
+}
+
+@Composable
+fun MiniGameTab(navController: NavController? = null) {
+    val gameTabs = listOf("메뉴 정하기", "누가 낼까?")
+    var selectedTab by rememberSaveable { mutableStateOf(gameTabs.first()) }
+
+    Column(Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = gameTabs.indexOf(selectedTab)) {
+            gameTabs.forEach { tab ->
+                Tab(
+                    selected = selectedTab == tab,
+                    onClick = { selectedTab = tab },
+                    text = { Text(tab) }
+                )
+            }
+        }
+
+        when (selectedTab) {
+            "메뉴 정하기" -> MenuGameList(navController)
+            "누가 낼까?" -> PayerGameList()
+        }
+    }
+}
+
+
+@Composable
+fun MenuGameList(navController: NavController? = null) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("메뉴 정하기 게임", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(16.dp))
+
+        GameButton("룰렛 돌리기") {
+            navController?.navigate("rouletteGame")
+        }
+
+        GameButton("카드 뒤집기") {
+            navController?.navigate("cardGame")
+        }
+    }
+}
+
+@Composable
+fun PayerGameList(navController: NavController? = null) {
+    Column(Modifier.fillMaxSize().padding(16.dp)) {
+        Text("누가 돈을 낼까요?", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(16.dp))
+
+        GameButton("사다리 타기") {
+            navController?.navigate("ladderGame")
+        }
+
+        GameButton("룰렛 돌리기") {
+            navController?.navigate("payerRouletteGame")
+        }
+    }
+}
+
 
