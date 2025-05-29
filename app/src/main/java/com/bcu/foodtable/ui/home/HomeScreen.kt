@@ -69,7 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
-import com.bcu.foodtable.JetpackCompose.Channel.SubscribeActivity
+
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.RecipeItem
@@ -110,7 +110,7 @@ import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
 import com.bcu.foodtable.JetpackCompose.screens.SocialScreen
-import com.bcu.foodtable.ui.subscribeNavMenu.ChannelViewPageScreen
+
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth

@@ -1,4 +1,4 @@
-package com.bcu.foodtable.viewmodel
+package com.bcu.foodtable.JetpackCompose.RecipeStorage
 
 import android.util.Log
 import androidx.lifecycle.ViewModel

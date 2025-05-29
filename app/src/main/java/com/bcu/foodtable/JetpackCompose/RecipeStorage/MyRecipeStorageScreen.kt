@@ -37,7 +37,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity // 변경된 import
 import com.bcu.foodtable.useful.GalleryItem // 사용자 경로
-import com.bcu.foodtable.viewmodel.RecipeGalleryViewModel // 사용자 경로
 import androidx.compose.foundation.layout.Box
 import coil.compose.AsyncImagePainter // AsyncImage의 상태를 사용하기 위해 필요
 import androidx.compose.foundation.Image // Explicit import for Image composable
