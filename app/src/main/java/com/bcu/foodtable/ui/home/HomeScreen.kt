@@ -128,6 +128,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
 import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
 import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
+import com.bcu.foodtable.JetpackCompose.screens.PostDetailScreen
 import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
 
 
@@ -137,6 +138,7 @@ import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
  * 하단 내비게이션 바의 각 화면을 정의하는 Sealed Class.
  * 각 화면은 레이블과 아이콘 리소스 ID를 가집니다.
  */
+
 sealed class Screen(val route: String, val label: String, val icon: Int) {
     object Home : Screen("home", "홈", R.drawable.ic_home_black_24dp)
     object Subscribe : Screen("subscribe", "구독", R.drawable.ic_notifications_black_24dp)
@@ -840,10 +842,25 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 }
             }
             composable("community") {
-                CommunityTab(navToWrite = { navController.navigate("write") })
+                CommunityTab(
+                    navToWrite = {
+                    navController.navigate("write")
+                },
+                    navToDetail = { post ->
+                    navController.navigate("postDetail/${post.id}")
+                })
             }
             composable("write") {
-                WritePostScreen(onPostCreated = { navController.popBackStack() }, navController)
+                WritePostScreen(
+                    navController = navController,
+                    onPostCreated = {
+                        navController.popBackStack() // 글 작성 후 돌아가기
+                    }
+                )
+            }
+            composable("postDetail/{postId}") { backStackEntry ->
+                val postId = backStackEntry.arguments?.getString("postId") ?: ""
+                PostDetailScreen(postId = postId, navController = navController)
             }
             composable("channelView/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
@@ -861,7 +878,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 SubscribeScreen(viewModel = subscribeViewModel, navController = navController)
             }
             composable(Screen.Social.route) {
-                SocialScreen()
+                SocialScreen(navController = navController)
             }
             composable(Screen.RecipeStorage.route) {
                 MyRecipeStorageScreen()

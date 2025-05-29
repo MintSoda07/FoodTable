@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
@@ -59,7 +61,7 @@ import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SocialScreen() {
+fun SocialScreen(navController: NavHostController) {
     @Stable
     data class WheelItem(
         val icon: ImageVector,
@@ -68,7 +70,12 @@ fun SocialScreen() {
     )
 
     val wheelItems = listOf(
-        WheelItem(Icons.Default.Search, "커뮤니티") { CommunityTab() },
+        WheelItem(Icons.Default.Search, "커뮤니티") {
+            CommunityTab(
+            navToWrite = { navController.navigate("write") },
+            navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
+        )
+                                                },
         WheelItem(Icons.Default.Star, "랭킹") { ScreenStub("랭킹 탭") },
         WheelItem(Icons.Default.Face, "친구") { ScreenStub("친구 탭") },
         WheelItem(Icons.Default.Chat, "채팅") { ScreenStub("채팅 탭") },
@@ -296,7 +303,10 @@ private fun ScreenStub(name: String) {
 
 // 1. 커뮤니티 탭
 @Composable
-fun CommunityTab(navToWrite: () -> Unit = {}) {
+fun CommunityTab(
+    navToWrite: () -> Unit = {},
+    navToDetail: (CommunityPost) -> Unit = {}
+) {
     val userLocation = remember { UserManager.getUser()!!.location }
     var selectedTab by rememberSaveable { mutableStateOf("전체") }
     var sortOption by rememberSaveable { mutableStateOf("조회순") }
@@ -364,7 +374,7 @@ fun CommunityTab(navToWrite: () -> Unit = {}) {
 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(filtered, key = { it.id }) { post ->
-                        CommunityPostItem(post)
+                        CommunityPostItem(post) { navToDetail(post) }
                     }
                 }
             }
@@ -377,16 +387,18 @@ fun CommunityTab(navToWrite: () -> Unit = {}) {
         ) {
             Icon(Icons.Default.Create, contentDescription = "글쓰기", tint = Color.White)
         }
+
     }
 }
 
 // 2. 게시글 항목
 @Composable
-fun CommunityPostItem(post: CommunityPost) {
+fun CommunityPostItem(post: CommunityPost, onClick: () -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clickable { onClick() }, // 클릭 처리 추가
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
@@ -461,7 +473,7 @@ suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatche
     }
 }
 
-// 5. 글쓰기 화면 (예시용)
+// 5. 글쓰기 화면
 @Composable
 fun WritePostScreen(
     onPostCreated: () -> Unit = {},
@@ -567,3 +579,4 @@ fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+
