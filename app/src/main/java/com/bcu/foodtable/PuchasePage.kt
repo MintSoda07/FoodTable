@@ -60,7 +60,6 @@ fun PurchaseScreen() {
         animationSpec = spring(dampingRatio = 0.7f), label = "animatedMoney"
     )
     val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
-
     val lottieAsset = if (moneyValue >= 5000) "bonus_shine.json" else "coin_idle.json"
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset(lottieAsset))
     val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
@@ -68,19 +67,9 @@ fun PurchaseScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFFFFF8E1), Color(0xFFFFECB3), Color(0xFFFFD54F))
-                )
-            )
+            .systemBarsPadding() // ✅ 상단/하단 바 대응
+            .background(MaterialTheme.colorScheme.surface) // ✅ 깔끔한 배경
     ) {
-//        Image(
-//            painter = painterResource(id = R.drawable.bg_pattern), // 🎨 반투명한 배경 패턴
-//            contentDescription = null,
-//            contentScale = ContentScale.Crop,
-//            modifier = Modifier.fillMaxSize().alpha(0.08f)
-//        )
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -91,66 +80,72 @@ fun PurchaseScreen() {
 
             Text(
                 text = "소금 충전소",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF6D4C41)
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
 
             LottieAnimation(
                 composition = composition,
                 progress = { progress },
-                modifier = Modifier.size(240.dp)
+                modifier = Modifier.size(200.dp)
             )
 
             Text(
                 text = "₩ ${formatter.format(animatedMoney)}",
                 style = TextStyle(
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFF4E342E)
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             )
 
             if (moneyValue >= 5000) {
                 Text(
                     text = "보너스 +${moneyValue / 10} 소금 예정!",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFE65100)
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.tertiary
                 )
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 listOf(5000, 10000, 50000, 100000).forEach { amount ->
-                    Row(
+                    Card(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        elevation = CardDefaults.cardElevation(4.dp)
                     ) {
-                        IconButton(
-                            onClick = { moneyValue = maxOf(0, moneyValue - amount) },
+                        Row(
                             modifier = Modifier
-                                .size(60.dp)
-                                .shadow(4.dp, CircleShape)
-                                .background(Color(0xFFFFCDD2), CircleShape)
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = null, tint = Color.Red)
-                        }
+                            IconButton(
+                                onClick = { moneyValue = maxOf(0, moneyValue - amount) },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Remove, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                            }
 
-                        Text(
-                            text = "₩ ${formatter.format(amount)}",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.align(Alignment.CenterVertically)
-                        )
+                            Text(
+                                text = "₩ ${formatter.format(amount)}",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
 
-                        IconButton(
-                            onClick = { moneyValue += amount },
-                            modifier = Modifier
-                                .size(60.dp)
-                                .shadow(4.dp, CircleShape)
-                                .background(Color(0xFFC8E6C9), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = null, tint = Color(0xFF388E3C))
+                            IconButton(
+                                onClick = { moneyValue += amount },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
                         }
                     }
                 }
@@ -166,11 +161,12 @@ fun PurchaseScreen() {
                         context.startActivity(intent)
                     }
                 },
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8F00))
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Text("결제 진행하기", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("결제 진행하기", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
