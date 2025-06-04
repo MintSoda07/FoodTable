@@ -75,11 +75,7 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
     Scaffold(
         topBar = {
             HomeTopBar(
-                user = user,
-                onProfileClick = { selectedTab = 4 },
-                onChallengeClick = {
-                    context.startActivity(Intent(context, ChallengeActivity::class.java))
-                }
+                user = user
             )
         },
         bottomBar = {
