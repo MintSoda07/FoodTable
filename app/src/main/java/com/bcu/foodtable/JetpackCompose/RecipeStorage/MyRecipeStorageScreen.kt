@@ -79,7 +79,8 @@ fun MyRecipeStorageScreen(
     var draggingItem: GalleryItem? by remember { mutableStateOf(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
 
-    val recipeCardBoundsMap = remember { mutableStateMapOf<GalleryItem, Rect>() }
+    val recipeCardBoundsMap = remember { mutableStateMapOf<String, Rect>() }
+
     var dragPositionInWindow by remember { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(Unit) {
@@ -154,21 +155,26 @@ fun MyRecipeStorageScreen(
                                     },
                                     draggingItem = draggingItem,
                                     dragPositionInWindow = dragPositionInWindow,
-                                    onDrop = { targetItem ->
+                                    onDrop = { droppedItem ->
                                         draggingItem?.let { source ->
-                                            // 자기 자신이면 무시(무한 그룹화 방지용)
-                                           // if (source.recipeId == targetItem.recipeId) return@let
-                                            //  2. 이미 같은 그룹이면 무시
-                                            if (!targetItem.groupId.isNullOrBlank() && targetItem.groupId == source.groupId) return@let
+                                            // 자기 자신이면 무시
+                                            if (source.recipeId == representativeItem.recipeId) return@let
 
+                                            // 이미 같은 그룹이면 무시
+                                            if (!source.groupId.isNullOrBlank() && source.groupId == representativeItem.groupId) return@let
 
-                                            if (targetItem.groupId.isNullOrEmpty()) {
-                                                viewModel.createGroup(source, targetItem)
+                                            // 그룹 외부에서 온 항목만 추가 허용
+                                            if (source.groupId.isNullOrBlank()) {
+                                                viewModel.addToGroup(representativeItem.groupId ?: return@let, source)
                                             } else {
-                                                viewModel.addToGroup(targetItem.groupId!!, source)
+                                                Log.d("DropDebug", " 이미 다른 그룹 소속이라 무시됨: ${source.recipeId}")
                                             }
+
+                                            draggingItem = null
+                                            dragOffset = Offset.Zero
                                         }
-                                    },
+                                    }
+                                    ,
                                             onUngroupClick = {
                                         viewModel.ungroup(representativeItem.groupId ?: "")
                                     }
@@ -180,9 +186,7 @@ fun MyRecipeStorageScreen(
                                 item = item,
                                 itemSize = itemSize,
                                 modifier = Modifier.onGloballyPositioned {
-                                    item?.let { safeItem ->
-                                        recipeCardBoundsMap[safeItem] = it.boundsInWindow()
-                                    }
+                                    recipeCardBoundsMap[item.recipeId] = it.boundsInWindow()
                                 },
                                 onClick = {
                                     val intent = Intent(context, RecipeCookingActivity::class.java)
@@ -196,6 +200,7 @@ fun MyRecipeStorageScreen(
                                 onDragEnd = {
                                     draggingItem = null
                                     dragOffset = Offset.Zero
+                                    dragPositionInWindow = Offset.Zero // <- 이거 중요
                                 },
                                 draggingItem = draggingItem,
                                 dragOffset = dragOffset,
@@ -211,34 +216,45 @@ fun MyRecipeStorageScreen(
 
                 }
                 LaunchedEffect(draggingItem, dragPositionInWindow) {
-                    if (draggingItem != null) {
-                        val source = draggingItem
-                        displayList.forEach { targetItem ->
-                            if (targetItem != source) {
-                                val targetBounds = recipeCardBoundsMap[targetItem]
-                                if (targetBounds != null && targetBounds.contains(dragPositionInWindow)) {
-                                    Log.d("DropDebug", " 충돌 감지 → $source 와 $targetItem 그룹화 시도")
+                    val source = draggingItem ?: return@LaunchedEffect
 
-                                    draggingItem?.let { nonNullSource ->
-                                        val targetGroupId = targetItem.groupId
+                    for (target in displayList) {
+                        if (target.recipeId == source.recipeId) continue
+                        val bounds = recipeCardBoundsMap[target.recipeId] ?: continue
 
-                                        if (!targetGroupId.isNullOrBlank()) {
-                                            //  이미 그룹인 경우, 해당 그룹에 추가
-                                            viewModel.addToGroup(targetGroupId, nonNullSource)
-                                        } else {
-                                            //  둘 다 그룹 없으면 새 그룹 생성
-                                            viewModel.createGroup(nonNullSource, targetItem)
-                                        }
-                                    }
-                                    // 한 번만 감지되도록 드래그 상태 초기화
-                                    draggingItem = null
-                                    dragOffset = Offset.Zero
-                                    return@LaunchedEffect
+                        if (bounds.contains(dragPositionInWindow)) {
+                            Log.d("DropDebug", " 충돌 감지 → ${source.recipeId} vs ${target.recipeId}")
+
+                            val sourceGroupId = source.groupId.orEmpty()
+                            val targetGroupId = target.groupId.orEmpty()
+
+                            when {
+                                sourceGroupId.isBlank() && targetGroupId.isBlank() -> {
+                                    viewModel.createGroup(source, target)
+                                }
+                                sourceGroupId.isBlank() && targetGroupId.isNotBlank() -> {
+                                    viewModel.addToGroup(targetGroupId, source)
+                                }
+                                sourceGroupId != targetGroupId && targetGroupId.isNotBlank() -> {
+                                    viewModel.addToGroup(targetGroupId, source)
                                 }
                             }
+
+                            break
                         }
                     }
                 }
+
+
+
+
+
+
+
+
+
+
+
             }
         }
 
@@ -413,6 +429,7 @@ fun StyledRecipeItemCard(
             detectDragGestures(
                 onDragStart = {
                     onDragStart(item)
+
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()
@@ -967,23 +984,23 @@ fun StyledGroupFolderItemCard(
 //                    }
 //                }
 //            }
-            LaunchedEffect(draggingItem, dragPositionInWindow) {
-                Log.d("DropDebug", "draggingItem = $draggingItem")
-                Log.d("DropDebug", "cardBoundsInWindow = $cardBoundsInWindow")
-
-                val bounds = cardBoundsInWindow
-                if (draggingItem != null && bounds != null) {
-                    val expandedBounds = bounds.inflate(1000f)
-                    Log.d("DropDebug", "bounds = $expandedBounds, dragPos = $dragPositionInWindow")
-
-                    if (expandedBounds.contains(dragPositionInWindow)) {
-                        Log.d("DropDebug", " 충돌 감지됨 → 그룹화 시도")
-                        onDrop(draggingItem!!)
-                    }
-                } else {
-                    Log.d("DropDebug", " 충돌 체크 불가 - draggingItem 또는 bounds 가 null")
-                }
-            }
+//            LaunchedEffect(draggingItem, dragPositionInWindow) {
+//                Log.d("DropDebug", "draggingItem = $draggingItem")
+//                Log.d("DropDebug", "cardBoundsInWindow = $cardBoundsInWindow")
+//
+//                val bounds = cardBoundsInWindow
+//                if (draggingItem != null && bounds != null) {
+//                    val expandedBounds = bounds.inflate(1000f)
+//                    Log.d("DropDebug", "bounds = $expandedBounds, dragPos = $dragPositionInWindow")
+//
+//                    if (expandedBounds.contains(dragPositionInWindow)) {
+//                        Log.d("DropDebug", " 충돌 감지됨 → 그룹화 시도")
+//                        onDrop(draggingItem!!)
+//                    }
+//                } else {
+//                    Log.d("DropDebug", " 충돌 체크 불가 - draggingItem 또는 bounds 가 null")
+//                }
+//            }
 
 
 
@@ -1113,7 +1130,6 @@ fun StyledGroupDetailOverlay(
         }
     }
 }
-
 // 범위 확장 함수
 fun Rect.inset(pixels: Float): Rect {
     return Rect(

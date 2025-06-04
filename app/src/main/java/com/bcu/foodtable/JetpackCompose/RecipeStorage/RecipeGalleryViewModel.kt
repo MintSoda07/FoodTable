@@ -250,45 +250,45 @@ class RecipeGalleryViewModel : ViewModel() {
             try {
                 val userId = UserManager.getUser()?.uid ?: return@launch
 
-                // 1. recipe/{recipeId} 문서에서 name 필드 가져오기
+                //  1. 레시피 정보 읽기 (레시피 이름 필요)
                 val recipeSnapshot = db.collection("recipe")
                     .document(recipeId)
                     .get()
                     .await()
 
                 if (!recipeSnapshot.exists()) {
-                    Log.e("FirestoreUpdate", " 레시피 문서 없음: $recipeId")
+                    Log.e("FirestoreUpdate", "레시피 문서 없음: $recipeId")
                     return@launch
                 }
 
                 val recipeName = recipeSnapshot.getString("name") ?: "Unknown"
 
-                // 2. 저장할 필드 구성
+                // 🔹 2. 업데이트할 데이터 준비
                 val updates = mutableMapOf<String, Any>(
                     "groupId" to newGroupId,
                     "name" to recipeName
                 )
                 newGroupName?.let { updates["groupName"] = it }
 
-                // 3. users/{uid}/recipe_storage/{recipeId}에 merge로 저장
-                db.collection("user")
+                //  3. Firestore에 병합 저장
+                db.collection("user")  //  "users"인지 꼭 확인 필요
                     .document(userId)
                     .collection("recipe_storage")
                     .document(recipeId)
                     .set(updates, SetOptions.merge())
                     .await()
 
-                // 4. local 상태 갱신
+                // 4. 로컬 상태 업데이트
                 _galleryItems.value = _galleryItems.value.map {
                     if (it.recipeId == recipeId)
                         it.copy(groupId = newGroupId, groupName = newGroupName ?: it.groupName)
                     else it
                 }
 
-                Log.d("FirestoreUpdate", " 그룹 및 이름 업데이트 완료: $recipeId → $newGroupId ($recipeName)")
+                Log.d("FirestoreUpdate", "그룹 및 이름 업데이트 완료: $recipeId → $newGroupId ($recipeName)")
 
             } catch (e: Exception) {
-                Log.e("FirestoreUpdate", " 그룹 정보 업데이트 실패", e)
+                Log.e("FirestoreUpdate", "그룹 정보 업데이트 실패", e)
             }
         }
     }
@@ -297,24 +297,28 @@ class RecipeGalleryViewModel : ViewModel() {
 
 
 
+
     // 그룹 생성
     fun createGroup(item1: GalleryItem, item2: GalleryItem) {
-        val groupId = when {
-            !item1.groupId.isNullOrEmpty() -> item1.groupId
-            !item2.groupId.isNullOrEmpty() -> item2.groupId
-            else -> UUID.randomUUID().toString()
+        // 자기 자신이면 return
+        if (item1.recipeId == item2.recipeId) return
+
+        // 둘 다 그룹이 없어야 새 그룹 생성
+        if (!item1.groupId.isNullOrEmpty() || !item2.groupId.isNullOrEmpty()) {
+            Log.d("GroupAction", " 그룹 생성 무시: 이미 그룹 있음 → ${item1.groupId} / ${item2.groupId}")
+            return
         }
 
+        val newGroupId = UUID.randomUUID().toString()
         val groupName = generateNextGroupName()
 
-        // 중복 drop 방지
-        if (item1.groupId == groupId && item2.groupId == groupId) return
+        Log.d("GroupAction", " 새 그룹 생성: ${item1.recipeId}, ${item2.recipeId} → $newGroupId")
 
-        Log.d("GroupAction", " 그룹 생성: ${item1.recipeId} + ${item2.recipeId} → groupId = $groupId, name = $groupName")
-
-        updateItemGroup(item1.recipeId, groupId, groupName)
-        updateItemGroup(item2.recipeId, groupId, groupName)
+        updateItemGroup(item1.recipeId, newGroupId, groupName)
+        updateItemGroup(item2.recipeId, newGroupId, groupName)
     }
+
+
 
     // 기존 그룹에 레시피 추가
 
