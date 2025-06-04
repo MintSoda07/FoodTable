@@ -47,13 +47,7 @@ fun MainAiScreen(
     Scaffold(
         topBar = {
             HomeTopBar(
-                user = user,
-                onProfileClick = {
-                    selectedTab = screens.indexOf(Screen.MyPage)
-                },
-                onChallengeClick = {
-                    context.startActivity(Intent(context, ChallengeActivity::class.java))
-                }
+                user = user
             )
         },
         bottomBar = {

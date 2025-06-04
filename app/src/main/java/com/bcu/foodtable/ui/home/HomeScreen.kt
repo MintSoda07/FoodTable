@@ -648,8 +648,6 @@ fun getGreetingText(name: String?): Pair<String, String> {
 @Composable
 fun HomeTopBar(
     user: User?,
-    onProfileClick: () -> Unit,
-    onChallengeClick: () -> Unit
 ) {
     val userPoint = user?.point ?: 0
     val (greetingTitle, greetingSub) = getGreetingText(user?.name)
@@ -667,8 +665,7 @@ fun HomeTopBar(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .border(2.dp, MaterialTheme.colorScheme.tertiaryContainer, CircleShape)
-                        .clickable(onClick = onProfileClick),
+                        .border(2.dp, MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
                     contentScale = ContentScale.Crop,
                     placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
                     error = rememberVectorPainter(Icons.Filled.AccountCircle)
@@ -723,14 +720,7 @@ fun HomeTopBar(
                 )
             }
 
-            // 챌린지 아이콘
-            IconButton(onClick = onChallengeClick) {
-                Icon(
-                    imageVector = Icons.Filled.EmojiEvents,
-                    contentDescription = "Challenges",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
+
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
@@ -747,9 +737,7 @@ fun AppTopBar(
     when (screens[selectedTab]) {
         Screen.Home, Screen.Subscribe, Screen.MyPage -> {
             HomeTopBar(
-                user = user,
-                onProfileClick = {},        // 클릭 막음
-                onChallengeClick = {}       // 클릭 막음
+                user = user
             )
         }
         else -> {}

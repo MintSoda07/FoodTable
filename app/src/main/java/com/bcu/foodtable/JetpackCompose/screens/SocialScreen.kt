@@ -32,7 +32,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
@@ -72,19 +74,21 @@ fun SocialScreen(navController: NavHostController) {
     val wheelItems = listOf(
         WheelItem(Icons.Default.Search, "커뮤니티") {
             CommunityTab(
-            navToWrite = { navController.navigate("write") },
-            navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
-        )},
+                navToWrite = { navController.navigate("write") },
+                navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
+            )
+        },
         WheelItem(Icons.Default.Fastfood, "오늘밥") { MiniGameTab(navController) },
         WheelItem(Icons.Default.Star, "랭킹") { ScreenStub("랭킹 탭") },
+        WheelItem(Icons.Default.Star, "챌린지") { ScreenStub("챌린지 탭") },
         WheelItem(Icons.Default.Face, "친구") { ScreenStub("친구 탭") },
         WheelItem(Icons.Default.Chat, "채팅") { ScreenStub("채팅 탭") },
         WheelItem(Icons.Default.Place, "맛집도") { ScreenStub("맛집도 탭") },
     )
 
     var selectedIndex by rememberSaveable { mutableStateOf(0) }
-    var searchText by rememberSaveable { mutableStateOf("") }
     var isLoading by rememberSaveable { mutableStateOf(false) }
+    var searchText by rememberSaveable { mutableStateOf("") }
 
     Surface(Modifier.fillMaxSize()) {
         Box(
@@ -93,7 +97,8 @@ fun SocialScreen(navController: NavHostController) {
                 .background(MaterialTheme.colorScheme.primary)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                if (wheelItems[selectedIndex].label != "랭킹") {
+
+                if (wheelItems[selectedIndex].label in listOf("커뮤니티", "친구")) {
                     OutlinedTextField(
                         value = searchText,
                         onValueChange = { searchText = it },
@@ -130,7 +135,6 @@ fun SocialScreen(navController: NavHostController) {
                     }
                 }
 
-                // 📌 내부 콘텐츠 배경을 완전 흰색으로 지정
                 if (!isLoading) {
                     Box(
                         modifier = Modifier
@@ -150,7 +154,6 @@ fun SocialScreen(navController: NavHostController) {
             ) {
                 DynamicRadialWheel(
                     items = wheelItems.map { it.icon to it.label },
-                    radius = 180f,
                     haloColor = MaterialTheme.colorScheme.primary,
                     onSelectionChanged = { selectedIndex = it },
                 )
@@ -162,18 +165,24 @@ fun SocialScreen(navController: NavHostController) {
 @Composable
 fun DynamicRadialWheel(
     items: List<Pair<ImageVector, String>>,
-    radius: Float,
     haloColor: Color,
     onSelectionChanged: (Int) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val sliceAngle = 360f / items.size
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidth = configuration.screenWidthDp.dp
 
-    var rotation by rememberSaveable {
-        mutableStateOf((270f - sliceAngle * 0).mod(360f)) // ⭐ 0번 인덱스를 12시로
+    val radius = with(density) {
+        (screenWidth * 0.25f).coerceIn(100.dp, 220.dp).toPx()
     }
 
+    val sliceAngle = 360f / items.size
+    var expanded by remember { mutableStateOf(false) }
     var dragging by remember { mutableStateOf(false) }
+
+    var rotation by rememberSaveable {
+        mutableStateOf((270f - sliceAngle * 0).mod(360f))
+    }
 
     val haloAlpha by rememberInfiniteTransition().animateFloat(
         initialValue = 0.18f,
@@ -182,8 +191,8 @@ fun DynamicRadialWheel(
     )
 
     Box(
-        Modifier
-            .size(120.dp)
+        modifier = Modifier
+            .size(160.dp)
             .pointerInput(expanded) {
                 if (expanded) {
                     detectDragGesturesAfterLongPress(
@@ -201,7 +210,7 @@ fun DynamicRadialWheel(
                     )
                 }
             },
-        Alignment.Center
+        contentAlignment = Alignment.Center
     ) {
         if (expanded) Canvas(Modifier.fillMaxSize()) {
             drawCircle(
@@ -267,13 +276,22 @@ fun DynamicRadialWheel(
                                     }
                                 )
                             },
-                        Alignment.Center
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(icon, label, tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(
+                            icon,
+                            label,
+                            tint = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     Spacer(Modifier.height(4.dp))
                     AnimatedVisibility(isSelected) {
-                        Text(label, style = MaterialTheme.typography.labelLarge, color = haloColor, maxLines = 1)
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = haloColor,
+                            maxLines = 1
+                        )
                     }
                 }
             }
@@ -281,11 +299,11 @@ fun DynamicRadialWheel(
     }
 }
 
-
 private fun calculateSelectedIndex(rotation: Float, sliceAngle: Float): Int {
     val norm = ((rotation % 360f) + 360f) % 360f
     return ((270f - norm + sliceAngle / 2 + 360f) % 360f / sliceAngle).toInt()
 }
+
 
 @Composable
 private fun ScreenStub(name: String) {
