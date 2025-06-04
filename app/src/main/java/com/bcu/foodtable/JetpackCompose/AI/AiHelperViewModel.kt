@@ -110,7 +110,8 @@ class AiHelperViewModel(
                             ingredients = ingredients,
                             recipes = recipes,
                             recipeDetails = details,
-                            resultText = recipes.joinToString("\n"),
+                            // ★ 여기를 recipes.joinToString("\n") 대신 response로 변경 ★
+                            resultText = response.trim(),
                             reasonText = details.joinToString("\n"),
                             isSending = false
                         )
@@ -124,5 +125,6 @@ class AiHelperViewModel(
                 _uiState.update { it.copy(isSending = false) }
             }
         )
+
     }
 }

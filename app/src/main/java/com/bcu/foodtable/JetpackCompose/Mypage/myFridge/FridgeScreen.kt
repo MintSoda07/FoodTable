@@ -269,6 +269,8 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 // 응답이 도착하면 AiRecipeScreen으로 이동
     LaunchedEffect(aiState.resultText) {
         if (aiState.resultText.isNotBlank()) {
+            Log.d("AI_RAW", aiState.resultText)  // 이제 실제 조리 단계가 포함된 원문이 출력됩니다.
+
             val recipeName = Regex("""◆(.*?)◆""")
                 .find(aiState.resultText)
                 ?.groupValues?.getOrNull(1)
@@ -280,16 +282,22 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 ?.split(",")?.map { it.trim() }
                 ?: emptyList()
 
-            // ─── 수정된 정규식 ───
-            // ^\s*       : 줄 시작부터 공백(스페이스, 탭 등)이 있을 수 있고,
-            // ○?         : ○ 기호가 있을 수도, 없을 수도 있고,
-            // \d+\.      : 하나 이상의 숫자 뒤에 반드시 마침표(.)가 나오며,
-            // .*         : 그 뒤에 어떤 내용이든 나올 수 있다.
-            val stepRegex = Regex("""^\s*○?\d+\..*""", RegexOption.MULTILINE)
+            // “○없음” 또는 숫자+마침표만 있는 케이스 모두를 포괄하도록
+            val stepRegex = Regex(
+                """^[\u0020\u00A0\u3000]*[○\u25CB\u2460]?\s*\d+\..*""",
+                RegexOption.MULTILINE
+            )
 
-            val order = stepRegex.findAll(aiState.resultText)
-                .map { it.value.trim() }  // 앞뒤 공백 제거
+            val matches = stepRegex.findAll(aiState.resultText).toList()
+            Log.d("AI_REGEX_MATCH_COUNT", "match 개수 = ${matches.size}")
+            matches.forEach { match ->
+                Log.d("AI_REGEX_MATCH_LINE", "[${match.value}]")
+            }
+
+            val order = matches
+                .map { it.value.trim() }
                 .joinToString(" ")
+            Log.d("AI_ORDER_STRING", "order = \"$order\"")
 
             if (order.isBlank()) {
                 Log.e("AI_ORDER", " 조리 단계 없음\n${aiState.resultText}")
@@ -315,6 +323,8 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             aiViewModel.hideWarning()
         }
     }
+
+
 
 
 
