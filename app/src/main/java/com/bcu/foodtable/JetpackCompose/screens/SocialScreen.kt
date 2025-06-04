@@ -77,7 +77,7 @@ fun SocialScreen(navController: NavHostController) {
 
     val wheelItems = listOf(
         WheelItem(Icons.Default.Search, "커뮤니티") {
-            CommunityTab(
+            CommunityTab( // CommunityTab 호출 부분은 변경 없음
                 navToWrite = { navController.navigate("write") },
                 navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
             )
@@ -91,7 +91,7 @@ fun SocialScreen(navController: NavHostController) {
     )
 
     var selectedIndex by rememberSaveable { mutableStateOf(0) }
-    var isLoading by rememberSaveable { mutableStateOf(false) }
+    var isLoading by rememberSaveable { mutableStateOf(false) } // SocialScreen 레벨의 isLoading은 유지될 수 있음 (DynamicRadialWheel과 연관 없다면)
     var searchText by rememberSaveable { mutableStateOf("") }
 
     Surface(Modifier.fillMaxSize()) {
@@ -133,13 +133,17 @@ fun SocialScreen(navController: NavHostController) {
                     )
                 }
 
-                AnimatedVisibility(isLoading) {
+                // SocialScreen 레벨의 isLoading AnimatedVisibility (LottieAnimationView)는 그대로 둡니다.
+                // CommunityTab 내부의 isLoading과 별개일 수 있습니다.
+                AnimatedVisibility(isLoading && wheelItems[selectedIndex].label != "커뮤니티") { // 커뮤니티 탭 자체 로딩과 구분
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         LottieAnimationView(R.raw.loading, Modifier.size(200.dp))
                     }
                 }
 
-                if (!isLoading) {
+                // 이 부분은 SocialScreen의 선택된 탭에 따라 컨텐츠를 보여주는 로직이므로 유지합니다.
+                // CommunityTab 내부 로딩은 CommunityTab에서 처리합니다.
+                if (!(isLoading && wheelItems[selectedIndex].label != "커뮤니티")) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -321,9 +325,7 @@ private fun ScreenStub(name: String) {
 }
 
 
-
-
-// 1. 커뮤니티 탭
+// ------------------- 요청하신 수정 사항이 반영된 부분 -------------------
 @Composable
 fun CommunityTab(
     navToWrite: () -> Unit = {},
@@ -334,15 +336,13 @@ fun CommunityTab(
     var sortOption by rememberSaveable { mutableStateOf("조회순") }
 
     var posts by remember { mutableStateOf<List<CommunityPost>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    var isLoading by remember { mutableStateOf(true) } // CommunityTab 내부의 로딩 상태
 
-    // Firebase 불러오기
     LaunchedEffect(Unit) {
         isLoading = true
         posts = loadPostsFromFirebase().also {
             it.forEach { post ->
                 Log.d("CommunityTab", "사용자 지역: ${userLocation} / 게시글 지역: ${post.location} / 일치: ${post.location == userLocation}")
-
             }
         }
         isLoading = false
@@ -351,69 +351,81 @@ fun CommunityTab(
     val tabOptions = listOf("전체", "지역")
     val sortOptions = listOf("조회순", "최신순", "추천순")
 
-    Box(Modifier.fillMaxSize()) {
-        Column {
-            TabRow(selectedTabIndex = tabOptions.indexOf(selectedTab)) {
-                tabOptions.forEach { tab ->
-                    Tab(
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        text = { Text(tab) }
-                    )
-                }
-            }
-
-            Row(Modifier.padding(8.dp)) {
-                sortOptions.forEach {
-                    FilterChip(
-                        selected = sortOption == it,
-                        onClick = { sortOption = it },
-                        label = { Text(it) },
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                }
-            }
-
-            if (isLoading) {
-                Box(Modifier.fillMaxSize(), Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                val filtered = posts.filter {
-                    when (selectedTab) {
-                        "전체" -> true
-                        "지역" -> it.location == userLocation
-                        else -> true
-                    }
-                }.sortedWith(
-                    when (sortOption) {
-                        "조회순" -> compareByDescending { it.visited }
-                        "최신순" -> compareByDescending { it.createdAt }
-                        "추천순" -> compareByDescending { it.likes }
-                        else -> compareByDescending { it.visited }
-                    }
+    // CommunityTab의 루트를 Column으로 변경하고 fillMaxSize()를 적용합니다.
+    Column(Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = tabOptions.indexOf(selectedTab)) {
+            tabOptions.forEach { tab ->
+                Tab(
+                    selected = selectedTab == tab,
+                    onClick = { selectedTab = tab },
+                    text = { Text(tab) }
                 )
-
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(filtered, key = { it.id }) { post ->
-                        CommunityPostItem(post) { navToDetail(post) }
-                    }
-                }
             }
         }
 
-        FloatingActionButton(
-            onClick = navToWrite,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            containerColor = MaterialTheme.colorScheme.primary
+        Row(
+            modifier = Modifier
+                .fillMaxWidth() // Row가 화면 전체 너비를 차지하도록
+                .padding(horizontal = 8.dp, vertical = 4.dp), // 좌우 패딩 및 상하 패딩 조정
+            verticalAlignment = Alignment.CenterVertically // 수직 중앙 정렬
         ) {
-            Icon(Icons.Default.Create, contentDescription = "글쓰기", tint = Color.White)
+            sortOptions.forEach {
+                FilterChip(
+                    selected = sortOption == it,
+                    onClick = { sortOption = it },
+                    label = { Text(it) },
+                    modifier = Modifier.padding(end = 8.dp) // 필터칩 오른쪽 간격
+                )
+            }
+            Spacer(Modifier.weight(1f)) // 이 Spacer가 버튼을 오른쪽으로 밀어냅니다.
+            IconButton(onClick = navToWrite) { // 글쓰기 버튼
+                Icon(
+                    Icons.Default.Create,
+                    contentDescription = "글쓰기",
+                    tint = MaterialTheme.colorScheme.primary // 테마 색상 적용
+                )
+            }
         }
 
-    }
-}
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize() // Column 내에서 남은 공간을 모두 차지
+                    .weight(1f), // LazyColumn과 같은 레벨에서 공간 분배를 위해 추가
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            val filtered = posts.filter {
+                when (selectedTab) {
+                    "전체" -> true
+                    "지역" -> it.location == userLocation
+                    else -> true
+                }
+            }.sortedWith(
+                when (sortOption) {
+                    "조회순" -> compareByDescending { it.visited }
+                    "최신순" -> compareByDescending { it.createdAt }
+                    "추천순" -> compareByDescending { it.likes }
+                    else -> compareByDescending { it.visited } // 기본 정렬
+                }
+            )
 
-// 2. 게시글 항목
+            // LazyColumn이 Column 내에서 남은 공간을 모두 차지하도록 weight(1f)를 추가합니다.
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                items(filtered, key = { it.id }) { post ->
+                    CommunityPostItem(post) { navToDetail(post) }
+                }
+            }
+        }
+    }
+    // 기존 FloatingActionButton은 제거되었습니다. (원래 코드에서 Box와 함께 있었음)
+}
+// ------------------- 여기까지 수정된 부분 -------------------
+
+
+// 2. 게시글 항목 (원본 코드 유지)
 @Composable
 fun CommunityPostItem(post: CommunityPost, onClick: () -> Unit = {}) {
     Card(
@@ -470,7 +482,7 @@ fun CommunityPostItem(post: CommunityPost, onClick: () -> Unit = {}) {
     }
 }
 
-// 3. Timestamp -> 상대 시간 포맷
+// 3. Timestamp -> 상대 시간 포맷 (원본 코드 유지)
 fun Timestamp.toRelativeTime(): String {
     val now = System.currentTimeMillis()
     val diff = now - this.toDate().time
@@ -487,7 +499,7 @@ fun Timestamp.toRelativeTime(): String {
     }
 }
 
-// 4. Firestore에서 게시글 불러오기
+// 4. Firestore에서 게시글 불러오기 (원본 코드 유지)
 suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatchers.IO) {
     val communityRef = Firebase.firestore.collection("community")
     val snapshot = communityRef.get().await()
@@ -504,7 +516,7 @@ suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatche
     }
 }
 
-// 5. 글쓰기 화면
+// 5. 글쓰기 화면 (원본 코드 유지)
 @Composable
 fun WritePostScreen(
     onPostCreated: () -> Unit = {},
@@ -564,6 +576,8 @@ fun WritePostScreen(
         }
     }
 }
+
+// uploadPost 함수 (원본 코드 유지)
 fun uploadPost(
     title: String,
     content: String,
@@ -586,7 +600,7 @@ fun uploadPost(
             "title" to title,
             "content" to content,
             "location" to location,
-            "imageUrls" to uris.map { it.toString() },
+            "imageUrls" to uris.map { it.toString() }, // 원본에는 imageUrls만 있었음
             "visited" to 0,
             "likes" to 0,
             "bookmarks" to 0,
@@ -600,6 +614,7 @@ fun uploadPost(
     }
 }
 
+// loadComments 함수 (원본 코드 유지)
 fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     val ref = Firebase.firestore.collection("community").document(postId).collection("comments")
     val listener = ref.orderBy("createdAt").addSnapshotListener { snapshot, _ ->
@@ -610,6 +625,8 @@ fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+
+// commentCountFlow 함수 (원본 코드 유지)
 fun commentCountFlow(postId: String): Flow<Int> = callbackFlow {
     val ref = Firebase.firestore.collection("community")
         .document(postId).collection("comments")
@@ -621,6 +638,7 @@ fun commentCountFlow(postId: String): Flow<Int> = callbackFlow {
     awaitClose { listener.remove() }
 }
 
+// MiniGameTab 함수 (원본 코드 유지)
 @Composable
 fun MiniGameTab(navController: NavController? = null) {
     val gameTabs = listOf("메뉴 정하기", "누가 낼까?")
@@ -639,12 +657,12 @@ fun MiniGameTab(navController: NavController? = null) {
 
         when (selectedTab) {
             "메뉴 정하기" -> MenuGameList(navController)
-            "누가 낼까?" -> PayerGameList()
+            "누가 낼까?" -> PayerGameList() // 원본은 navController 파라미터가 없었음
         }
     }
 }
 
-
+// MenuGameList 함수 (원본 코드 유지)
 @Composable
 fun MenuGameList(navController: NavController? = null) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -661,8 +679,9 @@ fun MenuGameList(navController: NavController? = null) {
     }
 }
 
+// PayerGameList 함수 (원본 코드 유지)
 @Composable
-fun PayerGameList(navController: NavController? = null) {
+fun PayerGameList(navController: NavController? = null) { // 원본에 맞춰 navController 추가
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("누가 돈을 낼까요?", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
