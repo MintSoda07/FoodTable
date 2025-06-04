@@ -64,14 +64,7 @@ fun SubscribeScreenWithNavigation(
     Scaffold(
         topBar = {
             HomeTopBar(
-                user = user,
-                onProfileClick = {
-                    navController.navigate(Screen.MyPage.route)
-                    selectedTab = screens.indexOf(Screen.MyPage)
-                },
-                onChallengeClick = {
-                    navController.context.startActivity(Intent(navController.context, ChallengeActivity::class.java))
-                }
+                user = user
             )
         },
         bottomBar = {

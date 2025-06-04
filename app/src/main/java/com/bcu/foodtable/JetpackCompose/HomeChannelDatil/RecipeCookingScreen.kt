@@ -56,6 +56,7 @@ import java.util.Locale
 import java.util.UUID
 import com.google.firebase.functions.ktx.functions
 import android.util.Base64
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -789,145 +790,77 @@ fun CookingStepCard(
     onNext: () -> Unit,
     onRepeat: () -> Unit,
 ) {
-    Log.d(
-        "CookingStepCardCheck",
-        "index=$index | isCurrent=${step.isCurrent} | showTimer=${step.showTimer} | duration=${step.timerDuration}"
-    )
-
     val animatedElevation by animateDpAsState(
-        targetValue = if (step.isCurrent) 12.dp else if (step.isDone) 4.dp else 2.dp,
+        targetValue = if (step.isCurrent) 14.dp else if (step.isDone) 6.dp else 2.dp,
         animationSpec = tween(300)
     )
 
     val animatedScale by animateFloatAsState(
-        targetValue = if (step.isCurrent) 1.02f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+        targetValue = if (step.isCurrent) 1.03f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy)
     )
 
-    val cardColors = when {
-        step.isCurrent -> CardDefaults.cardColors(
-            containerColor = Color(0xFF6C63FF).copy(alpha = 0.08f)
-        )
-        step.isDone -> CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50).copy(alpha = 0.06f)
-        )
-        else -> CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        )
-    }
+    val cardColor by animateColorAsState(
+        targetValue = when {
+            step.isCurrent -> Color(0xFFEDE7F6)
+            step.isDone -> Color(0xFFE8F5E9)
+            else -> Color(0xFFF5F5F5)
+        },
+        animationSpec = tween(300)
+    )
+
+    val cardBorderColor by animateColorAsState(
+        targetValue = when {
+            step.isCurrent -> Color(0xFF7E57C2)
+            step.isDone -> Color(0xFF66BB6A)
+            else -> Color(0xFFBDBDBD)
+        },
+        animationSpec = tween(300)
+    )
 
     Card(
         modifier = Modifier
-            .padding(vertical = 10.dp, horizontal = 4.dp)
             .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp)
             .scale(animatedScale)
-            .animateContentSize(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            ),
+            .shadow(elevation = animatedElevation, shape = RoundedCornerShape(20.dp)),
+        colors = CardDefaults.cardColors(containerColor = cardColor),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
-        colors = cardColors,
-        border = if (step.isCurrent) BorderStroke(
-            2.dp,
-            Brush.horizontalGradient(
-                colors = listOf(
-                    Color(0xFF6C63FF),
-                    Color(0xFF4ECDC4)
-                )
-            )
-        ) else null
+        border = BorderStroke(1.5.dp, cardBorderColor)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-        ) {
-            // Header Row with Step Indicator
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                StepIndicator(
-                    stepNumber = index + 1,
-                    isCompleted = step.isDone,
-                    isCurrent = step.isCurrent
-                )
+        Column(modifier = Modifier.padding(24.dp)) {
 
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Step ${index + 1}",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = when {
-                                step.isCurrent -> Color(0xFF6C63FF)
-                                step.isDone -> Color(0xFF4CAF50)
-                                else -> MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            letterSpacing = 0.5.sp
-                        )
-                    )
-
-                    if (step.isCurrent) {
-                        Text(
-                            "진행 중",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6C63FF).copy(alpha = 0.7f),
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    } else if (step.isDone) {
-                        Text(
-                            "완료",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF4CAF50).copy(alpha = 0.7f),
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
-                }
-
-                // Status Badge
-                StatusBadge(
-                    isCurrent = step.isCurrent,
-                    isDone = step.isDone
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Step Content
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = when {
-                        step.isCurrent -> Color.White.copy(alpha = 0.8f)
-                        step.isDone -> Color(0xFFF1F8E9)
-                        else -> Color.White.copy(alpha = 0.5f)
-                    }
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
+            // ⏺ 상단 라벨
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    step.text,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        lineHeight = 28.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (step.isCurrent) FontWeight.Medium else FontWeight.Normal
-                    ),
-                    modifier = Modifier.padding(16.dp)
+                    text = "STEP ${index + 1}",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = cardBorderColor
+                    )
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                StatusBadge(isCurrent = step.isCurrent, isDone = step.isDone)
             }
 
-            // Timer Section
-            if (step.showTimer && step.timerState != null) {
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
+            // 설명 텍스트
+            Text(
+                text = step.text,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = 16.sp,
+                    fontWeight = if (step.isCurrent) FontWeight.Medium else FontWeight.Normal,
+                    lineHeight = 26.sp,
+                    color = Color(0xFF212121)
+                ),
+                modifier = Modifier.padding(horizontal = 2.dp)
+            )
+
+            // 타이머
+            if (step.showTimer && step.timerState != null && step.isCurrent) {
+                Spacer(modifier = Modifier.height(20.dp))
                 TimerSection(
                     timerState = step.timerState,
                     timerTitle = step.timerTitle,
@@ -936,24 +869,24 @@ fun CookingStepCard(
                 )
             }
 
-            // Action Buttons for Current Step
+            // 버튼
             if (step.isCurrent && !step.isDone) {
-                Spacer(modifier = Modifier.height(20.dp))
-
+                Spacer(modifier = Modifier.height(24.dp))
                 CurrentStepActions(
                     onRepeat = onRepeat,
                     onNext = onNext
                 )
             }
 
-            // Completion Status
+            // 완료 상태
             if (step.isDone) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
                 CompletionStatus()
             }
         }
     }
 }
+
 
 @Composable
 private fun StepIndicator(

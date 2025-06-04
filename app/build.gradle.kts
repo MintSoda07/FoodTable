@@ -113,6 +113,7 @@ dependencies {
     implementation("androidx.activity:activity-compose")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation(libs.androidx.compose.material)
+    implementation(libs.androidx.tv.material)
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.material:material-icons-extended")
 
