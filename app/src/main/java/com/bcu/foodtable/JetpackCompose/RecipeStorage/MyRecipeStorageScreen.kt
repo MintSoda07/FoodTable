@@ -1,6 +1,8 @@
 package com.bcu.foodtable.JetpackCompose.RecipeStorage
 
 import android.content.Intent
+import android.util.Log
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,10 +49,19 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.layout.positionInWindow
+
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +75,13 @@ fun MyRecipeStorageScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val loadFailed by viewModel.loadFailed.collectAsState()
     val user by homeViewModel.user.collectAsState()
+    // 선택된 아이템과 드래그 중인 위치 상태
+    var draggingItem: GalleryItem? by remember { mutableStateOf(null) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+
+    val recipeCardBoundsMap = remember { mutableStateMapOf<String, Rect>() }
+
+    var dragPositionInWindow by remember { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(Unit) {
         viewModel.loadGalleryItems()
@@ -77,15 +95,25 @@ fun MyRecipeStorageScreen(
     }
 
     val displayList = remember(galleryItems, groupedItemsMap) {
+        // 그룹당 대표 아이템 1개만 선택 (recipeId가 가장 작은 것 기준)
         val groupRepresentativeItems = groupedItemsMap.mapNotNull { (_, items) ->
-            items.firstOrNull()
+            items.minByOrNull { it.recipeId } // 또는 createdTimestamp도 가능
         }
+
+        // 그룹이 없는 아이템
         val nonGroupedItems = galleryItems.filter { it.groupId.isBlank() }
+
+        // 그룹 대표 + 그룹 없는 것들을 하나로 묶고 정렬
         (groupRepresentativeItems + nonGroupedItems)
             .sortedByDescending { it.creationTimestamp ?: 0L }
     }
+    LaunchedEffect(displayList) {
+        Log.d("DisplayList", displayList.joinToString("\n") { it.recipeId + " / " + it.groupId })
+    }
 
-    var showGroupDetailOverlay by remember { mutableStateOf<Pair<String, List<GalleryItem>>?>(null) }
+
+    var showGroupDetailOverlay by remember { mutableStateOf<String?>(null) }
+
     val itemSize = 180.dp
 
     Box(
@@ -103,9 +131,11 @@ fun MyRecipeStorageScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize(),
+
                 ) {
                     items(displayList, key = { it.recipeId + it.groupId }) { item ->
+
                         val isGroup = item.groupId.isNotBlank() &&
                                 (groupedItemsMap[item.groupId]?.size ?: 0) > 0
 
@@ -118,25 +148,113 @@ fun MyRecipeStorageScreen(
                                     representativeImageUrl = itemsInGroup.firstOrNull()?.image,
                                     itemCount = itemsInGroup.size,
                                     itemSize = itemSize,
+                                    dragOffset = dragOffset,
+
                                     onClick = {
-                                        showGroupDetailOverlay =
-                                            (representativeItem.groupName ?: representativeItem.groupId) to itemsInGroup
+                                        showGroupDetailOverlay = representativeItem.groupId  //  groupId만 저장
+                                    },
+                                    draggingItem = draggingItem,
+                                    dragPositionInWindow = dragPositionInWindow,
+                                    onDrop = { droppedItem ->
+                                        draggingItem?.let { source ->
+                                            // 자기 자신이면 무시
+                                            if (source.recipeId == representativeItem.recipeId) return@let
+
+                                            // 이미 같은 그룹이면 무시
+                                            if (!source.groupId.isNullOrBlank() && source.groupId == representativeItem.groupId) return@let
+
+                                            // 그룹 외부에서 온 항목만 추가 허용
+                                            if (source.groupId.isNullOrBlank()) {
+                                                viewModel.addToGroup(representativeItem.groupId ?: return@let, source)
+                                            } else {
+                                                Log.d("DropDebug", " 이미 다른 그룹 소속이라 무시됨: ${source.recipeId}")
+                                            }
+
+                                            draggingItem = null
+                                            dragOffset = Offset.Zero
+                                        }
                                     }
+                                    ,
+                                            onUngroupClick = {
+                                        viewModel.ungroup(representativeItem.groupId ?: "")
+                                    }
+
                                 )
                             }
                         } else {
                             StyledRecipeItemCard(
                                 item = item,
                                 itemSize = itemSize,
+                                modifier = Modifier.onGloballyPositioned {
+                                    recipeCardBoundsMap[item.recipeId] = it.boundsInWindow()
+                                },
                                 onClick = {
                                     val intent = Intent(context, RecipeCookingActivity::class.java)
                                     intent.putExtra("recipe_id", item.recipeId)
                                     context.startActivity(intent)
+                                },
+                                onDragStart = { draggingItem = it },
+                                onDrag = { offset ->
+                                    Log.d("Offset", "Dragging offset: $offset")
+                                    dragOffset += offset },
+                                onDragEnd = {
+                                    draggingItem = null
+                                    dragOffset = Offset.Zero
+                                    dragPositionInWindow = Offset.Zero // <- 이거 중요
+                                },
+                                draggingItem = draggingItem,
+                                dragOffset = dragOffset,
+                                dragPositionInWindow = dragPositionInWindow,
+                                onUpdateDragPosition = { pos ->
+                                    dragPositionInWindow = pos
                                 }
                             )
                         }
                     }
+
+
+
                 }
+                LaunchedEffect(draggingItem, dragPositionInWindow) {
+                    val source = draggingItem ?: return@LaunchedEffect
+
+                    for (target in displayList) {
+                        if (target.recipeId == source.recipeId) continue
+                        val bounds = recipeCardBoundsMap[target.recipeId] ?: continue
+
+                        if (bounds.contains(dragPositionInWindow)) {
+                            Log.d("DropDebug", " 충돌 감지 → ${source.recipeId} vs ${target.recipeId}")
+
+                            val sourceGroupId = source.groupId.orEmpty()
+                            val targetGroupId = target.groupId.orEmpty()
+
+                            when {
+                                sourceGroupId.isBlank() && targetGroupId.isBlank() -> {
+                                    viewModel.createGroup(source, target)
+                                }
+                                sourceGroupId.isBlank() && targetGroupId.isNotBlank() -> {
+                                    viewModel.addToGroup(targetGroupId, source)
+                                }
+                                sourceGroupId != targetGroupId && targetGroupId.isNotBlank() -> {
+                                    viewModel.addToGroup(targetGroupId, source)
+                                }
+                            }
+
+                            break
+                        }
+                    }
+                }
+
+
+
+
+
+
+
+
+
+
+
             }
         }
 
@@ -146,21 +264,28 @@ fun MyRecipeStorageScreen(
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            showGroupDetailOverlay?.let { (groupName, items) ->
+            showGroupDetailOverlay?.let { groupId ->
+                val items = galleryItems.filter { it.groupId == groupId }
+                val groupName = items.firstOrNull()?.groupName ?: "Unnamed"
+
                 StyledGroupDetailOverlay(
                     groupName = groupName,
                     itemsInGroup = items,
                     onDismiss = { showGroupDetailOverlay = null },
-                    onItemClick = { clickedItem ->
+                    onItemClick = { item ->
                         val intent = Intent(context, RecipeCookingActivity::class.java)
-                        intent.putExtra("recipe_id", clickedItem.recipeId)
+                        intent.putExtra("recipe_id", item.recipeId)
                         context.startActivity(intent)
                         showGroupDetailOverlay = null
+                    },
+                    onRenameGroup = { newName ->
+                        viewModel.renameGroup(groupId, newName)
                     },
                     gridItemSize = itemSize * 0.9f
                 )
             }
         }
+
     }
 }
 
@@ -272,10 +397,18 @@ fun StyledRecipeItemCard(
     item: GalleryItem,
     itemSize: Dp,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDragStart: (GalleryItem) -> Unit = {},
+    onDrag: (Offset) -> Unit = {},
+    onDragEnd: () -> Unit = {},
+    draggingItem: GalleryItem? = null,
+    dragOffset: Offset = Offset.Zero,
+    dragPositionInWindow: Offset = Offset.Zero,
+    onUpdateDragPosition: (Offset) -> Unit = {}
 ) {
     var isFavorite by remember { mutableStateOf(false) }
-    
+    var layoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var cardBoundsInWindow by remember { mutableStateOf<Rect?>(null) }
     // 애니메이션 효과 추가
     val cardScale by animateFloatAsState(
         targetValue = if (isFavorite) 1.05f else 1.0f,
@@ -286,8 +419,46 @@ fun StyledRecipeItemCard(
         label = "cardScale"
     )
 
+    val dragModifier = Modifier
+        .onGloballyPositioned {
+            layoutCoordinates = it
+            cardBoundsInWindow = it.boundsInWindow()
+
+        }
+        .pointerInput(item) {
+            detectDragGestures(
+                onDragStart = {
+                    onDragStart(item)
+
+                },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount)
+
+                    layoutCoordinates?.let { coords ->
+                        val dragPosInWindow = coords.localToWindow(change.position)
+                        onUpdateDragPosition(dragPosInWindow)
+                        Log.d("Offset", "Dragging drawPosInWindow: $dragPosInWindow")
+                    }
+                }
+                ,
+                onDragEnd = {
+                    onDragEnd()
+                }
+            )
+        }
+    val offsetModifier = if (draggingItem?.recipeId == item.recipeId) {
+        Modifier.offset {
+            IntOffset(dragOffset.x.toInt(), dragOffset.y.toInt())
+        }
+    } else {
+        Modifier
+    }
+
     Card(
         modifier = modifier
+            .then(dragModifier)
+            .then(offsetModifier)
             .width(itemSize)
             .aspectRatio(0.75f) // 높이를 조금 더 늘려서 정보 공간 확보
             .graphicsLayer(
@@ -332,6 +503,7 @@ fun StyledRecipeItemCard(
                         isError = state is AsyncImagePainter.State.Error
                     }
                 }
+
 
                 // Always show the image
                 Image(
@@ -496,10 +668,23 @@ fun StyledGroupFolderItemCard(
     itemCount: Int,
     itemSize: Dp,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    draggingItem: GalleryItem? = null,
+    dragPositionInWindow: Offset = Offset.Zero,
+    dragOffset: Offset = Offset.Zero,
+    onDrop: (GalleryItem) -> Unit = {},
+    onUngroupClick: () -> Unit = {}
 ) {
     var isPressed by remember { mutableStateOf(false) }
-    
+    var cardBoundsInWindow by remember { mutableStateOf<Rect?>(null) }
+    var showUngroupDialog by remember { mutableStateOf(false) }
+    val modifierWithPosition = modifier.onGloballyPositioned { layoutCoordinates ->
+        val bounds = layoutCoordinates.boundsInWindow()
+        Log.d("Bounds", " onGloballyPositioned called, bounds = $bounds")
+        cardBoundsInWindow = bounds
+        Log.d("DropDebug", " CardBounds: $bounds")
+    }
+
     // 애니메이션 효과
     val cardScale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1.0f,
@@ -520,7 +705,7 @@ fun StyledGroupFolderItemCard(
     )
 
     Card(
-        modifier = modifier
+        modifier = modifierWithPosition
             .width(itemSize)
             .aspectRatio(0.75f)
             .graphicsLayer(
@@ -535,7 +720,8 @@ fun StyledGroupFolderItemCard(
                         tryAwaitRelease()
                         isPressed = false
                     },
-                    onTap = { onClick() }
+                    onTap = { onClick() },
+                    onLongPress = { showUngroupDialog = true }
                 )
             }
             .shadow(
@@ -545,8 +731,8 @@ fun StyledGroupFolderItemCard(
             ),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 8.dp, 
-            pressedElevation = 16.dp, 
+            defaultElevation = 8.dp,
+            pressedElevation = 16.dp,
             hoveredElevation = 12.dp
         ),
         colors = CardDefaults.cardColors(
@@ -554,6 +740,22 @@ fun StyledGroupFolderItemCard(
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            if (showUngroupDialog) {
+                AlertDialog(
+                    onDismissRequest = { showUngroupDialog = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            onUngroupClick() //  전달받은 함수 실행
+                            showUngroupDialog = false
+                        }) { Text("해제하기") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showUngroupDialog = false }) { Text("취소") }
+                    },
+                    title = { Text("그룹 해제") },
+                    text = { Text("이 그룹을 해제하시겠습니까?") }
+                )
+            }
             // 배경 그라데이션
             Box(
                 modifier = Modifier
@@ -602,6 +804,7 @@ fun StyledGroupFolderItemCard(
                         }
 
                         Box(modifier = Modifier.fillMaxSize()) {
+
                             // Always show the image
                             Image(
                                 painter = painter,
@@ -620,7 +823,9 @@ fun StyledGroupFolderItemCard(
                                         Brush.verticalGradient(
                                             colors = listOf(
                                                 Color.Transparent,
-                                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                                                MaterialTheme.colorScheme.tertiaryContainer.copy(
+                                                    alpha = 0.3f
+                                                )
                                             )
                                         )
                                     )
@@ -722,9 +927,9 @@ fun StyledGroupFolderItemCard(
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
-                    
+
                     Spacer(modifier = Modifier.height(6.dp))
-                    
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center
@@ -757,10 +962,76 @@ fun StyledGroupFolderItemCard(
                         )
                 )
             }
+
+//            LaunchedEffect(draggingItem, dragPositionInWindow) {
+//                Log.d("Debug", "Bounds: ${cardBoundsInWindow?.toString()}")
+//                Log.d("Debug", "Drag Pos: $dragPositionInWindow")
+//
+//                if (
+//                    draggingItem != null &&
+//                    cardBoundsInWindow != null
+//                ) {
+//                    // ⬇️ 바운드 확장
+//                    val expandedBounds = cardBoundsInWindow!!.inset(-1000f)
+//
+//                    Log.d("DropCheck", " 확장된 카드 바운드: $expandedBounds")
+//                    Log.d("DropCheck", " 드래그 위치: $dragPositionInWindow")
+//
+//                    if (expandedBounds.contains(dragPositionInWindow)) {
+//                        Log.d("Drop", " Dropped into $groupName!")
+//                        Log.d("DropDebug", "드래그된 카드가 이 그룹 카드에 닿았습니다!")
+//                        onDrop(draggingItem!!)
+//                    }
+//                }
+//            }
+//            LaunchedEffect(draggingItem, dragPositionInWindow) {
+//                Log.d("DropDebug", "draggingItem = $draggingItem")
+//                Log.d("DropDebug", "cardBoundsInWindow = $cardBoundsInWindow")
+//
+//                val bounds = cardBoundsInWindow
+//                if (draggingItem != null && bounds != null) {
+//                    val expandedBounds = bounds.inflate(1000f)
+//                    Log.d("DropDebug", "bounds = $expandedBounds, dragPos = $dragPositionInWindow")
+//
+//                    if (expandedBounds.contains(dragPositionInWindow)) {
+//                        Log.d("DropDebug", " 충돌 감지됨 → 그룹화 시도")
+//                        onDrop(draggingItem!!)
+//                    }
+//                } else {
+//                    Log.d("DropDebug", " 충돌 체크 불가 - draggingItem 또는 bounds 가 null")
+//                }
+//            }
+
+
+
+
+
+
+                // 충돌 텍스트 체크
+//            Column(
+//                modifier = Modifier
+//                    .align(Alignment.BottomStart)
+//                    .padding(8.dp)
+//            ) {
+//                Text(
+//                    text = "dragOffset: $dragOffset",
+//                    style = MaterialTheme.typography.labelSmall,
+//                    color = Color.Red
+//                )
+//                Text(
+//                    text = "cardBounds: ${
+//                        cardBoundsInWindow?.let {
+//                            "(${it.left.toInt()}, ${it.top.toInt()}, ${it.right.toInt()}, ${it.bottom.toInt()})"
+//                        } ?: "null"
+//                    }",
+//                    style = MaterialTheme.typography.labelSmall,
+//                    color = Color.Red
+//                )
+//            }
+
         }
     }
 }
-
 @Composable
 fun StyledGroupDetailOverlay(
     groupName: String,
@@ -768,21 +1039,26 @@ fun StyledGroupDetailOverlay(
     onDismiss: () -> Unit,
     onItemClick: (GalleryItem) -> Unit,
     gridItemSize: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onRenameGroup: (String) -> Unit = {} //  이름 변경
 ) {
+    var isEditingName by remember { mutableStateOf(false) }
+    var editedName by remember { mutableStateOf(groupName) }
+
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false) // 전체 너비 사용
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
             modifier = modifier
-                .fillMaxSize() // 화면을 덮도록
-                .padding(vertical = 32.dp, horizontal = 16.dp), // 화면 가장자리에서 약간의 여백
+                .fillMaxSize()
+                .padding(vertical = 32.dp, horizontal = 16.dp),
             shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh, // 다이얼로그 배경색
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
             tonalElevation = 8.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                //  그룹명 편집 섹션
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -790,22 +1066,47 @@ fun StyledGroupDetailOverlay(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(
-                        text = groupName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    if (isEditingName) {
+                        TextField(
+                            value = editedName,
+                            onValueChange = { editedName = it },
+                            textStyle = MaterialTheme.typography.titleLarge,
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = {
+                            onRenameGroup(editedName) //  이름 변경 호출
+                            isEditingName = false
+                        }) {
+                            Icon(Icons.Default.Check, contentDescription = "저장")
+                        }
+                    } else {
+                        Text(
+                            text = groupName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { isEditingName = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "이름 수정")
+                        }
+                    }
+
                     IconButton(onClick = onDismiss) {
                         Icon(
                             Icons.Filled.Close,
-                            contentDescription = "Close Group Detail",
+                            contentDescription = "닫기",
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
 
+                //  레시피 목록
                 if (itemsInGroup.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text("이 그룹에는 레시피가 없습니다.", style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
@@ -814,7 +1115,7 @@ fun StyledGroupDetailOverlay(
                         contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.weight(1f) // 남은 공간 채우기
+                        modifier = Modifier.weight(1f)
                     ) {
                         items(itemsInGroup, key = { item -> "detail_${item.recipeId}" }) { item ->
                             StyledRecipeItemCard(
@@ -828,4 +1129,13 @@ fun StyledGroupDetailOverlay(
             }
         }
     }
+}
+// 범위 확장 함수
+fun Rect.inset(pixels: Float): Rect {
+    return Rect(
+        left - pixels,
+        top - pixels,
+        right + pixels,
+        bottom + pixels
+    )
 }
