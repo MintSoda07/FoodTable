@@ -115,22 +115,11 @@
             android:name=".PurchaseConfirmActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.subscribeNavMenu.WriteActivity"
-            android:exported="false" />
-        <activity
             android:name=".ui.subscribeNavMenu.EditRecipeActivity"
             android:exported="false" />
         <activity
             android:name=".PuchasePage"
             android:exported="false" />
-<!--        <activity-->
-<!--            android:name=".Setting"-->
-<!--            android:exported="false" />-->
-        <activity
-            android:name=".JetpackCompose.Subscribe.Channel.ChannelViewPage"
-            android:exported="false" />
-
-
         <activity
             android:name=".RecipeDetailViewByHelperActivity"
             android:exported="false" />
@@ -167,7 +156,9 @@
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity"
             android:exported="false" />
-
+        <activity
+            android:name="com.bcu.foodtable.model.ChallengeDetailActivity"
+            android:exported="false" />
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity"
             android:exported="false"/>

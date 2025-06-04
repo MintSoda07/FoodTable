@@ -38,26 +38,9 @@ fun ChallengeScreen(viewModel: ChallengeViewModel) {
     val challenges by viewModel.challenges.collectAsState()
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
-
-    var user by remember { mutableStateOf(UserManager.getUser()!!) }
-    var userSalt by remember { mutableStateOf(user.point) }
+    val userSalt by viewModel.userSalt.collectAsState()
 
     val context = LocalContext.current
-
-    fun updateUserSalt(amount: Int) {
-        val updatedUser = user.copy(point = user.point + amount)
-        user = updatedUser
-        userSalt = updatedUser.point
-        UserManager.setUserByDatatype(updatedUser)
-
-        Firebase.firestore
-            .collection("user")
-            .document(user.uid)
-            .update("point", updatedUser.point)
-            .addOnFailureListener {
-                Log.e("ChallengeScreen", "🔥 Firestore 업데이트 실패: ${it.localizedMessage}")
-            }
-    }
 
     when {
         loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -73,8 +56,7 @@ fun ChallengeScreen(viewModel: ChallengeViewModel) {
             salt = userSalt,
             onProgressUpdate = { id, value ->
                 viewModel.updateProgress(id, value)
-                val reward = challenges.find { it.id == id }?.reward ?: 0
-                updateUserSalt(reward)
+                // 🔥 보상은 ViewModel 내부에서 이미 처리하므로 따로 updateUserSalt() 필요 없음
             },
             onStartChallenge = { id ->
                 viewModel.startChallenge(id)

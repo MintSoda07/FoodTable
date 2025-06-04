@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import com.bcu.foodtable.ui.ChallengeDetailScreen
+import com.bcu.foodtable.ui.home.FoodTableTheme
 import kotlinx.serialization.json.Json
 
 class ChallengeDetailActivity : ComponentActivity() {
@@ -15,10 +16,12 @@ class ChallengeDetailActivity : ComponentActivity() {
         val challenge = Json.decodeFromString<Challenge>(challengeJson)
 
         setContent {
-            ChallengeDetailScreen(
-                challenge = challenge,
-                onShareClick = { shareChallenge(challenge) } // ✅ 이 함수 아래에 정의돼 있어야 함
-            )
+            FoodTableTheme {
+                ChallengeDetailScreen(
+                    challenge = challenge,
+                    onShareClick = { shareChallenge(challenge) } // ✅ 이 함수 아래에 정의돼 있어야 함
+                )
+            }
         }
     }
 

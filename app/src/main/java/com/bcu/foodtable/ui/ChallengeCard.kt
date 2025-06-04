@@ -41,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bcu.foodtable.R
 import com.bcu.foodtable.model.Challenge
+import com.bcu.foodtable.model.ChallengeDetailActivity
+import com.bcu.foodtable.ui.ChallengeDetailScreen
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -70,9 +72,10 @@ fun ChallengeCardAnimated(
             .fillMaxWidth()
             .clickable {
                 val json = Json.encodeToString(challenge)
-                val intent = Intent(context, ChallengeDetailActivity::class.java)
-                intent.putExtra("challenge", json)
+                val intent = Intent(context, ChallengeDetailActivity::class.java) // ✅ Activity로 수정
+                intent.putExtra("challenge", Json.encodeToString(challenge))
                 context.startActivity(intent)
+
             },
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
         elevation = CardDefaults.cardElevation(4.dp)
