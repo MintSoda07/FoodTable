@@ -931,7 +931,8 @@ fun CookingStepCard(
                 TimerSection(
                     timerState = step.timerState,
                     timerTitle = step.timerTitle,
-                    onFinish = onNext
+                    onFinish = onNext,
+                    onNext = onNext
                 )
             }
 
@@ -1055,7 +1056,8 @@ private fun StatusBadge(
 private fun TimerSection(
     timerState: StepTimerState,
     timerTitle: String,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    onNext: () -> Unit
 ) {
     var isRunning by remember { mutableStateOf(false) }
     var isPaused by remember { mutableStateOf(false) }
@@ -1133,6 +1135,14 @@ private fun TimerSection(
                     enabled = isRunning
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            ModernActionButton(
+                text = "➡ 다음 단계",
+                onClick = onNext,
+                backgroundColor = Color(0xFF6C63FF),
+                textColor = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

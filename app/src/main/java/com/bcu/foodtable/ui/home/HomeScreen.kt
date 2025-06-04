@@ -977,7 +977,7 @@ fun ModernSearchBar(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp),
-        placeholder = { Text("Search for recipes, ingredients...") },
+        placeholder = { Text("레시피와 재료를 검색해주세요.") },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Filled.Search,
