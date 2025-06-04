@@ -38,14 +38,18 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
+import com.bcu.foodtable.model.Challenge
+import com.bcu.foodtable.ui.ChallengeScreenContent
 import com.bcu.foodtable.useful.Comment
 import com.bcu.foodtable.useful.CommunityPost
 import com.bcu.foodtable.useful.UserManager
+import com.bcu.foodtable.viewmodel.ChallengeViewModel
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
@@ -80,7 +84,7 @@ fun SocialScreen(navController: NavHostController) {
         },
         WheelItem(Icons.Default.Fastfood, "오늘밥") { MiniGameTab(navController) },
         WheelItem(Icons.Default.Star, "랭킹") { ScreenStub("랭킹 탭") },
-        WheelItem(Icons.Default.Star, "챌린지") { ScreenStub("챌린지 탭") },
+        WheelItem(Icons.Default.Star, "챌린지") { ChallengeTab()},
         WheelItem(Icons.Default.Face, "친구") { ScreenStub("친구 탭") },
         WheelItem(Icons.Default.Chat, "채팅") { ScreenStub("채팅 탭") },
         WheelItem(Icons.Default.Place, "맛집도") { ScreenStub("맛집도 탭") },
@@ -674,3 +678,27 @@ fun PayerGameList(navController: NavController? = null) {
 }
 
 
+
+@Composable
+fun ChallengeTab() {
+    val viewModel: ChallengeViewModel = viewModel()
+    val challenges by viewModel.challenges.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val userSalt by viewModel.userSalt.collectAsState()
+
+    when {
+        loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("⚠ ${error ?: "오류 발생"}", color = MaterialTheme.colorScheme.error)
+        }
+        else -> ChallengeScreenContent(
+            challenges = challenges,
+            salt = userSalt,
+            onProgressUpdate = { id, value -> viewModel.updateProgress(id, value) },
+            onStartChallenge = { id -> viewModel.startChallenge(id) }
+        )
+    }
+}

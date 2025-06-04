@@ -134,6 +134,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.bcu.foodtable.ui.ChallengeScreen
+import com.bcu.foodtable.viewmodel.ChallengeViewModel
 import com.bcu.foodtable.ui.home.AiChatBox as AiChatBox1
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
@@ -830,6 +832,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable("challenge") {
+                val challengeViewModel: ChallengeViewModel = viewModel()
+                ChallengeScreen(viewModel = challengeViewModel)
+            }
             composable(Screen.Home.route) {
                 Box(
                     modifier = Modifier
