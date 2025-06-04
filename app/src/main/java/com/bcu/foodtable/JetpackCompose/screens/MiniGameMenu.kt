@@ -23,19 +23,19 @@ fun MiniGameMenu(navController: NavController) {
         Text("오늘의 게임", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
 
-        GameButton("🍽️ 메뉴 정하기 - 룰렛 돌리기") {
+        GameButton("메뉴 정하기 - 룰렛 돌리기") {
             navController.navigate("rouletteGame")
         }
 
-        GameButton("🍱 메뉴 정하기 - 카드 뒤집기") {
+        GameButton("메뉴 정하기 - 음식 셔플") {
             navController.navigate("cardGame")
         }
 
-        GameButton("🙋 누가 낼까? - 사다리 타기") {
+        GameButton("누가 낼까? - 사다리 타기") {
             navController.navigate("ladderGame")
         }
 
-        GameButton("🎯 누가 낼까? - 룰렛 돌리기") {
+        GameButton("누가 낼까? - 룰렛 돌리기") {
             navController.navigate("payerRouletteGame")
         }
     }

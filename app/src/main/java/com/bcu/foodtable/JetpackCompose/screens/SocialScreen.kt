@@ -633,7 +633,7 @@ fun MenuGameList(navController: NavController? = null) {
             navController?.navigate("rouletteGame")
         }
 
-        GameButton("카드 뒤집기") {
+        GameButton("음식 셔플") {
             navController?.navigate("cardGame")
         }
     }

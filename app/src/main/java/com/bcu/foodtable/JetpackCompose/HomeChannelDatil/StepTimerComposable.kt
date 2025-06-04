@@ -22,11 +22,8 @@ fun StepTimer(
     val progress = remaining.toFloat() / total
     val timeText = formatMillis(remaining)
 
-    LaunchedEffect(Unit) {
-        timerState.start(onFinish)
-    }
-
-    Column {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // 진행 바
         LinearProgressIndicator(
             progress = progress,
             modifier = Modifier
@@ -36,10 +33,15 @@ fun StepTimer(
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
-        Text("남은 시간: $timeText", modifier = Modifier.padding(top = 6.dp))
+
+        // 남은 시간
+        Text(
+            text = "남은 시간: $timeText",
+            modifier = Modifier.padding(top = 6.dp),
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
-
 
 
 fun formatMillis(millis: Long): String {

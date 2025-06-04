@@ -112,6 +112,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.0")
     implementation("androidx.activity:activity-compose")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation(libs.androidx.compose.material)
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.material:material-icons-extended")
 

@@ -49,6 +49,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.material.icons.Icons
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -101,7 +102,6 @@ import com.bcu.foodtable.ai.AIRecommendationService
 import com.bcu.foodtable.data.UserBehaviorTracker
 import com.bcu.foodtable.manager.TimeBasedRecommendationManager
 import com.bcu.foodtable.di.DependencyProvider
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.text.font.FontStyle
@@ -110,7 +110,6 @@ import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
 import com.bcu.foodtable.JetpackCompose.screens.SocialScreen
-
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -125,7 +124,17 @@ import com.bcu.foodtable.JetpackCompose.screens.PayerRouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.PostDetailScreen
 import com.bcu.foodtable.JetpackCompose.screens.RouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
-
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberModalBottomSheetState
+import com.bcu.foodtable.ui.home.AiChatBox as AiChatBox1
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -747,6 +756,7 @@ fun AppTopBar(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
     val context = LocalContext.current
@@ -771,8 +781,27 @@ fun HomeScreen(viewModel: HomeViewModel) {
         factory = SubscribeViewModelFactory(firestore, userId)
     )
 
+    val aiChatViewModel = remember { AiChatViewModel() }
+    val coroutineScope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showBottomSheet by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
+    }
+
+    if (showBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                coroutineScope.launch {
+                    sheetState.hide()
+                    showBottomSheet = false
+                }
+            },
+            sheetState = sheetState
+        ) {
+            AiChatBox1(viewModel = aiChatViewModel)
+        }
     }
 
     Scaffold(
@@ -782,8 +811,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 screens = screens,
                 user = user
             )
-        }
-        ,
+        },
         bottomBar = {
             AppBottomNavigationBar(
                 screens = screens,
@@ -791,14 +819,19 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 onTabSelected = { index ->
                     selectedTab = index
                     navController.navigate(screens[index].route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = {
+                showBottomSheet = true
+            }) {
+                Icon(Icons.Filled.Chat, contentDescription = "Open AI Chat")
+            }
         },
         modifier = Modifier.pointerInput(Unit) {
             detectTapGestures(onTap = { focusManager.clearFocus() })
@@ -841,19 +874,14 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
             composable("community") {
                 CommunityTab(
-                    navToWrite = {
-                    navController.navigate("write")
-                },
-                    navToDetail = { post ->
-                    navController.navigate("postDetail/${post.id}")
-                })
+                    navToWrite = { navController.navigate("write") },
+                    navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
+                )
             }
             composable("write") {
                 WritePostScreen(
                     navController = navController,
-                    onPostCreated = {
-                        navController.popBackStack() // 글 작성 후 돌아가기
-                    }
+                    onPostCreated = { navController.popBackStack() }
                 )
             }
             composable("postDetail/{postId}") { backStackEntry ->
@@ -867,14 +895,12 @@ fun HomeScreen(viewModel: HomeViewModel) {
             composable("write/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
                 WriteScreen(channelName = channelName, onUploadSuccess = {
-                    // 업로드 성공 시 이전 화면으로 돌아가기
                     navController.popBackStack()
                 })
             }
             composable("recipeView/{id}") { backStackEntry ->
                 val id = backStackEntry.arguments?.getString("id") ?: ""
-                ChannelViewPageScreen(channelName = id, navController = navController) //사용하는 실제 화면 Composable
-
+                ChannelViewPageScreen(channelName = id, navController = navController)
             }
 
             composable(Screen.Subscribe.route) {
@@ -2041,5 +2067,7 @@ fun EmptyState(modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
     }
+    
 }

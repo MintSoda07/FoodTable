@@ -56,7 +56,18 @@ import java.util.Locale
 import java.util.UUID
 import com.google.firebase.functions.ktx.functions
 import android.util.Base64
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bcu.foodtable.TTS.CookingAiViewModel
 import com.bcu.foodtable.TTS.CookingAiViewModelFactory
@@ -85,18 +96,21 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     val application = LocalContext.current.applicationContext as Application
     val firebaseFunctionsInstance = remember { Firebase.functions("us-central1") }
     val aiViewModelFactory = remember { CookingAiViewModelFactory(application, firebaseFunctionsInstance) }
-    val aiViewModel: CookingAiViewModel = viewModel(key = "aiEvaluationViewModel", factory = aiViewModelFactory) // key는 선택 사항
+    val aiViewModel: CookingAiViewModel = viewModel(key = "aiEvaluationViewModel", factory = aiViewModelFactory)
     val context = LocalContext.current
+
     // ViewModel 상태 관찰
     val isLoadingAiEval by aiViewModel.isLoading.collectAsState()
     val aiEvaluationResultText by aiViewModel.evaluationApiResult.collectAsState()
     val aiEvalToastMessage by aiViewModel.toastMessage.collectAsState()
+
     LaunchedEffect(aiEvalToastMessage) {
         aiEvalToastMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-            aiViewModel.clearToastMessage() // 메시지 표시 후 ViewModel에서 초기화
+            aiViewModel.clearToastMessage()
         }
     }
+
     var userImageUriForAiEval by remember { mutableStateOf<Uri?>(null) }
 
     val tts = remember {
@@ -109,11 +123,10 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     val pickImageLauncherForAiEval = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        userImageUriForAiEval = uri // UI 업데이트용 (선택한 이미지 미리보기 등)
+        userImageUriForAiEval = uri
         uri?.let { selectedUserImageUri ->
-            // CRITICAL: recipe.imageResId가 레시피 원본 이미지의 완전한 HTTP/HTTPS URL 문자열이어야 합니다.
-            val recipeImageStringUrl = recipe.imageResId // 이 변수가 실제 URL인지 확인!
-            if (recipeImageStringUrl.startsWith("http")) { // 간단한 URL 형식 체크
+            val recipeImageStringUrl = recipe.imageResId
+            if (recipeImageStringUrl.startsWith("http")) {
                 aiViewModel.evaluateCookingRecipe(recipeImageStringUrl, selectedUserImageUri)
             } else {
                 Toast.makeText(context, "레시피 원본 이미지 URL이 유효하지 않습니다. (예: http...)", Toast.LENGTH_LONG).show()
@@ -121,8 +134,8 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             }
         }
     }
-    Log.d("RecipeOrderRaw", recipe.order)
 
+    Log.d("RecipeOrderRaw", recipe.order)
 
     val recipeId = recipe.id.ifBlank { UUID.randomUUID().toString() }
     var steps by remember {
@@ -171,7 +184,6 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     var isFinished by remember { mutableStateOf(false) }
     val isListening = remember { mutableStateOf(false) }
 
-
     fun goToNextStep() {
         if (currentIndex + 1 < steps.size) {
             steps = steps.mapIndexed { index, step ->
@@ -200,7 +212,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
         VoiceCommandController(
             context = context,
             tts = tts,
-            onCommand = {} // 빈 람다로 초기화
+            onCommand = {}
         )
     }
 
@@ -212,11 +224,9 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 VoiceCommandController.CommandType.STOP -> {
                     tts.speak("음성 명령을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
                 }
-
                 VoiceCommandController.CommandType.TIMER -> {
                     tts.speak("타이머 기능은 아직 완전히 연동되지 않았습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer")
                 }
-
                 VoiceCommandController.CommandType.NONE -> {
                     tts.speak("명령을 이해하지 못했습니다.", TextToSpeech.QUEUE_FLUSH, null, "fail")
                 }
@@ -228,142 +238,218 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
         modifier = Modifier
             .fillMaxSize()
             .background(
-                brush = Brush.verticalGradient( // Adjusted gradient
+                brush = Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.3f),
-                        MaterialTheme.colorScheme.background
+                        Color(0xFF6C63FF).copy(alpha = 0.08f),
+                        Color(0xFF4ECDC4).copy(alpha = 0.05f),
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
                     ),
                     startY = 0f,
-                    endY = 800f // Adjust endY for smoother transition over a larger area
+                    endY = 1200f
                 )
             )
     ) {
         LazyColumn(
-            modifier = Modifier.padding(horizontal = 16.dp), // Main content padding
+            modifier = Modifier.padding(horizontal = 20.dp),
             contentPadding = PaddingValues(
-                top = 16.dp,
-                bottom = 32.dp
-            ) // Padding for scrollable content
+                top = 24.dp,
+                bottom = 40.dp
+            )
         ) {
             item {
-                Text(
-                    recipe.name,
-                    style = MaterialTheme.typography.displaySmall.copy( // Enhanced title style
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-                AsyncImage(
-                    model = recipe.imageResId,
-                    contentDescription = recipe.name,
-                    contentScale = ContentScale.Crop,
+                // Hero Section with Glass Morphism Effect
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(280.dp) // Slightly taller image
-                        .padding(vertical = 12.dp)
-                        .clip(RoundedCornerShape(20.dp)) // More rounded corners
-                        .border( // Added subtle border
-                            1.dp,
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                            RoundedCornerShape(20.dp)
+                        .padding(bottom = 24.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        Text(
+                            recipe.name,
+                            style = MaterialTheme.typography.displaySmall.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = (-0.5).sp
+                            ),
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        .shadow(6.dp, RoundedCornerShape(20.dp)) // Adjusted shadow
-                        .animateContentSize()
-                )
-                Text(
-                    "설명: ${recipe.description}",
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        color = MaterialTheme.colorScheme.onBackground,
-                        lineHeight = 26.sp // Increased line height for readability
-                    ),
-                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                )
-                Text(
-                    "예상 칼로리: ${recipe.estimatedCalories}",
-                    style = MaterialTheme.typography.bodyMedium.copy( // Changed from Italic
-                        color = MaterialTheme.colorScheme.onSurfaceVariant // Softer color
-                    ),
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-                Text(
-                    "카테고리: ${recipe.C_categories.joinToString()}",
-                    style = MaterialTheme.typography.bodyMedium.copy( // Changed from Italic
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-                Text(
-                    text = "태그: " + recipe.tags.joinToString(" ") { tag ->
-                        if (tag.startsWith("#")) tag else "#$tag"
-                    },
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium.copy( // Changed from Italic
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-                Spacer(modifier = Modifier.height(20.dp)) // Increased spacer
 
-                if (recipe.ingredients.isNotEmpty()) {
-                    Text(
-                        "재료",
-                        style = MaterialTheme.typography.titleLarge.copy( // Enhanced style
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                    )
-                    Divider( // Added divider
-                        modifier = Modifier.padding(bottom = 12.dp),
-                        thickness = 0.5.dp,
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
-                    )
-                    Column(modifier = Modifier.padding(bottom = 8.dp)) { // Added bottom padding to Column
-                        recipe.ingredients.forEach { ingredient ->
-                            Text(
-                                text = "• $ingredient",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    lineHeight = 22.sp // Adjusted line height
-                                ),
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(320.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                        ) {
+                            AsyncImage(
+                                model = recipe.imageResId,
+                                contentDescription = recipe.name,
+                                contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val encodedQuery = Uri.encode(ingredient)
-                                        val url =
-                                            "https://search.shopping.naver.com/search/all?query=$encodedQuery"
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            data = Uri.parse(url)
-                                        }
-                                        try {
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            Toast
-                                                .makeText(
-                                                    context,
-                                                    "웹 브라우저를 열 수 없습니다.",
-                                                    Toast.LENGTH_SHORT
-                                                )
-                                                .show()
-                                            Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
-                                        }
-                                    }
-                                    .padding(vertical = 7.dp, horizontal = 8.dp) // Adjusted padding
+                                    .fillMaxSize()
+                                    .background(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color.Black.copy(alpha = 0.1f)
+                                            )
+                                        )
+                                    )
                             )
+
+                            // Floating Info Cards
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                recipe.estimatedCalories?.let {
+                                    InfoChip(
+                                        text = it,
+                                        icon = "🔥",
+                                        backgroundColor = Color(0xFFFF6B6B).copy(alpha = 0.9f)
+                                    )
+                                }
+                                InfoChip(
+                                    text = "${steps.size}단계",
+                                    icon = "👨‍🍳",
+                                    backgroundColor = Color(0xFF4ECDC4).copy(alpha = 0.9f)
+                                )
+                            }
                         }
                     }
-                    Spacer(modifier = Modifier.height(20.dp)) // Increased spacer
                 }
+
+                // Recipe Info Section
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
+                    ) {
+                        Text(
+                            "설명",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Text(
+                            recipe.description,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 28.sp
+                            ),
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        // Category and Tags with Modern Chips
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CategoryChip(
+                                text = recipe.C_categories.joinToString(),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Tags with Hashtag Style
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(recipe.tags) { tag ->
+                                TagChip(tag = if (tag.startsWith("#")) tag else "#$tag")
+                            }
+                        }
+                    }
+                }
+
+                // Ingredients Section
+                if (recipe.ingredients.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFF8F9FA)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            ) {
+                                Text(
+                                    "🥘",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(
+                                    "재료",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                            }
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                recipe.ingredients.forEach { ingredient ->
+                                    IngredientItem(
+                                        ingredient = ingredient,
+                                        onClick = {
+                                            val encodedQuery = Uri.encode(ingredient)
+                                            val url = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                data = Uri.parse(url)
+                                            }
+                                            try {
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "웹 브라우저를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+                                                Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 LikeButton(recipeId = recipeId)
-                Spacer(modifier = Modifier.height(16.dp)) // Spacer before step list
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             itemsIndexed(
                 steps,
-                key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }) { index, step ->
+                key = { index, step -> "$index-${step.text}-${step.isCurrent}-${step.isDone}" }
+            ) { index, step ->
                 CookingStepCard(
                     index = index,
                     step = step,
@@ -374,23 +460,56 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
 
             if (isFinished) {
                 item {
-                    Text(
-                        "🎉 모든 조리 과정을 완료했습니다!",
-                        style = MaterialTheme.typography.headlineSmall.copy( // Adjusted style
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f)
                         ),
-                        modifier = Modifier.padding(
-                            vertical = 24.dp,
-                            horizontal = 8.dp
-                        ) // Adjusted padding
-                    )
+                        border = BorderStroke(2.dp, Color(0xFF4CAF50).copy(alpha = 0.3f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "🎉",
+                                style = MaterialTheme.typography.displayMedium,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Text(
+                                "조리 완료!",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = Color(0xFF4CAF50),
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                "모든 단계를 성공적으로 완료했습니다",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
 
+            // Action Buttons Section
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Voice Control Button
+                ModernActionButton(
+                    text = if (isListening.value) "음성 명령 중지" else "🎤 음성 명령 시작",
+                    backgroundColor = if (isListening.value) Color(0xFFFF5722) else Color(0xFF6C63FF),
                     onClick = {
                         if (!isListening.value) {
                             voiceController.startListening()
@@ -400,91 +519,262 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             isListening.value = false
                         }
                     },
-                    shape = RoundedCornerShape(12.dp), // More rounded shape
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isListening.value) Color.Red.copy(alpha = 0.8f) else MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp) // Standardized height
-                        .padding(vertical = 8.dp)
-                        .animateContentSize()
-                ) {
-                    Text(
-                        if (isListening.value) "음성 명령 중지" else "음성 명령 시작",
-                        color = Color.White,
-                        fontSize = 16.sp
-                    )
-                }
-            }
+                    isLoading = false
+                )
 
-            val html = generateRecipeHtml(recipe)
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton( // Changed to OutlinedButton for variety
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // PDF Save Button
+                ModernActionButton(
+                    text = "📄 PDF로 저장",
+                    backgroundColor = Color(0xFF2196F3),
                     onClick = {
+                        val html = generateRecipeHtml(recipe)
                         saveAsPdfWithHtml(
                             context = context,
                             html = html,
                             filename = recipe.name
                         )
                     },
-                    shape = RoundedCornerShape(12.dp), // More rounded shape
-                    border = BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp) // Standardized height
-                        .padding(vertical = 4.dp)
-                ) {
-                    Text("📄 PDF 저장", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
-                }
-            }
+                    isOutlined = true
+                )
 
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                // (선택 사항) 사용자 이미지 미리보기 - 이 부분은 버튼 위에 추가할 수 있습니다.
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // AI Evaluation Section
                 if (userImageUriForAiEval != null) {
-                    AsyncImage( // coil.compose.AsyncImage 임포트 필요
-                        model = userImageUriForAiEval,
-                        contentDescription = "선택된 AI 평가용 이미지",
+                    Card(
                         modifier = Modifier
-                            .size(100.dp) // 원하는 크기로 조절
-                            .padding(bottom = 8.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                        // .align(Alignment.CenterHorizontally) // LazyColumn의 item 내부에서는 직접 align이 어려울 수 있음. 필요시 Box로 감싸서 정렬
-                    )
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        AsyncImage(
+                            model = userImageUriForAiEval,
+                            contentDescription = "선택된 AI 평가용 이미지",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 }
-                Button(
+
+                ModernActionButton(
+                    text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 AI 요리 평가 받기",
+                    backgroundColor = Color(0xFF9C27B0),
                     onClick = {
-                        // 이 버튼은 이제 이미지 선택기를 실행합니다.
-                        // 실제 평가는 pickImageLauncherForAiEval 콜백에서 ViewModel을 통해 이루어집니다.
                         pickImageLauncherForAiEval.launch("image/*")
                     },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .padding(vertical = 4.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        // 버튼 색상을 다른 주요 액션 버튼과 구분하기 위해 변경 가능 (예: secondary)
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    ),
-                    enabled = !isLoadingAiEval // ViewModel의 로딩 상태 사용
-                ) {
-                    Text(
-                        if (isLoadingAiEval) "AI 평가 중..." else "🤖 AI 요리 사진 평가 받기", // 로딩 상태에 따라 텍스트 변경
-                        color = Color.White, // 또는 MaterialTheme.colorScheme.onSecondary
-                        fontSize = 16.sp
-                    )
-                }
+                    isLoading = isLoadingAiEval,
+                    enabled = !isLoadingAiEval
+                )
             }
 
             item {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(40.dp))
                 CommentSection(recipeId = recipe.id)
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoChip(
+    text: String,
+    icon: String,
+    backgroundColor: Color
+) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = icon,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(end = 4.dp)
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryChip(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium
+            ),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+        )
+    }
+}
+
+@Composable
+private fun TagChip(tag: String) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF6C63FF).copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(1.dp, Color(0xFF6C63FF).copy(alpha = 0.2f))
+    ) {
+        Text(
+            text = tag,
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = Color(0xFF6C63FF),
+                fontWeight = FontWeight.Medium
+            ),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun IngredientItem(
+    ingredient: String,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(
+                        Color(0xFF4ECDC4),
+                        CircleShape
+                    )
+            )
+            Text(
+                text = ingredient,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            )
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernActionButton(
+    text: String,
+    backgroundColor: Color,
+    onClick: () -> Unit,
+    isLoading: Boolean = false,
+    enabled: Boolean = true,
+    isOutlined: Boolean = false
+) {
+    if (isOutlined) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(2.dp, backgroundColor),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = backgroundColor
+            ),
+            enabled = enabled
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = backgroundColor
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    fontSize = 16.sp
+                )
+            }
+        }
+    } else {
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = backgroundColor,
+                contentColor = Color.White
+            ),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 6.dp,
+                pressedElevation = 2.dp
+            ),
+            enabled = enabled
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    fontSize = 16.sp
+                )
             }
         }
     }
@@ -504,171 +794,519 @@ fun CookingStepCard(
         "index=$index | isCurrent=${step.isCurrent} | showTimer=${step.showTimer} | duration=${step.timerDuration}"
     )
 
-    val cardBackground = when {
-        step.isCurrent -> Brush.horizontalGradient(
-            listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), // Slightly more pronounced
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-            )
+    val animatedElevation by animateDpAsState(
+        targetValue = if (step.isCurrent) 12.dp else if (step.isDone) 4.dp else 2.dp,
+        animationSpec = tween(300)
+    )
+
+    val animatedScale by animateFloatAsState(
+        targetValue = if (step.isCurrent) 1.02f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+    )
+
+    val cardColors = when {
+        step.isCurrent -> CardDefaults.cardColors(
+            containerColor = Color(0xFF6C63FF).copy(alpha = 0.08f)
         )
-        step.isDone -> Brush.horizontalGradient(
-            listOf(
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), // Adjusted for completed look
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            )
+        step.isDone -> CardDefaults.cardColors(
+            containerColor = Color(0xFF4CAF50).copy(alpha = 0.06f)
         )
-        else -> Brush.horizontalGradient( // Subtle for upcoming steps
-            listOf(
-                MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-                MaterialTheme.colorScheme.surfaceColorAtElevation(0.5.dp)
-            )
+        else -> CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         )
     }
 
     Card(
         modifier = Modifier
-            .padding(vertical = 8.dp) // Consistent vertical padding
+            .padding(vertical = 10.dp, horizontal = 4.dp)
             .fillMaxWidth()
-            .animateContentSize()
-            .then( // Conditional border for current step
-                if (step.isCurrent) {
-                    Modifier.border(
-                        2.dp,
-                        MaterialTheme.colorScheme.primary,
-                        RoundedCornerShape(16.dp)
-                    )
-                } else Modifier
+            .scale(animatedScale)
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
             ),
-        shape = RoundedCornerShape(16.dp), // More rounded corners
-        elevation = CardDefaults.cardElevation(defaultElevation = if (step.isCurrent) 3.dp else 1.dp), // Subtle elevation
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent) // To allow modifier.background to show
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
+        colors = cardColors,
+        border = if (step.isCurrent) BorderStroke(
+            2.dp,
+            Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xFF6C63FF),
+                    Color(0xFF4ECDC4)
+                )
+            )
+        ) else null
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(cardBackground) // Apply dynamic background here
-                .padding(16.dp)
+                .padding(20.dp)
         ) {
+            // Header Row with Step Indicator
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    imageVector = if (step.isDone) Icons.Default.Check else Icons.Default.Circle,
-                    contentDescription = if (step.isDone) "완료된 단계" else "현재 단계 표시기",
-                    tint = when { // Adjusted tint logic
-                        step.isDone -> MaterialTheme.colorScheme.primary
-                        step.isCurrent -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    },
-                    modifier = Modifier.size(22.dp) // Slightly larger icon
+                StepIndicator(
+                    stepNumber = index + 1,
+                    isCompleted = step.isDone,
+                    isCurrent = step.isCurrent
                 )
-                Spacer(modifier = Modifier.width(10.dp)) // Adjusted spacer
-                Text(
-                    "단계 ${index + 1}.",
-                    style = MaterialTheme.typography.titleMedium.copy( // Bolder title
-                        fontWeight = FontWeight.Bold,
-                        color = if (step.isCurrent || step.isDone) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Step ${index + 1}",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                step.isCurrent -> Color(0xFF6C63FF)
+                                step.isDone -> Color(0xFF4CAF50)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            letterSpacing = 0.5.sp
+                        )
                     )
+
+                    if (step.isCurrent) {
+                        Text(
+                            "진행 중",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6C63FF).copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    } else if (step.isDone) {
+                        Text(
+                            "완료",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF4CAF50).copy(alpha = 0.7f),
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+                }
+
+                // Status Badge
+                StatusBadge(
+                    isCurrent = step.isCurrent,
+                    isDone = step.isDone
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp)) // Adjusted spacer
+            Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                step.text,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    lineHeight = 24.sp, // Better line height
-                    color = MaterialTheme.colorScheme.onSurface
+            // Step Content
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = when {
+                        step.isCurrent -> Color.White.copy(alpha = 0.8f)
+                        step.isDone -> Color(0xFFF1F8E9)
+                        else -> Color.White.copy(alpha = 0.5f)
+                    }
                 ),
-                modifier = Modifier.padding(start = 32.dp) // Indent text
-            )
-
-            if (step.showTimer && step.timerState != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Box(modifier = Modifier.padding(start = 32.dp)) { // Indent Timer
-                    StepTimer(
-                        timerState = step.timerState,
-                        onFinish = onNext
-                    )
-                }
-
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp, start = 32.dp), // Indent buttons
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = { step.timerState.pause() },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp), // More rounded
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-                    ) {
-                        Text("⏸ 일시정지")
-                    }
-
-                    OutlinedButton(
-                        onClick = { step.timerState.resume() },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp), // More rounded
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
-                    ) {
-                        Text("▶ 다시시작")
-                    }
-                }
-            }
-
-            if (step.isCurrent && !step.isDone) {
-                Spacer(modifier = Modifier.height(16.dp))
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
                 Text(
-                    "현재 단계입니다.",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.padding(start = 32.dp) // Indent text
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth().padding(start = 32.dp) // Indent buttons
-                ) {
-                    OutlinedButton(
-                        onClick = onRepeat,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp), // More rounded
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary) // Stronger border for primary action
-                    ) {
-                        Text("🔁 다시 읽기")
-                    }
-
-                    Button(
-                        onClick = onNext,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp), // More rounded
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("➡ 다음 단계", color = Color.White)
-                    }
-                }
-            }
-
-            if (step.isDone) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    "✅ 완료됨",
-                    style = MaterialTheme.typography.bodyMedium.copy( // Consistent typography
-                        color = MaterialTheme.colorScheme.primary, // Use primary for positive feedback
-                        fontWeight = FontWeight.SemiBold
+                    step.text,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        lineHeight = 28.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (step.isCurrent) FontWeight.Medium else FontWeight.Normal
                     ),
-                    modifier = Modifier.padding(start = 32.dp) // Indent text
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
+            // Timer Section
+            if (step.showTimer && step.timerState != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                TimerSection(
+                    timerState = step.timerState,
+                    timerTitle = step.timerTitle,
+                    onFinish = onNext
+                )
+            }
+
+            // Action Buttons for Current Step
+            if (step.isCurrent && !step.isDone) {
+                Spacer(modifier = Modifier.height(20.dp))
+
+                CurrentStepActions(
+                    onRepeat = onRepeat,
+                    onNext = onNext
+                )
+            }
+
+            // Completion Status
+            if (step.isDone) {
+                Spacer(modifier = Modifier.height(16.dp))
+                CompletionStatus()
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepIndicator(
+    stepNumber: Int,
+    isCompleted: Boolean,
+    isCurrent: Boolean
+) {
+    val backgroundColor = when {
+        isCompleted -> Color(0xFF4CAF50)
+        isCurrent -> Color(0xFF6C63FF)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+
+    val contentColor = when {
+        isCompleted || isCurrent -> Color.White
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .background(
+                backgroundColor,
+                CircleShape
+            )
+            .border(
+                width = if (isCurrent) 3.dp else 0.dp,
+                color = if (isCurrent) Color(0xFF6C63FF).copy(alpha = 0.3f) else Color.Transparent,
+                shape = CircleShape
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isCompleted) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "완료됨",
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Text(
+                text = stepNumber.toString(),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(
+    isCurrent: Boolean,
+    isDone: Boolean
+) {
+    if (isCurrent || isDone) {
+        val (backgroundColor, textColor, text, icon) = when {
+            isCurrent -> Tuple4(
+                Color(0xFF6C63FF).copy(alpha = 0.1f),
+                Color(0xFF6C63FF),
+                "진행중",
+                "🔥"
+            )
+            isDone -> Tuple4(
+                Color(0xFF4CAF50).copy(alpha = 0.1f),
+                Color(0xFF4CAF50),
+                "완료",
+                "✅"
+            )
+            else -> Tuple4(Color.Transparent, Color.Transparent, "", "")
+        }
+
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor),
+            border = BorderStroke(1.dp, textColor.copy(alpha = 0.2f))
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = icon,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = textColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 )
             }
         }
     }
 }
+@Composable
+private fun TimerSection(
+    timerState: StepTimerState,
+    timerTitle: String,
+    onFinish: () -> Unit
+) {
+    var isRunning by remember { mutableStateOf(false) }
+    var isPaused by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+        border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.3f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // 타이틀
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("⏰", fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
+                Text(
+                    timerTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE65100)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 타이머 바 UI
+            StepTimer(timerState = timerState, onFinish = {
+                isRunning = false
+                isPaused = false
+                onFinish()
+            })
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 버튼 영역
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 시작 또는 재시작 버튼
+                ModernTimerButton(
+                    text = if (!isRunning && !isPaused) "⏵ 시작" else "▶ 재시작",
+                    onClick = {
+                        if (!isRunning && !isPaused) {
+                            // 시작
+                            timerState.start {
+                                isRunning = false
+                                isPaused = false
+                                onFinish()
+                            }
+                        } else {
+                            // 재시작
+                            timerState.resume()
+                        }
+                        isRunning = true
+                        isPaused = false
+                    },
+                    backgroundColor = Color(0xFF2196F3),
+                    modifier = Modifier.weight(1f)
+                )
+
+                // 일시정지 버튼
+                ModernTimerButton(
+                    text = "⏸ 일시정지",
+                    onClick = {
+                        timerState.pause()
+                        isRunning = false
+                        isPaused = true
+                    },
+                    backgroundColor = Color(0xFFFF9800),
+                    modifier = Modifier.weight(1f),
+                    enabled = isRunning
+                )
+            }
+        }
+    }
+}
+
+
+
+@Composable
+private fun CurrentStepActions(
+    onRepeat: () -> Unit,
+    onNext: () -> Unit
+) {
+    Column {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF6C63FF).copy(alpha = 0.05f)
+            ),
+            border = BorderStroke(1.dp, Color(0xFF6C63FF).copy(alpha = 0.2f))
+        ) {
+            Text(
+                "🎯 현재 단계를 진행 중입니다",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF6C63FF),
+                    fontWeight = FontWeight.SemiBold
+                ),
+                modifier = Modifier.padding(12.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            ModernActionButton(
+                text = "🔁 다시 읽기",
+                onClick = onRepeat,
+                backgroundColor = Color(0xFF6C63FF).copy(alpha = 0.1f),
+                textColor = Color(0xFF6C63FF),
+                isOutlined = true,
+                modifier = Modifier.weight(1f)
+            )
+
+            ModernActionButton(
+                text = "➡ 다음 단계",
+                onClick = onNext,
+                backgroundColor = Color(0xFF6C63FF),
+                textColor = Color.White,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompletionStatus() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f))
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Text(
+                "✅",
+                fontSize = 18.sp,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            Text(
+                "단계 완료됨",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF4CAF50),
+                    fontWeight = FontWeight.SemiBold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernTimerButton(
+    text: String,
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(40.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backgroundColor,
+            contentColor = Color.White
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
+            fontSize = 13.sp
+        )
+    }
+}
+
+@Composable
+private fun ModernActionButton(
+    text: String,
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    textColor: Color,
+    modifier: Modifier = Modifier,
+    isOutlined: Boolean = false
+) {
+    if (isOutlined) {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = modifier.height(48.dp),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(2.dp, backgroundColor),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = textColor
+            )
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                fontSize = 14.sp
+            )
+        }
+    } else {
+        Button(
+            onClick = onClick,
+            modifier = modifier.height(48.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = backgroundColor,
+                contentColor = textColor
+            ),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 4.dp,
+                pressedElevation = 1.dp
+            )
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.SemiBold
+                ),
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+// Helper data class for multiple return values
+private data class Tuple4<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)
 
 
 fun saveAsPdfWithHtml(context: Context, html: String, filename: String = "recipe") {

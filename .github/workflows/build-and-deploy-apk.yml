@@ -1,4 +1,4 @@
-name: Build & Deploy APK
+name: Build APK and Push to Web Repo
 
 on:
   push:
@@ -10,35 +10,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Android App Repo
         uses: actions/checkout@v4
 
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
-      # ✅ Secret에서 google-services.json 복원
-      - name: Decode google-services.json from Secret
-        run: |
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d > app/google-services.json
-
-      - name: Grant execute permission to gradlew
+      - name: Grant permission to gradlew
         run: chmod +x ./gradlew
 
-      - name: Build APK (Release)
+      - name: Build APK
         run: ./gradlew assembleRelease
 
-      - name: Copy APK to public folder
+      - name: Clone Web Repo
         run: |
-          mkdir -p public/apk
-          cp app/build/outputs/apk/release/app-release.apk public/apk/babsangfriend.apk
+          git clone https://github.com/YOUR_USERNAME/YOUR_WEB_REPO.git web-repo
+          cp app/build/outputs/apk/release/app-release.apk web-repo/public/apk/babsangfriend.apk
 
-      - name: Commit and push APK
+      - name: Push APK to Web Repo
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          cd web-repo
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
           git add public/apk/babsangfriend.apk
-          git commit -m "Update APK [skip ci]" || echo "No changes to commit"
-          git push
+          git commit -m "자동 업데이트된 APK" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.WEB_REPO_TOKEN }}@github.com/YOUR_USERNAME/YOUR_WEB_REPO.git main
