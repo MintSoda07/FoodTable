@@ -1,8 +1,13 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.bcu.foodtable.JetpackCompose.screens
 
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlin.math.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -13,6 +18,7 @@ import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -517,6 +524,7 @@ suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatche
 }
 
 // 5. 글쓰기 화면 (원본 코드 유지)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WritePostScreen(
     onPostCreated: () -> Unit = {},
@@ -529,50 +537,336 @@ fun WritePostScreen(
     var content by remember { mutableStateOf("") }
     var imageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var isUploading by remember { mutableStateOf(false) }
+    var titleFocused by remember { mutableStateOf(false) }
+    var contentFocused by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            label = { Text("제목") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = content,
-            onValueChange = { content = it },
-            label = { Text("내용") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-        )
+    // 이미지 피커 런처
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        imageUris = uris.take(5) // 최대 5개 제한
+    }
 
-        Spacer(Modifier.height(8.dp))
-        Button(onClick = {
-            // 이미지 선택 로직
-            // TODO: 권한 처리 및 이미지 피커
-        }) {
-            Text("이미지 선택 (${imageUris.size}개)")
+    // 권한 요청 런처
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            imagePickerLauncher.launch("image/*")
+        } else {
+            Toast.makeText(context, "이미지 선택 권한이 필요합니다", Toast.LENGTH_SHORT).show()
         }
+    }
 
-        Spacer(Modifier.height(16.dp))
-        Button(
-            enabled = !isUploading && title.isNotBlank(),
-            onClick = {
-                isUploading = true
-                uploadPost(
-                    title, content, user.location, user.uid, imageUris
-                ) {
-                    isUploading = false
-                    Toast.makeText(context, "작성 완료!", Toast.LENGTH_SHORT).show()
-                    onPostCreated()
-                    navController.popBackStack()
+    // 상단 앱바와 함께 스크롤 가능한 레이아웃
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // 상단 앱바
+        TopAppBar(
+            title = {
+                Text(
+                    "새 게시글 작성",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            navigationIcon = {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
                 }
             },
-            modifier = Modifier.align(Alignment.End)
+            actions = {
+                TextButton(
+                    onClick = {
+                        if (title.isNotBlank()) {
+                            isUploading = true
+                            uploadPost(
+                                title, content, user.location, user.uid, imageUris
+                            ) {
+                                isUploading = false
+                                Toast.makeText(context, "작성 완료!", Toast.LENGTH_SHORT).show()
+                                onPostCreated()
+                                navController.popBackStack()
+                            }
+                        }
+                    },
+                    enabled = !isUploading && title.isNotBlank()
+                ) {
+                    if (isUploading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            "완료",
+                            fontWeight = FontWeight.Bold,
+                            color = if (title.isNotBlank())
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        )
+                    }
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        )
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            if (isUploading) CircularProgressIndicator(Modifier.size(16.dp))
-            else Text("작성 완료")
+            // 제목 입력 섹션
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (titleFocused)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                        else
+                            MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Title,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "제목",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            placeholder = {
+                                Text(
+                                    "어떤 이야기를 들려주시겠어요?",
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { titleFocused = it.isFocused },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            maxLines = 2,
+                            textStyle = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+            }
+
+            // 내용 입력 섹션
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (contentFocused)
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                        else
+                            MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "내용",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = content,
+                            onValueChange = { content = it },
+                            placeholder = {
+                                Text(
+                                    "자세한 내용을 작성해주세요...",
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .onFocusChanged { contentFocused = it.isFocused },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color.Transparent
+                            ),
+                            textStyle = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+
+            // 이미지 선택 섹션
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Image,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "사진 첨부",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "${imageUris.size}/5",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            )
+                        }
+
+                        // 이미지 미리보기
+                        if (imageUris.isNotEmpty()) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            ) {
+                                items(imageUris) { uri ->
+                                    Box {
+                                        AsyncImage(
+                                            model = uri,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .size(80.dp)
+                                                .clip(RoundedCornerShape(8.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                imageUris = imageUris.filter { it != uri }
+                                            },
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .size(24.dp)
+                                                .background(
+                                                    Color.Black.copy(alpha = 0.7f),
+                                                    CircleShape
+                                                )
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "삭제",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 이미지 추가 버튼
+                        OutlinedButton(
+                            onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    permissionLauncher.launch(android.Manifest.permission.READ_MEDIA_IMAGES)
+                                } else {
+                                    permissionLauncher.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = imageUris.size < 5
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (imageUris.isEmpty()) "사진 선택하기" else "사진 추가하기"
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 작성 정보 표시
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "게시 위치: ${user.location}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // 하단 여백
+            item {
+                Spacer(Modifier.height(80.dp))
+            }
         }
     }
 }
