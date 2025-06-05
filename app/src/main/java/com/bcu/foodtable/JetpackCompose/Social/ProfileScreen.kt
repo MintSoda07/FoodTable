@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.screens
+package com.bcu.foodtable.JetpackCompose.Social
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,14 +7,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun MyChannelScreen() {
+fun ProfileScreen() {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "내 채널",
+            text = "내 정보",
             style = MaterialTheme.typography.headlineMedium
         )
     }
