@@ -1,15 +1,5 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
-import android.net.Uri
-import android.util.Log
-import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -32,12 +22,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -48,11 +32,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
 import kotlin.math.*
-import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
-import com.bcu.foodtable.ai.OpenAIClient
-import com.bcu.foodtable.useful.RecipeItem
-import com.google.gson.Gson
-import java.util.UUID
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -361,13 +340,16 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                 items = fridgeMap[selectedSection] ?: emptyList(),
                                 key = { _, item -> item.id }
                             ) { index, ingredient ->
-                                HolographicIngredientCard(
+                                DraggableHolographicIngredientCard(
                                     ingredient = ingredient,
                                     index = index,
                                     onClick = {
                                         moveIngredientToOutside(ingredient, selectedSection)
                                     },
-                                    onLongClick = { showDialog.value = ingredient }
+                                    onLongClick = { showDialog.value = ingredient },
+                                    onDragEnd = {
+                                        moveIngredientToOutside(ingredient, selectedSection)
+                                    }
                                 )
                             }
                         }
@@ -660,97 +642,229 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             onDismiss = { showDialog.value = null }
         )
     }
-    // 상단에 추가
-    val aiViewModel: AiHelperViewModel = viewModel(
-        factory = object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return AiHelperViewModel(OpenAIClient()) as T
-            }
-        }
-    )
-    val aiState by aiViewModel.uiState.collectAsState()
-    val context = LocalContext.current
-    val gson = remember { Gson() }
+}
 
-// 버튼 추가
-    // AI 추천 버튼
-    Button(
-        onClick = {
-            val takenOut = outsideFridge.map { it.name }.joinToString(", ")
-            aiViewModel.onInputChange(takenOut)
-            aiViewModel.sendMessage()
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun DraggableHolographicIngredientCard(
+    ingredient: Ingredient,
+    index: Int,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onDragEnd: () -> Unit
+) {
+    var isPressed by remember { mutableStateOf(false) }
+    var isDragging by remember { mutableStateOf(false) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isDragging -> 1.1f
+            isPressed -> 0.9f
+            else -> 1f
         },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
+
+    // 홀로그램 애니메이션
+    val infiniteTransition = rememberInfiniteTransition(label = "hologram")
+    val hologramOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "hologramOffset"
+    )
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp)
+            .aspectRatio(1f)
+            .offset { IntOffset(offset.x.toInt(), offset.y.toInt()) }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                rotationY = if (!isDragging) sin(hologramOffset * 2 * PI.toFloat()) * 5f else 0f
+                alpha = if (isDragging) 0.8f else 1f
+                shadowElevation = if (isDragging) 24f else 8f
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        isDragging = true
+                    },
+                    onDragEnd = {
+                        if (offset.getDistance() > 100f) {
+                            onDragEnd()
+                        }
+                        offset = Offset.Zero
+                        isDragging = false
+                    },
+                    onDrag = { _, dragAmount ->
+                        offset += dragAmount
+                    }
+                )
+            }
+            .combinedClickable(
+                onClick = { if (!isDragging) onClick() },
+                onLongClick = { if (!isDragging) onLongClick() }
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        if (!isDragging) {
+                            isPressed = true
+                            tryAwaitRelease()
+                            isPressed = false
+                        }
+                    }
+                )
+            },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDragging)
+                Color(0xFF00E5FF).copy(alpha = 0.2f)
+            else
+                Color(0xFF1A237E).copy(alpha = 0.3f)
+        ),
+        border = BorderStroke(
+            width = if (isDragging) 2.dp else 1.dp,
+            brush = Brush.linearGradient(
+                colors = if (isDragging)
+                    listOf(
+                        Color(0xFF00E5FF),
+                        Color(0xFF00B8D4),
+                        Color(0xFF00E5FF)
+                    )
+                else
+                    listOf(
+                        Color(0xFF00E5FF).copy(alpha = 0.8f),
+                        Color(0xFF00E5FF).copy(alpha = 0.2f),
+                        Color(0xFF00E5FF).copy(alpha = 0.8f)
+                    ),
+                start = Offset(0f, 0f),
+                end = Offset(100f * hologramOffset, 100f * hologramOffset)
+            )
+        )
     ) {
-        Text("🍳 꺼낸 재료로 AI 요리 추천")
-    }
-
-
-// 응답이 도착하면 AiRecipeScreen으로 이동
-    LaunchedEffect(aiState.resultText) {
-        if (aiState.resultText.isNotBlank()) {
-            Log.d("AI_RAW", aiState.resultText)  // 이제 실제 조리 단계가 포함된 원문이 출력됩니다.
-
-            val recipeName = Regex("""◆(.*?)◆""")
-                .find(aiState.resultText)
-                ?.groupValues?.getOrNull(1)
-                ?: "AI 추천 요리"
-
-            val ingredients = Regex("""◆.*?◆\((.*?)\)""")
-                .find(aiState.resultText)
-                ?.groupValues?.getOrNull(1)
-                ?.split(",")?.map { it.trim() }
-                ?: emptyList()
-
-            // “○없음” 또는 숫자+마침표만 있는 케이스 모두를 포괄하도록
-            val stepRegex = Regex(
-                """^[\u0020\u00A0\u3000]*[○\u25CB\u2460]?\s*\d+\..*""",
-                RegexOption.MULTILINE
-            )
-
-            val matches = stepRegex.findAll(aiState.resultText).toList()
-            Log.d("AI_REGEX_MATCH_COUNT", "match 개수 = ${matches.size}")
-            matches.forEach { match ->
-                Log.d("AI_REGEX_MATCH_LINE", "[${match.value}]")
+        Box(modifier = Modifier.fillMaxSize()) {
+            // 드래그 시 이펙트
+            if (isDragging) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 0.5f }
+                ) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                Color(0xFF00E5FF).copy(alpha = 0.3f),
+                                Color.Transparent
+                            ),
+                            radius = size.minDimension * 0.8f
+                        ),
+                        radius = size.minDimension * 0.8f
+                    )
+                }
             }
 
-            val order = matches
-                .map { it.value.trim() }
-                .joinToString(" ")
-            Log.d("AI_ORDER_STRING", "order = \"$order\"")
-
-            if (order.isBlank()) {
-                Log.e("AI_ORDER", " 조리 단계 없음\n${aiState.resultText}")
-                Toast.makeText(context, "AI가 조리 단계를 반환하지 않았어요", Toast.LENGTH_LONG).show()
-                return@LaunchedEffect
+            // 홀로그램 스캔라인 효과
+            if (!isDragging) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 0.3f }
+                ) {
+                    val lineY = size.height * hologramOffset
+                    drawLine(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color(0xFF00E5FF),
+                                Color.Transparent
+                            )
+                        ),
+                        start = Offset(0f, lineY),
+                        end = Offset(size.width, lineY),
+                        strokeWidth = 2.dp.toPx()
+                    )
+                }
             }
 
-            val recipe = RecipeItem(
-                id = UUID.randomUUID().toString(),
-                name = recipeName,
-                description = "AI가 추천한 요리입니다.",
-                imageResId = "",
-                ingredients = ingredients,
-                order = order,
-                tags = listOf("AI추천"),
-                C_categories = listOf("AI")
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // 3D 이모지 효과
+                Text(
+                    text = getEmojiForIngredient(ingredient.name),
+                    fontSize = if (isDragging) 40.sp else 36.sp,
+                    modifier = Modifier.graphicsLayer {
+                        shadowElevation = if (isDragging) 16f else 8f
+                    }
+                )
 
-            val encodedRecipeJson = Uri.encode(Gson().toJson(recipe))
-            Log.d("AI_NAV", "🔁 페이지 전환: recipe=${recipe.name}")
-            navController.navigate("ai_recipe/$encodedRecipeJson")
+                // 이름 (글리치 효과)
+                Box {
+                    if (!isDragging) {
+                        Text(
+                            text = ingredient.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF00E5FF).copy(alpha = 0.3f),
+                            modifier = Modifier.offset(x = 1.dp, y = 1.dp)
+                        )
+                    }
+                    Text(
+                        text = ingredient.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = if (isDragging) Color(0xFF00E5FF) else Color.White
+                    )
+                }
 
-            aiViewModel.hideWarning()
+                // 수량 디지털 디스플레이
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Black.copy(alpha = 0.5f),
+                    border = BorderStroke(
+                        1.dp,
+                        Color(0xFF00E5FF).copy(alpha = if (isDragging) 1f else 0.5f)
+                    )
+                ) {
+                    Text(
+                        text = "${ingredient.quantity}",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color(0xFF00E5FF),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // 드래그 인디케이터
+                AnimatedVisibility(
+                    visible = isDragging,
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PanTool,
+                        contentDescription = "Dragging",
+                        tint = Color(0xFF00E5FF),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
         }
     }
-
-
-
-
-
-
 }
 
 @OptIn(ExperimentalFoundationApi::class)
