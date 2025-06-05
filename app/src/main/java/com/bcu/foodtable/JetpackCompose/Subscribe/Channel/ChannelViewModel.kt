@@ -34,36 +34,7 @@ class ChannelViewModel : ViewModel() {
     val isLoading: StateFlow<Boolean> = _isLoading
 
     private var channelDocId: String? = null
-    // 채널 정보 로드
-//    fun loadChannel(channelName: String) {
-//        viewModelScope.launch {
-//            try {
-//                val snapshot = Firebase.firestore
-//                    .collection("channel")
-//                    .whereEqualTo("name", channelName)
-//                    .limit(1)
-//                    .get()
-//                    .await()
-//
-//
-//
-//                if (!snapshot.isEmpty) {
-//                    val doc = snapshot.documents.first()
-//                    val channel = snapshot.documents.first().toObject(Channel::class.java)
-//                    _channel.value = channel
-//                    _subscriberCount.value = channel?.subscribers ?: 0
-//                    channelDocId = doc.id
-//                } else {
-//                    Log.e("ViewModel", "채널 name=$channelName 에 해당하는 문서 없음")
-//                }
-//
-//            } catch (e: Exception) {
-//                // 예외 처리 (옵션)
-//                e.printStackTrace()
-//                Log.e("ChannelViewModel", "해당 이름의 채널 없음: $channelName")
-//            }
-//        }
-//    }
+
     fun loadAll(channelName: String, userId: String) {
         viewModelScope.launch {
             if (channelName.isBlank()) {

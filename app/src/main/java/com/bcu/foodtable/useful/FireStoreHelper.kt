@@ -165,14 +165,21 @@ object FireStoreHelper {
     }
 
     suspend fun getRecipesForChannel(channelName: String): List<RecipeItem> {
-        return try {
-            db.collection("recipe")
-                .whereEqualTo("contained_channel", channelName)
-                .get().await()
-                .documents.mapNotNull { it.toObject<RecipeItem>() }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
+        val snapshot = FirebaseFirestore.getInstance()
+            .collection("recipe")
+            .whereEqualTo("contained_channel", channelName)
+            .get()
+            .await()
+
+        // snapshot.documents 를 순회하면서 각각 문서 ID를 RecipeItem.id로 설정
+        return snapshot.documents.mapNotNull { doc ->
+            val item = doc.toObject(RecipeItem::class.java)
+            if (item != null) {
+                item.id = doc.id          // 문서 ID를 반드시 할당!
+                item
+            } else {
+                null
+            }
         }
     }
 
