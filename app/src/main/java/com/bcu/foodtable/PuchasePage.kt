@@ -1,5 +1,4 @@
-// 🌟 Ultra Glamorous Purchase Page (Compose + Lottie + 배경 + 컬러 강조 + 텍스트 효과 포함)
-
+// 파일: PuchasePage.kt
 package com.bcu.foodtable
 
 import android.content.Intent
@@ -7,12 +6,9 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +20,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -38,11 +33,13 @@ import com.airbnb.lottie.compose.*
 import java.text.NumberFormat
 import java.util.*
 
+import com.bcu.foodtable.ui.home.FoodTableTheme // ← 반드시 임포트하세요!
+
 class PuchasePage : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme()) {
+            FoodTableTheme { // ← 여기를 FoodTableTheme 으로 감쌉니다.
                 Surface(modifier = Modifier.fillMaxSize()) {
                     PurchaseScreen()
                 }
@@ -57,18 +54,24 @@ fun PurchaseScreen() {
     var moneyValue by remember { mutableStateOf(0) }
     val animatedMoney by animateIntAsState(
         targetValue = moneyValue,
-        animationSpec = spring(dampingRatio = 0.7f), label = "animatedMoney"
+        animationSpec = spring(dampingRatio = 0.7f),
+        label = "animatedMoney"
     )
     val formatter = NumberFormat.getNumberInstance(Locale.KOREA)
+
+    // 일정 금액 이상일 때 다른 Lottie 애셋을 사용
     val lottieAsset = if (moneyValue >= 5000) "bonus_shine.json" else "coin_idle.json"
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset(lottieAsset))
-    val progress by animateLottieCompositionAsState(composition, iterations = LottieConstants.IterateForever)
+    val progress by animateLottieCompositionAsState(
+        composition,
+        iterations = LottieConstants.IterateForever
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .systemBarsPadding() // ✅ 상단/하단 바 대응
-            .background(MaterialTheme.colorScheme.surface) // ✅ 깔끔한 배경
+            .systemBarsPadding()
+            .background(MaterialTheme.colorScheme.background) // 테마의 background 색상 사용
     ) {
         Column(
             modifier = Modifier
@@ -82,7 +85,7 @@ fun PurchaseScreen() {
                 text = "소금 충전소",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary // 테마의 primary 색상
             )
 
             LottieAnimation(
@@ -96,7 +99,7 @@ fun PurchaseScreen() {
                 style = TextStyle(
                     fontSize = 38.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onBackground // 테마의 onBackground 색상
                 )
             )
 
@@ -105,17 +108,20 @@ fun PurchaseScreen() {
                     text = "보너스 +${moneyValue / 10} 소금 예정!",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.tertiary
+                    color = MaterialTheme.colorScheme.tertiary // 테마의 tertiary 색상
                 )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 listOf(5000, 10000, 50000, 100000).forEach { amount ->
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        elevation = CardDefaults.cardElevation(4.dp)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant // 테마의 surfaceVariant
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -127,24 +133,39 @@ fun PurchaseScreen() {
                                 onClick = { moneyValue = maxOf(0, moneyValue - amount) },
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
+                                    .background(
+                                        MaterialTheme.colorScheme.errorContainer, // 테마의 errorContainer
+                                        CircleShape
+                                    )
                             ) {
-                                Icon(Icons.Default.Remove, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                                Icon(
+                                    Icons.Default.Remove,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer // 테마의 onErrorContainer
+                                )
                             }
 
                             Text(
                                 text = "₩ ${formatter.format(amount)}",
                                 fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface // 테마의 onSurface
                             )
 
                             IconButton(
                                 onClick = { moneyValue += amount },
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                                    .background(
+                                        MaterialTheme.colorScheme.primaryContainer, // 테마의 primaryContainer
+                                        CircleShape
+                                    )
                             ) {
-                                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer // 테마의 onPrimaryContainer
+                                )
                             }
                         }
                     }
@@ -164,9 +185,17 @@ fun PurchaseScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary, // 테마의 primary
+                    contentColor = MaterialTheme.colorScheme.onPrimary // 테마의 onPrimary
+                )
             ) {
-                Text("결제 진행하기", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "결제 진행하기",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
