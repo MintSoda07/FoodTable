@@ -153,12 +153,6 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     val method = match?.groupValues?.getOrNull(3) ?: ""
                     val duration = match?.groupValues?.getOrNull(4) ?: ""
 
-                    Log.d("✅ StepParser", "🟨 raw=$raw")
-                    Log.d(
-                        "✅ StepParser",
-                        "🟩 index=$index | title=$title | method=$method | duration=$duration | showTimer=${method.isNotEmpty() && duration.isNotEmpty()}"
-                    )
-
                     CookingStepState(
                         text = "$title: $description",
                         showTimer = method.isNotEmpty() && duration.isNotEmpty(),
@@ -166,9 +160,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         timerDuration = duration,
                         isCurrent = index == 0,
                         timerState = if (duration.isNotEmpty()) StepTimerState(
-                            parseDuration(
-                                duration
-                            )
+                            parseDuration(duration)
                         ) else null
                     )
                 }
@@ -185,30 +177,28 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     var isFinished by remember { mutableStateOf(false) }
     val isListening = remember { mutableStateOf(false) }
 
-    fun goToNextStep() {
+     fun goToNextStepWithoutTTS() {
         if (currentIndex + 1 < steps.size) {
-            steps = steps.mapIndexed { index, step ->
-                when (index) {
+            steps = steps.mapIndexed { idx, step ->
+                when (idx) {
                     currentIndex -> step.copy(isDone = true, isCurrent = false)
                     currentIndex + 1 -> step.copy(isCurrent = true)
                     else -> step
                 }
             }
-            currentIndex++
-            tts.speak(steps[currentIndex].text, TextToSpeech.QUEUE_FLUSH, null, "step")
+            currentIndex += 1
         } else {
-            steps = steps.mapIndexed { index, step ->
-                if (index == currentIndex) step.copy(isDone = true, isCurrent = false) else step
+            steps = steps.mapIndexed { idx, step ->
+                if (idx == currentIndex) step.copy(isDone = true, isCurrent = false) else step
             }
             isFinished = true
-            tts.speak("모든 조리 과정을 완료했습니다.", TextToSpeech.QUEUE_FLUSH, null, "done")
         }
     }
 
     fun repeatStep() {
         tts.speak(steps[currentIndex].text, TextToSpeech.QUEUE_FLUSH, null, "repeat")
     }
-
+    // 보이스 컨트롤러
     val voiceController = remember {
         VoiceCommandController(
             context = context,
@@ -216,24 +206,66 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             onCommand = {}
         )
     }
+    //  “현재 단계의 StepTimerState”를 컨트롤러에 바인딩
+    //    currentIndex나 steps가 바뀔 때마다 실행됩니다.
+    LaunchedEffect(currentIndex, steps) {
+        voiceController.stepTimerState = steps.getOrNull(currentIndex)?.timerState
+    }
 
+
+    // onCommand 핸들러 등록
     LaunchedEffect(Unit) {
         voiceController.onCommand = { command: VoiceCommandController.CommandType ->
             when (command) {
-                VoiceCommandController.CommandType.NEXT -> goToNextStep()
-                VoiceCommandController.CommandType.REPEAT -> repeatStep()
-                VoiceCommandController.CommandType.STOP -> {
-                    tts.speak("음성 명령을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
+                VoiceCommandController.CommandType.NEXT -> {
+                    // 상태만 업데이트 (버튼/음성 모두)
+                    goToNextStepWithoutTTS()
+                    // 음성 명령일 때만 TTS로 안내
+                    if (currentIndex < steps.size) {
+                        tts.speak(steps[currentIndex].text, TextToSpeech.QUEUE_FLUSH, null, "step")
+                    } else {
+                        tts.speak("모든 조리 과정을 완료했습니다.", TextToSpeech.QUEUE_FLUSH, null, "done")
+                    }
                 }
+                VoiceCommandController.CommandType.REPEAT -> {
+                    repeatStep()
+                }
+                VoiceCommandController.CommandType.STOP -> {
+                    voiceController.stop()
+                    isListening.value = false
+                    tts.speak("음성 인식을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
+                }
+                // ───────────────────────────────────────────────
+                //  TIMER 분기는 컨트롤러 내부에서 이미 처리되므로,
+                //    이곳에서는 별도 TTS 안내만(또는 아무것도 하지 않음) 해 줍니다.
                 VoiceCommandController.CommandType.TIMER -> {
-                    tts.speak("타이머 기능은 아직 완전히 연동되지 않았습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer")
+                    // (컨트롤러에서 이미 start/pause/resume 을 처리함)
+                    // 혹시 “현재 단계에 타이머가 없을 때” 안내하고 싶다면 추가 가능:
+                    if (steps.getOrNull(currentIndex)?.timerState == null) {
+                        tts.speak("현재 단계에 타이머가 없습니다.", TextToSpeech.QUEUE_FLUSH, null, "no_timer")
+                    }
                 }
                 VoiceCommandController.CommandType.NONE -> {
                     tts.speak("명령을 이해하지 못했습니다.", TextToSpeech.QUEUE_FLUSH, null, "fail")
                 }
+                // ───────────────────────────────────────────────
             }
         }
     }
+
+    // 화면이 사라질 때 음성 인식이 꺼지도록
+    DisposableEffect(Unit) {
+        onDispose {
+            if (isListening.value) {
+                voiceController.stop()
+                isListening.value = false
+            }
+        }
+    }
+
+
+
+
 
     Box(
         modifier = Modifier
@@ -454,7 +486,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 CookingStepCard(
                     index = index,
                     step = step,
-                    onNext = { goToNextStep() },
+                    onNext = { goToNextStepWithoutTTS() },
                     onRepeat = { repeatStep() }
                 )
             }
@@ -513,8 +545,14 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     backgroundColor = if (isListening.value) Color(0xFFFF5722) else Color(0xFF6C63FF),
                     onClick = {
                         if (!isListening.value) {
-                            voiceController.startListening()
-                            isListening.value = true
+                            val started = voiceController.startListening()
+                            if (started) {
+                                //  버튼을 눌러 음성 인식이 켜질 때, 현재 단계 설명을 바로 TTS로 읽어 줌
+                                steps.getOrNull(currentIndex)?.let { stepState ->
+                                    tts.speak(stepState.text, TextToSpeech.QUEUE_FLUSH, null, "speak_step")
+                                }
+                                isListening.value = true
+                            }
                         } else {
                             voiceController.stop()
                             isListening.value = false
@@ -522,6 +560,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     },
                     isLoading = false
                 )
+
 
                 Spacer(modifier = Modifier.height(12.dp))
 
