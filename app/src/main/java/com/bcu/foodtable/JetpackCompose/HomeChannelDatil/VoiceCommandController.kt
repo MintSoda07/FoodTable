@@ -217,7 +217,7 @@ class VoiceCommandController(
                             "때려줘" in local
                     )) {
             timer.start {
-                tts.speak("타이머가 종료되었습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_finish")
+                // tts.speak("타이머가 종료되었습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_finish")
             }
             tts.speak("타이머를 시작합니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_start")
             return
