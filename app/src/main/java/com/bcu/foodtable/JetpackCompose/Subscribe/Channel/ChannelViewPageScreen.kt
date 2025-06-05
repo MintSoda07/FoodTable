@@ -1,9 +1,10 @@
+// 파일: ChannelViewPageScreen.kt
 package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,6 +29,7 @@ import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ChannelViewPageScreen(
@@ -36,7 +38,8 @@ fun ChannelViewPageScreen(
     viewModel: ChannelViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val userId = remember { UserManager.getUser()?.uid ?: "" }
+    val user = remember { UserManager.getUser() }
+    val userId = user?.uid ?: ""
 
     var selectedTab by remember { mutableStateOf("Recipes") }
     val channel by viewModel.channel.collectAsState(initial = null)
@@ -54,7 +57,7 @@ fun ChannelViewPageScreen(
         }
     }
 
-    // 1) 로딩 중
+    // 1) 로딩 중 표시
     if (isLoading) {
         Box(
             modifier = Modifier
@@ -213,14 +216,49 @@ fun ChannelViewPageScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(recipes, key = { it.id }) { recipe ->
-                        RecipeCard(recipe = recipe) {
-                            // Compose가 아닌, Android Activity로 전환
-                            val intent = Intent(context, RecipeCookingActivity::class.java).apply {
-                                putExtra("recipe_id", recipe.id)
-                            }
-                            context.startActivity(intent)
+                    items(
+                        items = recipes,
+                        key = { recipe ->
+                            // recipe.id가 빈 문자열인 경우, recipe.name + hashCode()를 키로 사용
+                            recipe.id.ifBlank { recipe.name + recipe.hashCode() }
                         }
+                    ) { recipe ->
+                        // 각 레시피마다 "isPurchased" 상태를 로컬에서 관리
+                        var isPurchased by remember { mutableStateOf(false) }
+
+                        // 한 번만 Firestore에서 확인하도록 LaunchEffect 사용
+                        LaunchedEffect(recipe.id, userId) {
+                            if (userId.isNotBlank() && recipe.id.isNotBlank()) {
+                                val docRef = FirebaseFirestore
+                                    .getInstance()
+                                    .collection("user")
+                                    .document(userId)
+                                    .collection("purchased")
+                                    .document(recipe.id)
+
+                                try {
+                                    val snapshot = docRef.get().await()
+                                    isPurchased = snapshot.exists()
+                                } catch (e: Exception) {
+                                    Log.e("ChannelViewPageScreen", "구매 상태 확인 실패: ${e.message}")
+                                    isPurchased = false
+                                }
+                            }
+                        }
+
+                        RecipeCard(
+                            recipe = recipe,
+                            isPurchased = isPurchased,
+                            onClick = {
+                                // 레시피 클릭 시 실제 ID를 Intent에 넣어서 다음 Activity 호출
+                                Log.d("RECIPE_DEBUG", "Clicked recipe id=${recipe.id}")
+                                val intent =
+                                    Intent(context, RecipeCookingActivity::class.java).apply {
+                                        putExtra("recipe_id", recipe.id)
+                                    }
+                                context.startActivity(intent)
+                            }
+                        )
                     }
                 }
             }
