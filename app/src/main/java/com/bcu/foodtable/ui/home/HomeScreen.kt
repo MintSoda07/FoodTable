@@ -120,6 +120,15 @@ import com.bcu.foodtable.JetpackCompose.Social.PayerRouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.Social.PostDetailScreen
 import com.bcu.foodtable.JetpackCompose.Social.RouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.Social.WritePostScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.screens.CardGameScreen
+import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
+import com.bcu.foodtable.JetpackCompose.screens.LadderGameScreen
+import com.bcu.foodtable.JetpackCompose.screens.MiniGameMenu
+import com.bcu.foodtable.JetpackCompose.screens.PayerRouletteGameScreen
+import com.bcu.foodtable.JetpackCompose.screens.PostDetailScreen
+import com.bcu.foodtable.JetpackCompose.screens.RouletteGameScreen
+import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -1287,13 +1296,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
             }
             composable("write/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
-                WriteScreen(channelName = channelName, onUploadSuccess = {
-                    navController.popBackStack()
-                })
-            }
-            composable("recipeView/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: ""
-                ChannelViewPageScreen(channelName = id, navController = navController)
+                WriteScreen(
+                    channelName = channelName,
+                    onSuccess = { navController.popBackStack() }
+                )
             }
 
             composable(Screen.Subscribe.route) {

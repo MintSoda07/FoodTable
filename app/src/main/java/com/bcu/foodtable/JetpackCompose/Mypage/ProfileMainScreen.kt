@@ -173,15 +173,15 @@ fun ProfileMainScreen(
 
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            Text(
-                                text = "소금 보유량: ${user.point}",
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    color = colorScheme.primary
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
+//                            Text(
+//                                text = "소금 보유량: ${user.point}",
+//                                style = MaterialTheme.typography.bodyLarge.copy(
+//                                    fontWeight = FontWeight.Medium,
+//                                    color = colorScheme.primary
+//                                )
+//                            )
+//
+//                            Spacer(modifier = Modifier.height(24.dp))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

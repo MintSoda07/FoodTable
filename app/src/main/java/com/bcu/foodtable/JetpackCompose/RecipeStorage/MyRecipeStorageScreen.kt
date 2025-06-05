@@ -95,18 +95,20 @@ fun MyRecipeStorageScreen(
     }
 
     val displayList = remember(galleryItems, groupedItemsMap) {
-        // 그룹당 대표 아이템 1개만 선택 (recipeId가 가장 작은 것 기준)
+
+        // 1. 그룹당 대표 아이템 1개 선택 (creationTimestamp 기준 가장 오래된 것 or recipeId 가장 작은 것)
         val groupRepresentativeItems = groupedItemsMap.mapNotNull { (_, items) ->
-            items.minByOrNull { it.recipeId } // 또는 createdTimestamp도 가능
+            items.minByOrNull { it.creationTimestamp ?: 0L } // 또는 it.recipeId
         }
 
-        // 그룹이 없는 아이템
+        // 2. 그룹 없는 레시피
         val nonGroupedItems = galleryItems.filter { it.groupId.isBlank() }
 
-        // 그룹 대표 + 그룹 없는 것들을 하나로 묶고 정렬
+        // 3. 그룹 대표들 + 그룹 없는 레시피 → creationTimestamp 기준 정렬
         (groupRepresentativeItems + nonGroupedItems)
             .sortedByDescending { it.creationTimestamp ?: 0L }
     }
+
     LaunchedEffect(displayList) {
         Log.d("DisplayList", displayList.joinToString("\n") { it.recipeId + " / " + it.groupId })
     }

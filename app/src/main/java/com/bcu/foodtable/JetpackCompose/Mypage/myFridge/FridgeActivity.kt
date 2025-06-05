@@ -8,8 +8,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
 
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.theme.FridgeTheme //
+import com.bcu.foodtable.useful.RecipeItem
+import com.google.gson.Gson
 
 class FridgeActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,6 +40,16 @@ fun FridgeApp() {
                     navController = navController,
                     section = section
                 )
+            }
+            composable("ai_recipe/{recipeJson}") { backStackEntry ->
+                val json = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
+                val recipe = Gson().fromJson(json, RecipeItem::class.java)
+                AiRecipeScreen(recipe = recipe)
+            }
+            composable("recipe_cook/{recipeJson}") { backStackEntry ->
+                val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
+                val recipeItem = Gson().fromJson(recipeJson, RecipeItem::class.java)
+                RecipeCookingScreen(recipeItem)
             }
         }
     }
