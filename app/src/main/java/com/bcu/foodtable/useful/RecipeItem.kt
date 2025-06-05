@@ -61,4 +61,7 @@ data class RecipeItem(
 
     @PropertyName("likedUsers")
     var cost: Int = 0,
+
+    @PropertyName("cookingDuration")
+    var duration: Int = 0,
 )

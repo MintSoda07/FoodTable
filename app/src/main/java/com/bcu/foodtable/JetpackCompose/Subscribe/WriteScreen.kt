@@ -34,12 +34,10 @@ import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.RecipeItem
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ktx.toObject
-import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
 import java.util.*
 
-// Step 데이터 클래스를 Compose 함수 밖에 정의합니다.
+/** 조리 단계 하나를 나타내는 데이터 클래스 **/
 data class Step(
     val title: String,
     val description: String,
@@ -54,11 +52,11 @@ data class Step(
 fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-
-    // Firestore 인스턴스
     val firestore = FirebaseFirestore.getInstance()
 
-    // 0) 드롭다운용 상태
+    // ────────────────────────────────────────────────────────
+    // 0) 드롭다운 및 입력 상태
+    // ────────────────────────────────────────────────────────
     var categoryList by remember { mutableStateOf<List<String>>(emptyList()) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var categoryExpanded by remember { mutableStateOf(false) }
@@ -67,7 +65,7 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
     var selectedDifficulty by remember { mutableStateOf<String?>(null) }
     var difficultyExpanded by remember { mutableStateOf(false) }
 
-    // 1) 텍스트/이미지/리스트 상태
+    // 1) 일반 텍스트/이미지/리스트 상태
     var title by remember { mutableStateOf(TextFieldValue()) }
     var description by remember { mutableStateOf(TextFieldValue()) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -77,7 +75,10 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
     var tags by remember { mutableStateOf(mutableListOf<String>()) }
     var note by remember { mutableStateOf(TextFieldValue()) }
 
-    // 개별 단계 입력 필드
+    /** 새로운 필드: 소요 시간 (분 단위로 입력받을 Int) **/
+    var durationInput by remember { mutableStateOf(TextFieldValue()) }
+
+    // 2) 조리 단계 입력 필드
     var stepTitle by remember { mutableStateOf(TextFieldValue()) }
     var stepDescription by remember { mutableStateOf(TextFieldValue()) }
     var cookingMethod by remember { mutableStateOf(TextFieldValue()) }
@@ -86,14 +87,19 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
     var second by remember { mutableStateOf(TextFieldValue()) }
     var useTimer by remember { mutableStateOf(false) }
 
+    // 3) 태그/재료 입력 필드
     var tagInput by remember { mutableStateOf(TextFieldValue()) }
     var ingredientInput by remember { mutableStateOf(TextFieldValue()) }
-    var priceInput by remember { mutableStateOf(TextFieldValue()) } // 가격 입력
+
+    // 4) 가격 입력(숫자만)
+    var priceInput by remember { mutableStateOf(TextFieldValue()) }
+
     var isUploading by remember { mutableStateOf(false) }
 
-    val pickImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        selectedImageUri = uri
-    }
+    val pickImageLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            selectedImageUri = uri
+        }
 
     // Firestore에서 카테고리 목록을 불러옵니다.
     LaunchedEffect(Unit) {
@@ -158,18 +164,39 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
         Spacer(Modifier.height(12.dp))
 
         //--------------------------------------------------------
-        // 1-1. 가격 입력 (Int)
+        // 1-1. 소요 시간 입력 (분 단위로 Int)
+        //--------------------------------------------------------
+        OutlinedTextField(
+            value = durationInput,
+            onValueChange = { newValue ->
+                // 숫자만 필터링
+                val filtered = newValue.text.filter { ch -> ch.isDigit() }
+                val cursorPos = filtered.length
+                durationInput = TextFieldValue(
+                    text = filtered,
+                    selection = TextRange(cursorPos)
+                )
+            },
+            label = { Text("소요 시간 (분 단위 정수)") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Next
+            )
+        )
+        Spacer(Modifier.height(12.dp))
+
+        //--------------------------------------------------------
+        // 1-2. 가격 입력 (Int)
         //--------------------------------------------------------
         OutlinedTextField(
             value = priceInput,
             onValueChange = { newValue ->
-                // 숫자만 필터링
                 val filtered = newValue.text.filter { ch -> ch.isDigit() }
-                // 필터링된 문자열 전체 길이를 커서 위치로 지정
-                val cursorPosition = filtered.length
+                val cursorPos = filtered.length
                 priceInput = TextFieldValue(
                     text = filtered,
-                    selection = TextRange(cursorPosition)
+                    selection = TextRange(cursorPos)
                 )
             },
             label = { Text("가격 (숫자만 입력)") },
@@ -181,10 +208,8 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
         )
         Spacer(Modifier.height(12.dp))
 
-
-
         //--------------------------------------------------------
-        // 1-2. 카테고리 드롭다운 (Firebase → C_food_types/list)
+        // 1-3. 카테고리 드롭다운 (Firebase → C_food_types/list)
         //--------------------------------------------------------
         ExposedDropdownMenuBox(
             expanded = categoryExpanded,
@@ -217,7 +242,7 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
         Spacer(Modifier.height(12.dp))
 
         //--------------------------------------------------------
-        // 1-3. 난이도 드롭다운 (쉬움/보통/어려움)
+        // 1-4. 난이도 드롭다운 (쉬움/보통/어려움)
         //--------------------------------------------------------
         ExposedDropdownMenuBox(
             expanded = difficultyExpanded,
@@ -536,12 +561,14 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
         //--------------------------------------------------------
         Button(
             onClick = {
+                // 필수 입력값 체크
                 if (selectedImageUri == null ||
                     title.text.isBlank() ||
                     description.text.isBlank() ||
                     selectedCategory.isNullOrBlank() ||
                     selectedDifficulty.isNullOrBlank() ||
-                    priceInput.text.isBlank()
+                    priceInput.text.isBlank() ||
+                    durationInput.text.isBlank()
                 ) {
                     Toast.makeText(context, "모든 필드를 입력해주세요", Toast.LENGTH_SHORT).show()
                     return@Button
@@ -574,6 +601,7 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
                             likes = 0,
                             likedUsers = listOf(),
                             cost = priceInput.text.toInt(),
+                            duration = durationInput.text.toInt()
                         )
                         val db = FirebaseFirestore.getInstance()
                         val ref = db.collection("recipe").document()
