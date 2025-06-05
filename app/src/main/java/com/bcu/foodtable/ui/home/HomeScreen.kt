@@ -111,7 +111,6 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
-import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
 import com.bcu.foodtable.JetpackCompose.Social.CardGameScreen
 import com.bcu.foodtable.JetpackCompose.Social.CommunityTab
 import com.bcu.foodtable.JetpackCompose.Social.LadderGameScreen
@@ -121,14 +120,6 @@ import com.bcu.foodtable.JetpackCompose.Social.PostDetailScreen
 import com.bcu.foodtable.JetpackCompose.Social.RouletteGameScreen
 import com.bcu.foodtable.JetpackCompose.Social.WritePostScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.WriteScreen
-import com.bcu.foodtable.JetpackCompose.screens.CardGameScreen
-import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
-import com.bcu.foodtable.JetpackCompose.screens.LadderGameScreen
-import com.bcu.foodtable.JetpackCompose.screens.MiniGameMenu
-import com.bcu.foodtable.JetpackCompose.screens.PayerRouletteGameScreen
-import com.bcu.foodtable.JetpackCompose.screens.PostDetailScreen
-import com.bcu.foodtable.JetpackCompose.screens.RouletteGameScreen
-import com.bcu.foodtable.JetpackCompose.screens.WritePostScreen
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.rememberModalBottomSheetState
