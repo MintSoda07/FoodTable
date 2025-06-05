@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,7 +27,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.WriteScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.RecipeCard
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
@@ -163,22 +164,32 @@ fun ChannelViewPageScreen(
                     Spacer(Modifier.weight(1f))
 
                     if (isMyChannel) {
-                        Row {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = {
-                                    if (ch.name.isNotBlank()) {
-                                        navController.navigate("write/${ch.name}")
-                                    }
+                                    navController.navigate("write/${ch.name}")
                                 },
-                                modifier = Modifier.padding(end = 8.dp)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                             ) {
-                                Text("레시피 생성")
+                                Text("레시피 생성", style = MaterialTheme.typography.labelLarge)
                             }
 
                             OutlinedButton(
-                                onClick = { navController.navigate("editChannel/${ch.name}") }
+                                onClick = {
+                                    navController.navigate("editChannel/${ch.name}")
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.primary
+                                )
                             ) {
-                                Text("채널 관리")
+                                Text("채널 관리", style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     } else {
