@@ -96,8 +96,10 @@ data class CookingStepState(
 fun RecipeCookingScreen(recipe: RecipeItem) {
     val application = LocalContext.current.applicationContext as Application
     val firebaseFunctionsInstance = remember { Firebase.functions("us-central1") }
-    val aiViewModelFactory = remember { CookingAiViewModelFactory(application, firebaseFunctionsInstance) }
-    val aiViewModel: CookingAiViewModel = viewModel(key = "aiEvaluationViewModel", factory = aiViewModelFactory)
+    val aiViewModelFactory =
+        remember { CookingAiViewModelFactory(application, firebaseFunctionsInstance) }
+    val aiViewModel: CookingAiViewModel =
+        viewModel(key = "aiEvaluationViewModel", factory = aiViewModelFactory)
     val context = LocalContext.current
 
     // ViewModel 상태 관찰
@@ -130,7 +132,11 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
             if (recipeImageStringUrl.startsWith("http")) {
                 aiViewModel.evaluateCookingRecipe(recipeImageStringUrl, selectedUserImageUri)
             } else {
-                Toast.makeText(context, "레시피 원본 이미지 URL이 유효하지 않습니다. (예: http...)", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    context,
+                    "레시피 원본 이미지 URL이 유효하지 않습니다. (예: http...)",
+                    Toast.LENGTH_LONG
+                ).show()
                 Log.e("RecipeCooking_AI", "잘못된 레시피 이미지 URL: $recipeImageStringUrl. 전체 URL이어야 합니다.")
             }
         }
@@ -235,6 +241,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     isListening.value = false
                     tts.speak("음성 인식을 중지합니다.", TextToSpeech.QUEUE_FLUSH, null, "stop")
                 }
+
                 // ───────────────────────────────────────────────
                 //  TIMER 분기는 컨트롤러 내부에서 이미 처리되므로,
                 //    이곳에서는 별도 TTS 안내만(또는 아무것도 하지 않음) 해 줍니다.
@@ -245,6 +252,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         tts.speak("현재 단계에 타이머가 없습니다.", TextToSpeech.QUEUE_FLUSH, null, "no_timer")
                     }
                 }
+
                 VoiceCommandController.CommandType.NONE -> {
                     tts.speak("명령을 이해하지 못했습니다.", TextToSpeech.QUEUE_FLUSH, null, "fail")
                 }
@@ -309,7 +317,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             recipe.name,
                             style = MaterialTheme.typography.displaySmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = Color(0xFFE25532), // primary 색상
                                 letterSpacing = (-0.5).sp
                             ),
                             modifier = Modifier.padding(bottom = 16.dp)
@@ -348,13 +356,13 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                                     InfoChip(
                                         text = it,
                                         icon = "🔥",
-                                        backgroundColor = Color(0xFFFF6B6B).copy(alpha = 0.9f)
+                                        backgroundColor = Color(0xFFE25532).copy(alpha = 0.9f) // primary 색상
                                     )
                                 }
                                 InfoChip(
                                     text = "${steps.size}단계",
                                     icon = "👨‍🍳",
-                                    backgroundColor = Color(0xFF4ECDC4).copy(alpha = 0.9f)
+                                    backgroundColor = Color(0xFFB9806D).copy(alpha = 0.9f) // tertiary 색상
                                 )
                             }
                         }
@@ -368,7 +376,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                         .padding(bottom = 20.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        containerColor = Color(0xFFFBE7DF) // surfaceVariant 색상
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                 ) {
@@ -379,14 +387,14 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             "설명",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
+                                color = Color(0xFFE25532) // primary 색상
                             ),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                         Text(
                             recipe.description,
                             style = MaterialTheme.typography.bodyLarge.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = Color(0xFF3A2C28), // onBackground 색상
                                 lineHeight = 28.sp
                             ),
                             modifier = Modifier.padding(bottom = 16.dp)
@@ -424,7 +432,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             .padding(bottom = 20.dp),
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFF8F9FA)
+                            containerColor = Color(0xFFFFE2D6) // primaryContainer 색상
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
@@ -444,7 +452,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                                     "재료",
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = Color(0xFFE25532) // primary 색상
                                     )
                                 )
                             }
@@ -457,14 +465,19 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                                         ingredient = ingredient,
                                         onClick = {
                                             val encodedQuery = Uri.encode(ingredient)
-                                            val url = "https://search.shopping.naver.com/search/all?query=$encodedQuery"
+                                            val url =
+                                                "https://search.shopping.naver.com/search/all?query=$encodedQuery"
                                             val intent = Intent(Intent.ACTION_VIEW).apply {
                                                 data = Uri.parse(url)
                                             }
                                             try {
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
-                                                Toast.makeText(context, "웹 브라우저를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(
+                                                    context,
+                                                    "웹 브라우저를 열 수 없습니다.",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
                                                 Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
                                             }
                                         }
@@ -499,9 +512,12 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             .padding(vertical = 20.dp),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f)
+                            containerColor = Color(0xFFB9806D).copy(alpha = 0.1f) // tertiary 색상
                         ),
-                        border = BorderStroke(2.dp, Color(0xFF4CAF50).copy(alpha = 0.3f))
+                        border = BorderStroke(
+                            2.dp,
+                            Color(0xFFB9806D).copy(alpha = 0.3f)
+                        ) // tertiary 색상
                     ) {
                         Column(
                             modifier = Modifier
@@ -517,7 +533,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             Text(
                                 "조리 완료!",
                                 style = MaterialTheme.typography.headlineSmall.copy(
-                                    color = Color(0xFF4CAF50),
+                                    color = Color(0xFFB9806D), // tertiary 색상
                                     fontWeight = FontWeight.Bold
                                 ),
                                 textAlign = TextAlign.Center
@@ -525,7 +541,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             Text(
                                 "모든 단계를 성공적으로 완료했습니다",
                                 style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = Color(0xFF5F5F5F) // onSurfaceVariant 색상
                                 ),
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(top = 4.dp)
@@ -542,7 +558,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 // Voice Control Button
                 ModernActionButton(
                     text = if (isListening.value) "음성 명령 중지" else "🎤 음성 명령 시작",
-                    backgroundColor = if (isListening.value) Color(0xFFFF5722) else Color(0xFF6C63FF),
+                    backgroundColor = if (isListening.value) Color(0xFFD32F2F) else Color(0xFFE25532), // error와 primary 색상
                     onClick = {
                         if (!isListening.value) {
                             val started = voiceController.startListening()
@@ -567,7 +583,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 // PDF Save Button
                 ModernActionButton(
                     text = "📄 PDF로 저장",
-                    backgroundColor = Color(0xFF2196F3),
+                    backgroundColor = Color(0xFFB9806D), // tertiary 색상
                     onClick = {
                         val html = generateRecipeHtml(recipe)
                         saveAsPdfWithHtml(
@@ -589,7 +605,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                             .padding(bottom = 12.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            containerColor = Color(0xFFFBE7DF) // surfaceVariant 색상
                         )
                     ) {
                         AsyncImage(
@@ -606,7 +622,7 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
 
                 ModernActionButton(
                     text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 AI 요리 평가 받기",
-                    backgroundColor = Color(0xFF9C27B0),
+                    backgroundColor = Color(0xFF5C2B1B), // onPrimaryContainer 색상
                     onClick = {
                         pickImageLauncherForAiEval.launch("image/*")
                     },
@@ -646,7 +662,7 @@ private fun InfoChip(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color.White,
+                    color = Color.White, // 배경색이 진한 색상이므로 흰색 유지
                     fontWeight = FontWeight.SemiBold
                 ),
                 fontSize = 12.sp
@@ -664,14 +680,14 @@ private fun CategoryChip(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) // Color(0xFFE25532).copy(alpha = 0.1f)
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) // Color(0xFFE25532).copy(alpha = 0.3f)
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.primary, // Color(0xFFE25532)
                 fontWeight = FontWeight.Medium
             ),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -684,14 +700,14 @@ private fun TagChip(tag: String) {
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF6C63FF).copy(alpha = 0.1f)
+            containerColor = Color(0xFFB9806D).copy(alpha = 0.1f) // tertiary 색상
         ),
-        border = BorderStroke(1.dp, Color(0xFF6C63FF).copy(alpha = 0.2f))
+        border = BorderStroke(1.dp, Color(0xFFB9806D).copy(alpha = 0.2f)) // tertiary 색상
     ) {
         Text(
             text = tag,
             style = MaterialTheme.typography.bodySmall.copy(
-                color = Color(0xFF6C63FF),
+                color = Color(0xFFB9806D), // tertiary 색상
                 fontWeight = FontWeight.Medium
             ),
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
@@ -710,7 +726,7 @@ private fun IngredientItem(
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White
+            containerColor = Color.White // surface 색상 (그대로 유지)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -722,14 +738,14 @@ private fun IngredientItem(
                 modifier = Modifier
                     .size(8.dp)
                     .background(
-                        Color(0xFF4ECDC4),
+                        Color(0xFFE25532), // primary 색상으로 변경
                         CircleShape
                     )
             )
             Text(
                 text = ingredient,
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = MaterialTheme.colorScheme.onSurface, // 이미 테마 색상 사용
                     fontWeight = FontWeight.Medium
                 ),
                 modifier = Modifier
@@ -739,7 +755,7 @@ private fun IngredientItem(
             Icon(
                 imageVector = Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), // 이미 테마 색상 사용
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -793,7 +809,7 @@ private fun ModernActionButton(
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = backgroundColor,
-                contentColor = Color.White
+                contentColor = Color.White // 진한 배경색에 흰색 텍스트
             ),
             elevation = ButtonDefaults.buttonElevation(
                 defaultElevation = 6.dp,
@@ -805,7 +821,7 @@ private fun ModernActionButton(
                 CircularProgressIndicator(
                     modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = Color.White
+                    color = Color.White // 진한 배경색에 흰색 로딩 표시
                 )
             } else {
                 Text(
@@ -841,18 +857,18 @@ fun CookingStepCard(
 
     val cardColor by animateColorAsState(
         targetValue = when {
-            step.isCurrent -> Color(0xFFEDE7F6)
-            step.isDone -> Color(0xFFE8F5E9)
-            else -> Color(0xFFF5F5F5)
+            step.isCurrent -> Color(0xFFFFE2D6) // primaryContainer - 현재 단계
+            step.isDone -> Color(0xFFF3E0DC) // tertiaryContainer - 완료된 단계
+            else -> Color(0xFFFFFBF8) // background - 대기 중인 단계
         },
         animationSpec = tween(300)
     )
 
     val cardBorderColor by animateColorAsState(
         targetValue = when {
-            step.isCurrent -> Color(0xFF7E57C2)
-            step.isDone -> Color(0xFF66BB6A)
-            else -> Color(0xFFBDBDBD)
+            step.isCurrent -> Color(0xFFE25532) // primary - 현재 단계
+            step.isDone -> Color(0xFFB9806D) // tertiary - 완료된 단계
+            else -> Color(0xFFDDC7BD) // outline - 대기 중인 단계
         },
         animationSpec = tween(300)
     )
@@ -892,7 +908,7 @@ fun CookingStepCard(
                     fontSize = 16.sp,
                     fontWeight = if (step.isCurrent) FontWeight.Medium else FontWeight.Normal,
                     lineHeight = 26.sp,
-                    color = Color(0xFF212121)
+                    color = Color(0xFF3A2C28) // onBackground 색상
                 ),
                 modifier = Modifier.padding(horizontal = 2.dp)
             )
@@ -926,7 +942,6 @@ fun CookingStepCard(
     }
 }
 
-
 @Composable
 private fun StepIndicator(
     stepNumber: Int,
@@ -934,14 +949,14 @@ private fun StepIndicator(
     isCurrent: Boolean
 ) {
     val backgroundColor = when {
-        isCompleted -> Color(0xFF4CAF50)
-        isCurrent -> Color(0xFF6C63FF)
-        else -> MaterialTheme.colorScheme.surfaceVariant
+        isCompleted -> Color(0xFFB9806D) // tertiary 색상 - 완료된 단계
+        isCurrent -> Color(0xFFE25532) // primary 색상 - 현재 단계
+        else -> MaterialTheme.colorScheme.surfaceVariant // 대기 중인 단계
     }
 
     val contentColor = when {
-        isCompleted || isCurrent -> Color.White
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        isCompleted || isCurrent -> Color.White // 진한 배경에 흰색 텍스트
+        else -> MaterialTheme.colorScheme.onSurfaceVariant // 테마 색상 사용
     }
 
     Box(
@@ -953,7 +968,7 @@ private fun StepIndicator(
             )
             .border(
                 width = if (isCurrent) 3.dp else 0.dp,
-                color = if (isCurrent) Color(0xFF6C63FF).copy(alpha = 0.3f) else Color.Transparent,
+                color = if (isCurrent) Color(0xFFE25532).copy(alpha = 0.3f) else Color.Transparent, // primary 색상
                 shape = CircleShape
             ),
         contentAlignment = Alignment.Center
@@ -985,14 +1000,14 @@ private fun StatusBadge(
     if (isCurrent || isDone) {
         val (backgroundColor, textColor, text, icon) = when {
             isCurrent -> Tuple4(
-                Color(0xFF6C63FF).copy(alpha = 0.1f),
-                Color(0xFF6C63FF),
+                Color(0xFFE25532).copy(alpha = 0.1f), // primary 색상의 10% 투명도
+                Color(0xFFE25532), // primary 색상
                 "진행중",
                 "🔥"
             )
             isDone -> Tuple4(
-                Color(0xFF4CAF50).copy(alpha = 0.1f),
-                Color(0xFF4CAF50),
+                Color(0xFFB9806D).copy(alpha = 0.1f), // tertiary 색상의 10% 투명도
+                Color(0xFFB9806D), // tertiary 색상
                 "완료",
                 "✅"
             )
@@ -1037,8 +1052,8 @@ private fun TimerSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-        border = BorderStroke(1.dp, Color(0xFFFF9800).copy(alpha = 0.3f))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDE1D5)), // secondaryContainer 색상
+        border = BorderStroke(1.dp, Color(0xFFE25532).copy(alpha = 0.3f)) // primary 색상
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 타이틀
@@ -1051,7 +1066,7 @@ private fun TimerSection(
                     timerTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE65100)
+                        color = Color(0xFFE25532) // primary 색상
                     )
                 )
             }
@@ -1090,7 +1105,7 @@ private fun TimerSection(
                         isRunning = true
                         isPaused = false
                     },
-                    backgroundColor = Color(0xFF2196F3),
+                    backgroundColor = Color(0xFFB9806D), // tertiary 색상
                     modifier = Modifier.weight(1f)
                 )
 
@@ -1102,7 +1117,7 @@ private fun TimerSection(
                         isRunning = false
                         isPaused = true
                     },
-                    backgroundColor = Color(0xFFFF9800),
+                    backgroundColor = Color(0xFF5D4037), // onSecondaryContainer 색상
                     modifier = Modifier.weight(1f),
                     enabled = isRunning
                 )
@@ -1111,14 +1126,13 @@ private fun TimerSection(
             ModernActionButton(
                 text = "➡ 다음 단계",
                 onClick = onNext,
-                backgroundColor = Color(0xFF6C63FF),
+                backgroundColor = Color(0xFFE25532), // primary 색상
                 textColor = Color.White,
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
 }
-
 
 
 @Composable
@@ -1131,14 +1145,14 @@ private fun CurrentStepActions(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF6C63FF).copy(alpha = 0.05f)
+                containerColor = Color(0xFFE25532).copy(alpha = 0.05f) // primary 색상의 5% 투명도
             ),
-            border = BorderStroke(1.dp, Color(0xFF6C63FF).copy(alpha = 0.2f))
+            border = BorderStroke(1.dp, Color(0xFFE25532).copy(alpha = 0.2f)) // primary 색상의 20% 투명도
         ) {
             Text(
                 "🎯 현재 단계를 진행 중입니다",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6C63FF),
+                    color = Color(0xFFE25532), // primary 색상
                     fontWeight = FontWeight.SemiBold
                 ),
                 modifier = Modifier.padding(12.dp)
@@ -1154,8 +1168,8 @@ private fun CurrentStepActions(
             ModernActionButton(
                 text = "🔁 다시 읽기",
                 onClick = onRepeat,
-                backgroundColor = Color(0xFF6C63FF).copy(alpha = 0.1f),
-                textColor = Color(0xFF6C63FF),
+                backgroundColor = Color(0xFFE25532).copy(alpha = 0.1f), // primary 색상의 10% 투명도
+                textColor = Color(0xFFE25532), // primary 색상
                 isOutlined = true,
                 modifier = Modifier.weight(1f)
             )
@@ -1163,7 +1177,7 @@ private fun CurrentStepActions(
             ModernActionButton(
                 text = "➡ 다음 단계",
                 onClick = onNext,
-                backgroundColor = Color(0xFF6C63FF),
+                backgroundColor = Color(0xFFE25532), // primary 색상
                 textColor = Color.White,
                 modifier = Modifier.weight(1f)
             )
@@ -1177,9 +1191,9 @@ private fun CompletionStatus() {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50).copy(alpha = 0.1f)
+            containerColor = Color(0xFFB9806D).copy(alpha = 0.1f) // tertiary 색상의 10% 투명도
         ),
-        border = BorderStroke(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f))
+        border = BorderStroke(1.dp, Color(0xFFB9806D).copy(alpha = 0.3f)) // tertiary 색상의 30% 투명도
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1193,7 +1207,7 @@ private fun CompletionStatus() {
             Text(
                 "단계 완료됨",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF4CAF50),
+                    color = Color(0xFFB9806D), // tertiary 색상
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -1216,7 +1230,7 @@ private fun ModernTimerButton(
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = backgroundColor,
-            contentColor = Color.White
+            contentColor = Color.White // 진한 배경색에 흰색 텍스트
         ),
         contentPadding = PaddingValues(horizontal = 12.dp)
     ) {

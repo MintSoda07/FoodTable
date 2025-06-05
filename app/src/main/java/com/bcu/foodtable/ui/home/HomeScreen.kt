@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,12 +19,19 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +41,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,7 +50,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -52,7 +61,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -69,13 +77,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.AI.AiMainActivity
-
+import androidx.compose.animation.with
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.User
-import com.bcu.foodtable.ui.ChallengeActivity
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileMainScreen
 import androidx.compose.material.icons.filled.Category
@@ -85,36 +92,34 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.NoFood
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RestaurantMenu
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
-import com.bcu.foodtable.JetpackCompose.RecipeStorage.RecipeStorageActivity
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import java.util.Calendar
-import java.util.TimeZone
 import kotlinx.coroutines.launch
 import com.bcu.foodtable.ai.AIRecommendationService
-import com.bcu.foodtable.data.UserBehaviorTracker
-import com.bcu.foodtable.manager.TimeBasedRecommendationManager
-import com.bcu.foodtable.di.DependencyProvider
-import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.ui.text.font.FontStyle
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelViewPageScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.SubscribeViewModel
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.MyRecipeStorageScreen
-import com.bcu.foodtable.JetpackCompose.screens.SocialScreen
+import com.bcu.foodtable.JetpackCompose.Social.SocialScreen
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
+import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.Social.CardGameScreen
+import com.bcu.foodtable.JetpackCompose.Social.CommunityTab
+import com.bcu.foodtable.JetpackCompose.Social.LadderGameScreen
+import com.bcu.foodtable.JetpackCompose.Social.MiniGameMenu
+import com.bcu.foodtable.JetpackCompose.Social.PayerRouletteGameScreen
+import com.bcu.foodtable.JetpackCompose.Social.PostDetailScreen
+import com.bcu.foodtable.JetpackCompose.Social.RouletteGameScreen
+import com.bcu.foodtable.JetpackCompose.Social.WritePostScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.WriteScreen
 import com.bcu.foodtable.JetpackCompose.screens.CardGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
@@ -129,11 +134,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
 import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
 import com.bcu.foodtable.ui.home.AiChatBox as AiChatBox1
@@ -218,167 +229,313 @@ fun InfoTag(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
  * @param onClick 카드 클릭 시 실행될 람다.
  * @param modifier Modifier.
  */
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * 혁신적이고 현대적인 레시피 카드 컴포저블.
+ * 글래스모피즘, 그라데이션, 동적 애니메이션을 활용한 프리미엄 디자인
+ */
+/**
+ * 향상되고 테마와 통합된 레시피 정보를 표시하는 카드 컴포저블.
+ * 초기에는 축소된 형태로 표시되며, 스와이프나 탭으로 상세 정보를 확장할 수 있습니다.
+ *
+ * @param recipe 표시할 RecipeItem 데이터.
+ * @param onCardClick 카드 자체를 클릭했을 때 실행될 람다 (예: 레시피 상세 페이지 이동).
+ * @param modifier Modifier.
+ */
+
+// ModernRecipeCardResponsive -> ModernRecipeCard로 이름 유지 (사용자 코드에 맞춰)
+// 내부에서 호출하는 헬퍼 함수들의 이름도 사용자의 코드 파일에 있는 이름으로 사용합니다.
+// (RecipeCategoryChip, RecipeMetaInfoItem, RecipeDifficultyIndicator, RecipePurchaseButton)
+// 단, 이 헬퍼 함수들의 구현을 "처음 보내준 디자인" 기준으로 되돌립니다.
+
+/**
+ * 혁신적이고 현대적인 레시피 카드 컴포저블. (원래 디자인 유지 + 기능 추가 버전)
+ * 글래스모피즘, 그라데이션, 동적 애니메이션을 활용한 프리미엄 디자인
+ * 초기에는 축소된 형태로 표시되며, 스와이프나 탭으로 상세 정보를 확장할 수 있습니다.
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ModernRecipeCard(
+fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRecipeCard 그대로 사용
     recipe: RecipeItem,
-    onClick: () -> Unit,
+    onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardBackgroundColor = MaterialTheme.colorScheme.surface
-    val primaryTextColor = MaterialTheme.colorScheme.onSurface
-    val secondaryTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val accentColor = Color(0xFF4CAF50)
+    // 원래 디자인의 색상 정의 (다크모드 대응 포함)
+    val isDarkTheme = isSystemInDarkTheme()
+    val originalGlassBackground = if (isDarkTheme) Color(0x33FFFFFF) else Color(0x26000000) // 투명도 약간 높여서 내용물과 구분
+    val originalGlassBorder = Color.White.copy(alpha = 0.2f)
+    val originalOnGlassTextColor = Color.White // 원래 글래스 위 텍스트 색상
 
-    var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) }
-    val favoriteCount by remember { mutableStateOf(recipe.likes) }
+    // 원래 디자인의 그라데이션 색상 (GlassCategoryChip용)
+    val primaryGradientStart = Color(0xFF6B63FF)
+    val primaryGradientEnd = Color(0xFFFF6B9D)
 
-    val iconScale by animateFloatAsState(
-        targetValue = if (isFavoriteState) 1.2f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "favoriteIconScale"
+    // --- 상태 관리 (기존 ModernRecipeCardResponsive과 동일) ---
+    var isExpanded by remember { mutableStateOf(false) }
+    val expansionProgress by animateFloatAsState(
+        targetValue = if (isExpanded) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+        label = "expansionProgress"
     )
-
-    val difficultyTag = recipe.tags.find { it.startsWith("난이도:") }?.substringAfter("난이도:")
-    val prepTimeTag = recipe.tags.find { it.startsWith("소요시간:") }?.substringAfter("소요시간:")
-    val mainIngredientsSummary = recipe.ingredients.take(2).joinToString(", ")
-
+    var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) }
     val uid = remember { UserManager.getUser()!!.uid }
     var isPurchased by remember { mutableStateOf(false) }
 
-    LaunchedEffect(recipe.id) {
+    LaunchedEffect(recipe.id, uid) {
         Firebase.firestore
             .collection("user")
             .document(uid)
             .collection("purchased")
             .document(recipe.id)
             .get()
-            .addOnSuccessListener { doc ->
-                isPurchased = doc.exists()
-            }
+            .addOnSuccessListener { doc -> isPurchased = doc.exists() }
+            .addOnFailureListener { println("Error fetching purchase status: $it") }
     }
 
-    Card(
+    val difficultyLevel = when (recipe.tags.find { it.startsWith("난이도:") }?.substringAfter("난이도:")) {
+        "쉬움" -> 1; "보통" -> 2; "어려움" -> 3; else -> 1
+    }
+    val prepTime = recipe.tags.find { it.startsWith("소요시간:") }?.substringAfter("소요시간:") ?: "30분"
+
+    val collapsedHeight = 230.dp
+    val expandedHeight = 460.dp
+    val animatedCardHeight by animateDpAsState(
+        targetValue = if (isExpanded) expandedHeight else collapsedHeight,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
+        label = "cardHeight"
+    )
+    // --- 상태 관리 끝 ---
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .shadow(elevation = 6.dp, shape = RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBackgroundColor)
+            .height(animatedCardHeight)
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)) // 카드의 기본 배경은 테마 유지
+            .clickable(onClick = onCardClick)
     ) {
-        Box {
-            Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                AsyncImage(
-                    model = recipe.imageResId,
-                    contentDescription = "${recipe.name} image",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-                    placeholder = painterResource(id = R.drawable.ic_placeholder_dish),
-                    error = painterResource(id = R.drawable.ic_placeholder_dish_error)
-                )
+        AsyncImage( /* ... 기존 코드와 동일 ... */
+            model = recipe.imageResId,
+            contentDescription = "${recipe.name} 이미지",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            placeholder = painterResource(id = R.drawable.ic_placeholder_dish),
+            error = painterResource(id = R.drawable.ic_placeholder_dish_error)
+        )
 
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = recipe.name,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = primaryTextColor
+        Box( /* ... 그라데이션 오버레이, 기존 코드와 동일 ... */
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.1f),
+                            Color.Black.copy(alpha = 0.4f + (0.3f * expansionProgress))
+                        ),
+                        startY = with(LocalDensity.current) { (animatedCardHeight * 0.3f).toPx() },
+                        endY = with(LocalDensity.current) { animatedCardHeight.toPx() }
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                )
+        )
 
-                    if (recipe.C_categories.isNotEmpty()) {
-                        FlowRow {
-                            recipe.C_categories.forEach {
-                                SimpleCategoryTag(categoryName = it)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
+        Column( /* ... 상단 컨텐츠 (타이틀, 축소 시 설명), 기존 코드와 동일 ... */
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .fillMaxWidth()
+        ) {
+            Text(
+                text = recipe.name,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                ),
+                color = Color.White, // 이미지 위 텍스트는 흰색 유지
+                maxLines = if (isExpanded) 1 else 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!isExpanded) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = recipe.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        Box( /* ... 좋아요 버튼, 기존 코드와 동일 (테마 색상 일부 사용 유지) ... */
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    // 좋아요 버튼 배경은 가독성을 위해 테마 색상 유지 또는 약간의 투명도 조절
+                    if (isFavoriteState) MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                    else Color.Black.copy(alpha = 0.2f) // 원래 디자인과 유사하게 어두운 투명 배경
+                )
+                .clickable { isFavoriteState = !isFavoriteState },
+            contentAlignment = Alignment.Center
+        ) {
+            val favoriteIconScale by animateFloatAsState(
+                targetValue = if (isFavoriteState) 1.1f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "favoriteIconScale"
+            )
+            Icon(
+                imageVector = if (isFavoriteState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                contentDescription = "Favorite",
+                tint = Color.White.copy(alpha = if(isFavoriteState) 1f else 0.8f), // 아이콘 색상 흰색 계열
+                modifier = Modifier.size(20.dp).scale(favoriteIconScale)
+            )
+        }
+
+        Box( /* ... 확장/축소 핸들, 기존 코드와 동일 ... */
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(if (isExpanded) 56.dp else 48.dp)
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { change, dragAmount ->
+                        change.consume()
+                        val sensitivity = 2f
+                        if (dragAmount < -sensitivity) { isExpanded = true }
+                        else if (dragAmount > sensitivity) { isExpanded = false }
                     }
+                }
+                .clickable { isExpanded = !isExpanded }
+                .padding(bottom = 8.dp)
+        ) {
+            Icon(
+                imageVector = if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                contentDescription = if (isExpanded) "축소" else "확장",
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.align(Alignment.Center).size(28.dp)
+            )
+        }
 
-                    if (mainIngredientsSummary.isNotBlank()) {
-                        InfoTag(icon = Icons.Filled.RestaurantMenu, text = "주요: $mainIngredientsSummary")
-                        Spacer(modifier = Modifier.height(8.dp))
+        // --- 상세 정보 섹션 (글래스모피즘) ---
+        val detailsContentHeight = 280.dp
+        val density = LocalDensity.current
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(detailsContentHeight)
+                .align(Alignment.BottomCenter)
+                .graphicsLayer {
+                    translationY = (1f - expansionProgress) * with(density) {
+                        (detailsContentHeight - 56.dp).toPx()
+                    }
+                    alpha = expansionProgress
+                }
+                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                .background( // << 여기가 원래 디자인의 글래스 배경으로 변경되어야 함
+                    color = originalGlassBackground, // 원래 디자인의 글래스 배경색 사용
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                )
+                .border( // << 원래 디자인의 글래스 테두리로 변경
+                    width = 1.dp,
+                    color = originalGlassBorder, // 원래 디자인의 글래스 테두리색 사용
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                )
+        ) {
+            if (expansionProgress > 0.05f) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 16.dp)
+                        .alpha(expansionProgress)
+                ) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    ) {
+                        recipe.C_categories.take(4).forEach { category ->
+                            // RecipeCategoryChip 호출 시 원래 디자인에 필요한 파라미터 전달
+                            RecipeCategoryChip( // 이름은 파일에 있는 대로 RecipeCategoryChip
+                                category = category,
+                                gradientStart = primaryGradientStart, // 원래 디자인용 파라미터
+                                gradientEnd = primaryGradientEnd    // 원래 디자인용 파라미터
+                            )
+                        }
                     }
 
                     Text(
                         text = recipe.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
+                        color = originalOnGlassTextColor, // 원래 디자인의 텍스트 색상
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis,
-                        color = secondaryTextColor
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            recipe.estimatedCalories?.let {
-                                InfoTag(icon = Icons.Filled.LocalFireDepartment, text = "$it kcal")
-                            }
-                            Row {
-                                difficultyTag?.let { InfoTag(icon = Icons.Filled.Speed, text = it) }
-                                prepTimeTag?.let { InfoTag(icon = Icons.Filled.Schedule, text = it) }
-                            }
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable {
-                                isFavoriteState = !isFavoriteState
-                                // TODO: 좋아요 기능 연동
-                            }
-                        ) {
-                            Icon(
-                                imageVector = if (isFavoriteState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                contentDescription = "Favorite",
-                                tint = if (isFavoriteState) accentColor else secondaryTextColor,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .graphicsLayer(scaleX = iconScale, scaleY = iconScale)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "$favoriteCount",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = secondaryTextColor
-                            )
-                        }
+                        // RecipeMetaInfoItem 호출, 내부에서 원래 디자인 사용하도록 수정됨
+                        RecipeMetaInfoItem(
+                            icon = Icons.Filled.Timer, value = prepTime, label = "소요시간",
+                            modifier = Modifier.weight(1f)
+                            // contentColor, containerColor 파라미터는 RecipeMetaInfoItem 내부에서 원래 디자인 색상 사용
+                        )
+                        RecipeMetaInfoItem(
+                            icon = Icons.Filled.LocalFireDepartment, value = "${recipe.estimatedCalories ?: "N/A"}", label = "칼로리",
+                            modifier = Modifier.weight(1f)
+                        )
+                        // RecipeDifficultyIndicator 호출, 내부에서 원래 디자인 사용하도록 수정됨
+                        RecipeDifficultyIndicator(
+                            level = difficultyLevel,
+                            modifier = Modifier.weight(1f)
+                            // activeColor, inactiveColor, textColor 파라미터는 RecipeDifficultyIndicator 내부에서 원래 디자인 색상 사용
+                        )
                     }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // RecipePurchaseButton 호출, 내부에서 원래 디자인 사용하도록 수정됨
+                    RecipePurchaseButton(
+                        isPurchased = isPurchased,
+                        cost = recipe.cost,
+                        onClick = {
+                            if (!isPurchased) {
+                                println("Purchase button clicked for ${recipe.name}")
+                            }
+                        }
+                        // buttonColors 파라미터는 RecipePurchaseButton 내부에서 원래 디자인 색상 사용
+                    )
                 }
             }
+        }
 
-            // 가격 or 구매 완료 표시
+        if (!isPurchased && !isExpanded && recipe.cost > 0) { /* ... 플로팅 가격 태그, 기존 코드와 유사하게 (테마 색상 사용 유지 또는 원래 색상으로 변경 가능) ... */
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 12.dp, end = 12.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 16.dp)
                     .background(
-                        color = if (isPurchased) Color(0xFFB2DFDB) else Color(0xFFFFF9C4),
+                        brush = Brush.horizontalGradient( // 이 부분은 테마 색상 유지 또는 원래 디자인의 특정 색상으로 변경 가능
+                            colors = listOf(primaryGradientStart, primaryGradientEnd.copy(alpha = 0.8f)) // 예시: 원래 카드에 있던 그라디언트 사용
+                        ),
                         shape = RoundedCornerShape(12.dp)
                     )
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = if (isPurchased) Icons.Filled.CheckCircle else Icons.Filled.AttachMoney,
-                        contentDescription = "PurchaseStatus",
-                        tint = if (isPurchased) Color(0xFF00796B) else Color(0xFF8D6E63),
-                        modifier = Modifier.size(18.dp)
+                        imageVector = Icons.Default.Sell,
+                        contentDescription = "비용",
+                        tint = Color.White, // 가격 태그 텍스트/아이콘 흰색
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isPurchased) "구매 완료" else "${recipe.cost} 소금",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isPurchased) Color(0xFF004D40) else Color(0xFF4E342E)
+                        text = "${recipe.cost}",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
                     )
                 }
             }
@@ -386,9 +543,260 @@ fun ModernRecipeCard(
     }
 }
 
+// --- 아래는 헬퍼 Composable들을 "처음 보내주신 디자인" 기준으로 복원한 버전입니다 ---
+// 함수 이름은 ModernRecipeCard에서 호출하는 이름과 동일하게 유지합니다.
+
+/**
+ * 글래스모피즘 카테고리 칩 (원래 디자인 복원 - 쉬머 효과 포함)
+ */
+@Composable
+fun RecipeCategoryChip( // 함수 이름은 ModernRecipeCard에서 호출하는 이름 그대로 사용
+    category: String,
+    gradientStart: Color, // 원래 디자인에 필요했던 파라미터
+    gradientEnd: Color,   // 원래 디자인에 필요했던 파라미터
+    modifier: Modifier = Modifier
+    // backgroundColor, textColor 파라미터는 제거 (원래 디자인은 하드코딩된 색상 사용)
+) {
+    val shimmerOffset by rememberInfiniteTransition(label = "shimmerChip").animateFloat(
+        initialValue = -1.5f, // 범위 조정으로 쉬머 효과 더 잘 보이게
+        targetValue = 2.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing), // 속도 약간 빠르게
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerChipOffset"
+    )
+
+    Box(
+        modifier = modifier // 외부에서 전달된 Modifier 사용
+            .clip(RoundedCornerShape(20.dp))
+            .background( // 원래 디자인의 배경
+                Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.1f),
+                        Color.White.copy(alpha = 0.05f)
+                    )
+                )
+            )
+            .border( // 원래 디자인의 테두리 (쉬머 효과)
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(gradientStart.copy(alpha = 0.7f), gradientEnd.copy(alpha = 0.7f), gradientStart.copy(alpha = 0.7f)), // 자연스러운 반복을 위해 색상 추가
+                    start = Offset(shimmerOffset * 200f - 100f, 0f), // 오프셋 계산 수정
+                    end = Offset(shimmerOffset * 200f + 100f, 0f)
+                ),
+                shape = RoundedCornerShape(20.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp) // 패딩 조정
+    ) {
+        Text(
+            text = category,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.9f) // 원래 디자인의 텍스트 색상
+        )
+    }
+}
+
+/**
+ * 메타 정보 카드 (원래 디자인 복원)
+ */
+@Composable
+fun RecipeMetaInfoItem( // 함수 이름은 ModernRecipeCard에서 호출하는 이름 그대로 사용
+    icon: ImageVector,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+    // contentColor, containerColor 파라미터 제거 (원래 디자인은 하드코딩된 색상 사용)
+) {
+    Box(
+        modifier = modifier
+            .height(64.dp) // 원래 디자인의 높이
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.08f)) // 원래 디자인의 배경
+            .border( // 원래 디자인의 테두리
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp) // 패딩 조정으로 내부 공간 확보
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center, // 수직 중앙 정렬
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Row( // 아이콘과 값 텍스트를 한 줄에 배치
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = Color.White.copy(alpha = 0.8f), // 아이콘 색상 및 투명도 조정
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp)) // 아이콘과 텍스트 사이 간격
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp // 폰트 크기 약간 조정
+                    ),
+                    color = Color.White // 값 텍스트 색상
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp)) // 값과 라벨 사이 간격
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), // 라벨 폰트 크기 조정
+                color = Color.White.copy(alpha = 0.6f) // 라벨 텍스트 색상 및 투명도 조정
+            )
+        }
+    }
+}
+
+/**
+ * 난이도 인디케이터 (원래 디자인 복원 - 세로 막대형, 그라데이션)
+ */
+@Composable
+fun RecipeDifficultyIndicator( // 함수 이름은 ModernRecipeCard에서 호출하는 이름 그대로 사용
+    level: Int, // 1 (쉬움), 2 (보통), 3 (어려움)
+    modifier: Modifier = Modifier
+    // activeColor, inactiveColor, textColor 파라미터 제거 (원래 디자인은 하드코딩된 색상/그라데이션 사용)
+) {
+    Box(
+        modifier = modifier
+            .height(64.dp) // 원래 디자인의 높이
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.08f)) // 원래 디자인의 배경
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(16.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceAround, // 내부 요소들 간격 균등하게
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Row( // 막대들을 가로로 배치
+                verticalAlignment = Alignment.Bottom, // 막대들이 아래쪽 기준으로 정렬
+                horizontalArrangement = Arrangement.spacedBy(6.dp) // 막대 사이 간격 조정
+            ) {
+                val barBaseHeight = 6.dp // 막대 최소 높이
+                val heightIncrement = 6.dp // 레벨당 높이 증가량
+                val barWidth = 10.dp // 막대 너비 조정
+
+                (0..2).forEach { index -> // 0, 1, 2 (3개 막대)
+                    val isActive = index < level
+                    Box(
+                        modifier = Modifier
+                            .width(barWidth)
+                            .height(barBaseHeight + (heightIncrement * (2 - index))) // 원래 디자인의 높이 변화 방식 (세번째 막대가 가장 김)
+                            .clip(RoundedCornerShape(4.dp))
+                            .then( // Modifier.then 사용하여 조건부 Modifier 적용
+                                if (isActive) {
+                                    Modifier.background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(Color(0xFFFFD93D), Color(0xFFFF884B), Color(0xFFFF6B9D))
+                                        )
+                                    )
+                                } else {
+                                    Modifier.background(
+                                        Color.White.copy(alpha = 0.2f)
+                                    )
+                                }
+                            )
+                    )
+                }
+            }
+            // Spacer(modifier = Modifier.height(4.dp)) // 막대와 텍스트 사이 간격은 Arrangement.SpaceAround로 조절
+            Text( // "난이도" 텍스트 표시 (원래 디자인)
+                text = when (level) { // 실제 난이도 텍스트 표시 (개선된 부분 유지)
+                    1 -> "쉬움"
+                    2 -> "보통"
+                    3 -> "어려움"
+                    else -> "난이도"
+                },
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), // 폰트 크기 조정
+                color = Color.White.copy(alpha = 0.7f) // 텍스트 색상
+            )
+        }
+    }
+}
 
 
+/**
+ * 애니메이션 구매 버튼 (원래 디자인 복원 - Box 기반, 특정 그라데이션, AnimatedContent)
+ */
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun RecipePurchaseButton( // 함수 이름은 ModernRecipeCard에서 호출하는 이름 그대로 사용
+    isPurchased: Boolean,
+    cost: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier // 외부 Modifier 사용 가능하게
+    // buttonColors 파라미터 제거 (원래 디자인은 하드코딩된 그라데이션 사용)
+) {
+    // 원래 AnimatedPurchaseButton의 scale 애니메이션은 targetValue가 같아 효과가 없었으므로 제거하거나,
+    // 실제 인터랙션에 따른 스케일 변경을 원하시면 추가 구현 필요. 여기서는 제거.
 
+    Box(
+        modifier = modifier // 외부에서 전달된 Modifier 사용 (fillMaxWidth 등)
+            .fillMaxWidth() // 버튼 너비 채우도록 기본 설정
+            .height(52.dp)  // 높이 조정
+            .clip(RoundedCornerShape(26.dp)) // 타원형에 가까운 둥근 모서리
+            .background( // 원래 디자인의 그라데이션 배경
+                if (isPurchased) {
+                    Brush.linearGradient(
+                        colors = listOf(Color(0xFF00BFA5), Color(0xFF00C896)) // 구매 완료 시 초록 계열 그라데이션
+                    )
+                } else {
+                    Brush.linearGradient( // 구매 가능 시 원래의 보라-핑크 그라데이션
+                        colors = listOf(Color(0xFF7E57C2), Color(0xFFE91E63)) // 좀 더 강렬한 색상 조합으로 변경
+                    )
+                }
+            )
+            .clickable(enabled = !isPurchased) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedContent( // 아이콘과 텍스트 전환 애니메이션
+            targetState = isPurchased,
+            transitionSpec = {
+                if (targetState) { // true (purchased)가 될 때
+                    slideInVertically { height -> height } + fadeIn() with
+                            slideOutVertically { height -> -height } + fadeOut()
+                } else { // false (not purchased)가 될 때
+                    slideInVertically { height -> -height } + fadeIn() with
+                            slideOutVertically { height -> height } + fadeOut()
+                }
+            },
+            label = "purchaseButtonContent"
+        ) { purchased ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = if (purchased) Icons.Filled.CheckCircle else Icons.Filled.ShoppingCart,
+                    contentDescription = if (purchased) "구매 완료" else "구매하기",
+                    tint = Color.White, // 아이콘 색상은 흰색
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (purchased) "구매 완료" else "$cost Salt로 레시피 보기",
+                    style = MaterialTheme.typography.titleSmall.copy( // 폰트 스타일 조정
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = Color.White // 텍스트 색상은 흰색
+                )
+            }
+        }
+    }
+}
 /**
  * 시간대에 따라 다른 환영 메시지를 반환하는 함수.
  */
@@ -1040,10 +1448,10 @@ fun CategoryChipsSection(
     }
 
     // 디버깅을 위해 로그 추가 (실제 앱에서는 개발 중에만 사용하거나 필요시 제거)
-     LaunchedEffect(recipes, uniqueCategories) {
-         Log.d("CategoryChipsDebug", "Recipes count in CategoryChipsSection: ${recipes.size}")
-         Log.d("CategoryChipsDebug", "Unique categories for chips: $uniqueCategories")
-     }
+    LaunchedEffect(recipes, uniqueCategories) {
+        Log.d("CategoryChipsDebug", "Recipes count in CategoryChipsSection: ${recipes.size}")
+        Log.d("CategoryChipsDebug", "Unique categories for chips: $uniqueCategories")
+    }
 
     if (recipes.isEmpty()) {
         // 레시피 리스트 자체가 비어있을 경우 (로딩 중이거나 데이터가 없을 때)
@@ -1117,7 +1525,7 @@ fun AITimeBasedRecommendationSection(
     val aiRecommendation by homeViewModel.aiTimeRecommendation.collectAsState()
     val isLoading by homeViewModel.isRecommendationLoading.collectAsState()
     val currentGreeting by homeViewModel.currentTimeGreeting.collectAsState()
-    
+
     // 화면이 처음 나타날 때 추천 시스템 초기화
 //    LaunchedEffect(Unit) {
 //        homeViewModel.initializeRecommendationSystem()
@@ -1147,7 +1555,7 @@ fun AITimeBasedRecommendationSection(
                     )
                 }
             }
-            
+
             // 새로고침 버튼
             IconButton(
                 onClick = {
@@ -1229,7 +1637,7 @@ fun AITimeBasedRecommendationSection(
                 }
             }
         }
-        
+
         HorizontalDivider(modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp))
     }
 }
@@ -1283,7 +1691,7 @@ fun AIRecommendationCards(
                     }
                 )
             }
-            
+
             item {
                 MenuRecommendationCard(
                     title = "🥗 서브 메뉴",
@@ -1295,7 +1703,7 @@ fun AIRecommendationCards(
                     }
                 )
             }
-            
+
             item {
                 MenuRecommendationCard(
                     title = "🍰 디저트",
@@ -1353,7 +1761,7 @@ fun MenuRecommendationCard(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
-            
+
             Text(
                 text = menuName,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -1361,7 +1769,7 @@ fun MenuRecommendationCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            
+
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
@@ -1386,7 +1794,7 @@ fun SmartPersonalizedRecommendationSection(
     val personalizedRecommendation by homeViewModel.personalizedRecommendation.collectAsState()
     val userPreferences by homeViewModel.userPreferences.collectAsState()
     val categoryViewCounts by homeViewModel.categoryViewCounts.collectAsState()
-    
+
     val userName = user?.name ?: "회원"
     val sectionTitle = "✨ ${userName}님 맞춤 AI 추천"
 
@@ -1405,7 +1813,7 @@ fun SmartPersonalizedRecommendationSection(
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.primary
                 )
-                
+
                 // 사용자 선호도 표시
                 if (userPreferences.isNotEmpty()) {
                     val preferencesText = "선호: ${userPreferences.take(3).joinToString(", ")}"
@@ -1424,7 +1832,7 @@ fun SmartPersonalizedRecommendationSection(
                     )
                 }
             }
-            
+
             // 맞춤 추천 업데이트 버튼
             IconButton(
                 onClick = {
@@ -1491,7 +1899,7 @@ fun SmartPersonalizedRecommendationSection(
                 }
             }
         }
-        
+
         HorizontalDivider(modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp))
     }
 }
@@ -1738,7 +2146,7 @@ private fun HomeContent(
 
                 ModernRecipeCard(
                     recipe = recipe,
-                    onClick = {
+                    onCardClick  = {
                         scope.launch {
                             val uid = UserManager.getUser()!!.uid
 
@@ -1948,7 +2356,7 @@ fun DetailFilterChipsSection(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)        
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             options.forEach { option ->
                 CategoryChip(
@@ -2060,5 +2468,5 @@ fun EmptyState(modifier: Modifier = Modifier) {
         )
 
     }
-    
+
 }

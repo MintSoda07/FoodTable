@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.screens
+package com.bcu.foodtable.JetpackCompose.Social
 
 import android.annotation.SuppressLint
 import androidx.compose.animation.core.*
@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight

@@ -70,7 +70,7 @@ fun CommentSection(
         Text(
             "💬 댓글 ${commentList.size}개",
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary // Color(0xFFE25532) 자동 적용
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -79,7 +79,7 @@ fun CommentSection(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), // Color(0xFFFBE7DF) 자동 적용
             elevation = CardDefaults.run { cardElevation(defaultElevation = 4.dp) }
         ) {
             Row(
@@ -95,8 +95,8 @@ fun CommentSection(
                     shape = RoundedCornerShape(12.dp),
                     singleLine = false,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        focusedBorderColor = MaterialTheme.colorScheme.primary, // Color(0xFFE25532) 자동 적용
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline // Color(0xFFDDC7BD) 자동 적용
                     )
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -144,7 +144,7 @@ fun CommentItem(comment: RecipeViewActivity.Comment) {
             .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface) // Color.White 자동 적용
     ) {
         Row(
             modifier = Modifier
@@ -163,13 +163,13 @@ fun CommentItem(comment: RecipeViewActivity.Comment) {
                 Text(
                     comment.userName,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary // Color(0xFFE25532) 자동 적용
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     comment.text,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant // Color(0xFF5F5F5F) 자동 적용
                 )
             }
         }

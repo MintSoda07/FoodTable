@@ -1,6 +1,5 @@
-package com.bcu.foodtable.JetpackCompose.screens
+package com.bcu.foodtable.JetpackCompose.Social
 
-import androidx.compose.foundation.content.MediaType.Companion.Text
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,17 +10,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.Role.Companion.Button
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 
 @Composable
-fun LadderGameScreen(navController: NavController) {
+fun PayerRouletteGameScreen(navController: NavController) {
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("사다리 타기 게임", style = MaterialTheme.typography.headlineMedium)
+        Text("낼 사람 룰렛", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
 
-        Text("여기에 사다리 UI를 구현하세요")
+        Text("여기에 룰렛 UI를 구현하세요 (사람 목록 포함)")
 
         Spacer(Modifier.height(24.dp))
         Button(onClick = { navController.popBackStack() }) {

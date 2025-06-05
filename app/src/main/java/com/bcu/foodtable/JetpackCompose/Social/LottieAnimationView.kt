@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose.screens
+package com.bcu.foodtable.JetpackCompose.Social
 
 import androidx.annotation.RawRes
 import androidx.compose.runtime.Composable
