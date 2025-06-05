@@ -3,18 +3,30 @@ package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import android.content.Intent
 import android.util.Log
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -31,6 +43,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChannelViewPageScreen(
     channelName: String,
@@ -86,190 +99,359 @@ fun ChannelViewPageScreen(
         return
     }
 
+    // ============================================================
     // 4) 실제 UI
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // 4-1) 채널 배너
-        AsyncImage(
-            model = channel!!.BackgroundResId,
-            contentDescription = "채널 배경 이미지",
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(12.dp)),
-            contentScale = ContentScale.Crop
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 4-2) 프로필 / 구독 / 관리 버튼
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            AsyncImage(
-                model = channel!!.imageResId,
-                contentDescription = "채널 프로필",
+    Scaffold(
+        topBar = {
+            // 유튜브 스타일의 배너 이미지를 상단에 표시
+            LargeTopAppBar(
+                title = { /* 빈 람다 */ },
                 modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(50.dp)),
-                contentScale = ContentScale.Crop
+                    .height(200.dp)
+                    .background(Color.Transparent),
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = Color.Transparent
+                ),
+                navigationIcon = { /* 빈 람다 */ },
+                actions = { /* 빈 람다 */ },
+                scrollBehavior = null
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column {
-                Text(
-                    text = channel!!.name,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+            ) {
+                AsyncImage(
+                    model = channel!!.BackgroundResId,
+                    contentDescription = "채널 배너",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                 )
-                Text(
-                    text = "$subscriberCount 명 구독 중",
-                    style = MaterialTheme.typography.bodySmall
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.5f to Color.Black.copy(alpha = 0.3f),
+                                1f to Color.Black.copy(alpha = 0.7f)
+                            )
+                        )
                 )
             }
+        },
+        content = { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            val isMyChannel = (userId == channel!!.owner)
-            if (isMyChannel) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = { navController.navigate("write/${channel!!.name}") },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("레시피 생성", style = MaterialTheme.typography.labelLarge)
-                    }
-                    OutlinedButton(
-                        onClick = { navController.navigate("editChannel/${channel!!.name}") },
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Text("채널 관리", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-            } else {
-                when (isSubscribed) {
-                    true -> Button(onClick = {
-                        coroutineScope.launch {
-                            viewModel.toggleSubscription(channel!!.name, userId)
-                        }
-                    }) {
-                        Text("구독중")
-                    }
-                    false -> Button(onClick = {
-                        coroutineScope.launch {
-                            viewModel.toggleSubscription(channel!!.name, userId)
-                        }
-                    }) {
-                        Text("구독하기")
-                    }
-                    null -> OutlinedButton(onClick = {}, enabled = false) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("로딩 중...")
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // 4-3) 탭바
-        TabRow(
-            selectedTabIndex = if (selectedTab == "Recipes") 0 else 1,
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Tab(
-                selected = (selectedTab == "Recipes"),
-                onClick = { selectedTab = "Recipes" }
-            ) { Text("Recipes", modifier = Modifier.padding(8.dp)) }
-
-            Tab(
-                selected = (selectedTab == "Liked"),
-                onClick = { selectedTab = "Liked" }
-            ) { Text("Liked", modifier = Modifier.padding(8.dp)) }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 4-4) 탭별 콘텐츠: 레시피 그리드
-        when (selectedTab) {
-            "Recipes" -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // 4-2) 프로필 + 구독 영역
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        // **기존 offset(y = (-32).dp) → offset(y = (-27).dp) 로 조정**
+                        .offset(y = (-5).dp)
+                        .animateContentSize(animationSpec = spring()),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                 ) {
-                    items(
-                        items = recipes,
-                        key = { recipe ->
-                            // recipe.id가 빈 문자열인 경우, recipe.name + hashCode()를 키로 사용
-                            recipe.id.ifBlank { recipe.name + recipe.hashCode() }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(16.dp)
+                    ) {
+                        AsyncImage(
+                            model = channel!!.imageResId,
+                            contentDescription = "채널 프로필",
+                            modifier = Modifier
+                                .size(64.dp)
+                                .clip(CircleShape)
+                                .border(
+                                    width = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape
+                                ),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Text(
+                                text = channel!!.name,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "$subscriberCount 명 구독 중",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                    ) { recipe ->
-                        // 각 레시피마다 "isPurchased" 상태를 로컬에서 관리
-                        var isPurchased by remember { mutableStateOf(false) }
 
-                        // 한 번만 Firestore에서 확인하도록 LaunchEffect 사용
-                        LaunchedEffect(recipe.id, userId) {
-                            if (userId.isNotBlank() && recipe.id.isNotBlank()) {
-                                val docRef = FirebaseFirestore
-                                    .getInstance()
-                                    .collection("user")
-                                    .document(userId)
-                                    .collection("purchased")
-                                    .document(recipe.id)
+                        Spacer(modifier = Modifier.weight(1f))
 
-                                try {
-                                    val snapshot = docRef.get().await()
-                                    isPurchased = snapshot.exists()
-                                } catch (e: Exception) {
-                                    Log.e("ChannelViewPageScreen", "구매 상태 확인 실패: ${e.message}")
-                                    isPurchased = false
+                        // 구독 / 구독중 버튼
+                        if (userId != channel!!.owner) {
+                            when (isSubscribed) {
+                                true -> ElevatedButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            viewModel.toggleSubscription(channel!!.name, userId)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.elevatedButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text("구독중")
+                                }
+
+                                false -> ElevatedButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            viewModel.toggleSubscription(channel!!.name, userId)
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(20.dp),
+                                    colors = ButtonDefaults.elevatedButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Text("구독하기")
+                                }
+
+                                null -> OutlinedButton(
+                                    onClick = { },
+                                    enabled = false,
+                                    shape = RoundedCornerShape(20.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("로딩中", style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
+                    }
+                }
 
-                        RecipeCard(
-                            recipe = recipe,
-                            isPurchased = isPurchased,
-                            onClick = {
-                                // 레시피 클릭 시 실제 ID를 Intent에 넣어서 다음 Activity 호출
-                                Log.d("RECIPE_DEBUG", "Clicked recipe id=${recipe.id}")
-                                val intent =
-                                    Intent(context, RecipeCookingActivity::class.java).apply {
-                                        putExtra("recipe_id", recipe.id)
-                                    }
-                                context.startActivity(intent)
-                            }
+                // 4-3) 작성자 전용 버튼 (FilledTonalButton)
+                if (userId == channel!!.owner) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        // 레시피 생성 버튼
+                        FilledTonalButton(
+                            onClick = { navController.navigate("write/${channel!!.name}") },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "레시피 생성",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "레시피 생성",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+
+                        // 채널 관리 버튼
+                        FilledTonalButton(
+                            onClick = { navController.navigate("editChannel/${channel!!.name}") },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "채널 관리",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "채널 관리",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // 4-4) 탭바
+                TabRow(
+                    selectedTabIndex = if (selectedTab == "Recipes") 0 else 1,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.Indicator(
+                            Modifier
+                                .tabIndicatorOffset(
+                                    tabPositions[if (selectedTab == "Recipes") 0 else 1]
+                                )
+                                .height(3.dp),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                ) {
+                    Tab(
+                        selected = (selectedTab == "Recipes"),
+                        onClick = { selectedTab = "Recipes" }
+                    ) {
+                        Text(
+                            "Recipes",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                            style = if (selectedTab == "Recipes")
+                                MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                            else
+                                MaterialTheme.typography.bodyMedium,
+                            color = if (selectedTab == "Recipes")
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Tab(
+                        selected = (selectedTab == "Liked"),
+                        onClick = { selectedTab = "Liked" }
+                    ) {
+                        Text(
+                            "Liked",
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp),
+                            style = if (selectedTab == "Liked")
+                                MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                            else
+                                MaterialTheme.typography.bodyMedium,
+                            color = if (selectedTab == "Liked")
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
-            "Liked" -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("좋아요한 레시피는 아직 없습니다.")
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 4-5) 탭별 콘텐츠: 레시피 그리드
+                when (selectedTab) {
+                    "Recipes" -> {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(
+                                items = recipes,
+                                key = { recipe ->
+                                    recipe.id.ifBlank { recipe.name + recipe.hashCode() }
+                                }
+                            ) { recipe ->
+                                var isPurchased by remember { mutableStateOf(false) }
+
+                                // Firestore에서 구매 여부를 한 번만 확인
+                                LaunchedEffect(recipe.id, userId) {
+                                    if (userId.isNotBlank() && recipe.id.isNotBlank()) {
+                                        val docRef = FirebaseFirestore
+                                            .getInstance()
+                                            .collection("user")
+                                            .document(userId)
+                                            .collection("purchased")
+                                            .document(recipe.id)
+
+                                        try {
+                                            val snapshot = docRef.get().await()
+                                            isPurchased = snapshot.exists()
+                                        } catch (e: Exception) {
+                                            Log.e("ChannelViewPageScreen", "구매 상태 확인 실패: ${e.message}")
+                                            isPurchased = false
+                                        }
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .animateItemPlacement()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            Log.d("RECIPE_DEBUG", "Clicked recipe id=${recipe.id}")
+                                            val intent = Intent(context, RecipeCookingActivity::class.java).apply {
+                                                putExtra("recipe_id", recipe.id)
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .padding(4.dp)
+                                ) {
+                                    RecipeCard(
+                                        recipe = recipe,
+                                        isPurchased = isPurchased,
+                                        onClick = {
+                                            Log.d("RECIPE_DEBUG", "Clicked recipe id=${recipe.id}")
+                                            val intent = Intent(context, RecipeCookingActivity::class.java).apply {
+                                                putExtra("recipe_id", recipe.id)
+                                            }
+                                            context.startActivity(intent)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    "Liked" -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "좋아요한 레시피가 없습니다.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         }
-    }
+    )
 }
