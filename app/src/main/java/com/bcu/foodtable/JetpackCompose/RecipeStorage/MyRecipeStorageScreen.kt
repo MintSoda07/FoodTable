@@ -11,16 +11,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items // itemsIndexed 대신 items 사용
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue // For state observation
-import androidx.compose.runtime.mutableStateOf // For state management
-import androidx.compose.runtime.setValue // For state management
-import androidx.compose.runtime.snapshotFlow // For state observation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,13 +33,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity // 변경된 import
-import com.bcu.foodtable.useful.GalleryItem // 사용자 경로
-import androidx.compose.foundation.layout.Box
-import coil.compose.AsyncImagePainter // AsyncImage의 상태를 사용하기 위해 필요
-import androidx.compose.foundation.Image // Explicit import for Image composable
-import coil.compose.rememberAsyncImagePainter // Add this import
-// Import navigation components from HomeScreen
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
+import com.bcu.foodtable.useful.GalleryItem
+import coil.compose.AsyncImagePainter
+import androidx.compose.foundation.Image
+import coil.compose.rememberAsyncImagePainter
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.animation.core.Spring
@@ -51,11 +45,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.layout.positionInWindow
-
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -75,13 +66,13 @@ fun MyRecipeStorageScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val loadFailed by viewModel.loadFailed.collectAsState()
     val user by homeViewModel.user.collectAsState()
-    // 선택된 아이템과 드래그 중인 위치 상태
+
     var draggingItem: GalleryItem? by remember { mutableStateOf(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
-
-    val recipeCardBoundsMap = remember { mutableStateMapOf<String, Rect>() }
-
     var dragPositionInWindow by remember { mutableStateOf(Offset.Zero) }
+
+    // 각 레시피 카드/그룹 대표 카드의 화면 내 경계(bounds)를 저장합니다.
+    val recipeCardBoundsMap = remember { mutableStateMapOf<String, Rect>() }
 
     LaunchedEffect(Unit) {
         viewModel.loadGalleryItems()
@@ -95,28 +86,99 @@ fun MyRecipeStorageScreen(
     }
 
     val displayList = remember(galleryItems, groupedItemsMap) {
-
-        // 1. 그룹당 대표 아이템 1개 선택 (creationTimestamp 기준 가장 오래된 것 or recipeId 가장 작은 것)
         val groupRepresentativeItems = groupedItemsMap.mapNotNull { (_, items) ->
-            items.minByOrNull { it.creationTimestamp ?: 0L } // 또는 it.recipeId
+            items.minByOrNull { it.creationTimestamp ?: 0L }
         }
-
-        // 2. 그룹 없는 레시피
         val nonGroupedItems = galleryItems.filter { it.groupId.isBlank() }
-
-        // 3. 그룹 대표들 + 그룹 없는 레시피 → creationTimestamp 기준 정렬
         (groupRepresentativeItems + nonGroupedItems)
             .sortedByDescending { it.creationTimestamp ?: 0L }
     }
 
-    LaunchedEffect(displayList) {
-        Log.d("DisplayList", displayList.joinToString("\n") { it.recipeId + " / " + it.groupId })
+    var showGroupDetailOverlay by remember { mutableStateOf<String?>(null) }
+    val itemSize = 180.dp
+
+    // 드롭 처리를 위한 함수
+    val processDrop = remember(viewModel, displayList, recipeCardBoundsMap, groupedItemsMap) {
+        { sourceItem: GalleryItem, finalDropPosition: Offset ->
+            var dropHandled = false
+            Log.d("ProcessDrop", "Processing drop for ${sourceItem.recipeId} at $finalDropPosition")
+
+            // 1. 그룹 폴더 위로 드롭했는지 확인 (displayList에 있는 그룹 대표 아이템 기준)
+            val groupRepresentativeTargetItems = displayList.filter {
+                it.groupId.isNotBlank() &&
+                        (groupedItemsMap[it.groupId]?.minByOrNull { g -> g.creationTimestamp ?: 0L }?.recipeId == it.recipeId) &&
+                        it.recipeId != sourceItem.recipeId // 자기 자신 그룹으론 드롭 방지 (소스가 그룹 대표일 경우)
+            }
+
+            for (groupRepTarget in groupRepresentativeTargetItems) {
+                val groupBounds = recipeCardBoundsMap[groupRepTarget.recipeId]
+                if (groupBounds != null && groupBounds.contains(finalDropPosition)) {
+                    Log.d("ProcessDrop", "Attempting drop of ${sourceItem.recipeId} onto group ${groupRepTarget.groupId}")
+                    if (sourceItem.groupId == groupRepTarget.groupId) {
+                        Log.d("ProcessDrop", "Item ${sourceItem.recipeId} already in group ${groupRepTarget.groupId}. Ignoring.")
+                    } else {
+                        viewModel.addToGroup(groupRepTarget.groupId, sourceItem)
+                        Log.d("ProcessDrop", "Added ${sourceItem.recipeId} to group ${groupRepTarget.groupId}")
+                    }
+                    dropHandled = true
+                    break
+                }
+            }
+
+            // 2. 다른 레시피 카드 위로 드롭했는지 확인
+            if (!dropHandled) {
+                // 그룹 대표가 아닌 아이템들 + 그룹이 비어있는 아이템들 (잠재적 개별 타겟)
+                val individualRecipeTargets = displayList.filter { target ->
+                    target.recipeId != sourceItem.recipeId &&
+                            (target.groupId.isBlank() || (groupedItemsMap[target.groupId]?.size ?: 0) == 0 ||
+                                    (groupedItemsMap[target.groupId]?.size == 1 && groupedItemsMap[target.groupId]?.first()?.recipeId == target.recipeId) // 그룹이지만 사실상 혼자인 경우
+                                    ) && // 이미 위에서 처리된 그룹 대표가 아니어야 함
+                            !groupRepresentativeTargetItems.any { grpRep -> grpRep.recipeId == target.recipeId }
+                }
+
+                for (targetItem in individualRecipeTargets) {
+                    val targetBounds = recipeCardBoundsMap[targetItem.recipeId]
+                    if (targetBounds != null && targetBounds.contains(finalDropPosition)) {
+                        Log.d("ProcessDrop", "Attempting drop of ${sourceItem.recipeId} onto item ${targetItem.recipeId}")
+                        val sourceGroupId = sourceItem.groupId.orEmpty()
+                        val targetGroupId = targetItem.groupId.orEmpty() // 이 targetItem은 그룹 대표가 아님
+
+                        when {
+                            // 소스: 그룹 없음, 타겟: 그룹 없음 -> 새 그룹 생성
+                            sourceGroupId.isBlank() && targetGroupId.isBlank() -> {
+                                viewModel.createGroup(sourceItem, targetItem)
+                                Log.d("ProcessDrop", "Created group with ${sourceItem.recipeId} and ${targetItem.recipeId}")
+                            }
+                            // 소스: 그룹 있음, 타겟: 그룹 없음 -> 새 그룹 생성 (소스는 기존 그룹에서 제거됨)
+                            sourceGroupId.isNotBlank() && targetGroupId.isBlank() -> {
+                                viewModel.createGroup(sourceItem, targetItem) // ViewModel에서 sourceItem을 이전 그룹에서 제거하는 로직 필요
+                                Log.d("ProcessDrop", "Source grouped, Target ungrouped. Creating new group with ${sourceItem.recipeId} and ${targetItem.recipeId}. Source removed from $sourceGroupId.")
+                            }
+                            // 이 외의 경우 (예: 그룹된 아이템을 다른 그룹된 아이템(대표X) 위에 놓는 경우)는 현재 로직에서 복잡성을 야기할 수 있어,
+                            // 위의 그룹 폴더 타겟팅 또는 명확한 개별 아이템 타겟팅으로 단순화.
+                            else -> {
+                                Log.d("ProcessDrop", "Unhandled drop case: source ${sourceItem.recipeId}(${sourceGroupId}) on target ${targetItem.recipeId}(${targetGroupId})")
+                            }
+                        }
+                        dropHandled = true
+                        break
+                    }
+                }
+            }
+
+            if (dropHandled) {
+                Log.d("ProcessDrop", "Drop action handled for ${sourceItem.recipeId}")
+            } else {
+                Log.d("ProcessDrop", "No valid drop target found for ${sourceItem.recipeId} at $finalDropPosition")
+            }
+
+            // 드래그 상태 초기화
+            draggingItem = null
+            dragOffset = Offset.Zero
+            dragPositionInWindow = Offset.Zero
+        }
     }
 
-
-    var showGroupDetailOverlay by remember { mutableStateOf<String?>(null) }
-
-    val itemSize = 180.dp
 
     Box(
         modifier = modifier
@@ -134,133 +196,73 @@ fun MyRecipeStorageScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxSize(),
-
                 ) {
-                    items(displayList, key = { it.recipeId + it.groupId }) { item ->
+                    items(displayList, key = { it.recipeId + (it.groupId.ifBlank { it.recipeId }) }) { item ->
+                        // 각 아이템의 bounds를 recipeCardBoundsMap에 저장/업데이트
+                        val itemModifier = Modifier.onGloballyPositioned { coordinates ->
+                            recipeCardBoundsMap[item.recipeId] = coordinates.boundsInWindow()
+                        }
 
-                        val isGroup = item.groupId.isNotBlank() &&
+                        val isGroupRepresentative = item.groupId.isNotBlank() &&
+                                (groupedItemsMap[item.groupId]?.minByOrNull { it.creationTimestamp ?: 0L }?.recipeId == item.recipeId) &&
                                 (groupedItemsMap[item.groupId]?.size ?: 0) > 0
 
-                        if (isGroup) {
+
+                        if (isGroupRepresentative) {
                             val itemsInGroup = groupedItemsMap[item.groupId] ?: emptyList()
-                            val representativeItem = itemsInGroup.firstOrNull { it.recipeId == item.recipeId }
-                            if (representativeItem != null) {
-                                StyledGroupFolderItemCard(
-                                    groupName = representativeItem.groupName ?: representativeItem.groupId,
-                                    representativeImageUrl = itemsInGroup.firstOrNull()?.image,
-                                    itemCount = itemsInGroup.size,
-                                    itemSize = itemSize,
-                                    dragOffset = dragOffset,
-
-                                    onClick = {
-                                        showGroupDetailOverlay = representativeItem.groupId  //  groupId만 저장
-                                    },
-                                    draggingItem = draggingItem,
-                                    dragPositionInWindow = dragPositionInWindow,
-                                    onDrop = { droppedItem ->
-                                        draggingItem?.let { source ->
-                                            // 자기 자신이면 무시
-                                            if (source.recipeId == representativeItem.recipeId) return@let
-
-                                            // 이미 같은 그룹이면 무시
-                                            if (!source.groupId.isNullOrBlank() && source.groupId == representativeItem.groupId) return@let
-
-                                            // 그룹 외부에서 온 항목만 추가 허용
-                                            if (source.groupId.isNullOrBlank()) {
-                                                viewModel.addToGroup(representativeItem.groupId ?: return@let, source)
-                                            } else {
-                                                Log.d("DropDebug", " 이미 다른 그룹 소속이라 무시됨: ${source.recipeId}")
-                                            }
-
-                                            draggingItem = null
-                                            dragOffset = Offset.Zero
-                                        }
-                                    }
-                                    ,
-                                            onUngroupClick = {
-                                        viewModel.ungroup(representativeItem.groupId ?: "")
-                                    }
-
-                                )
-                            }
+                            // val representativeItem = itemsInGroup.firstOrNull { it.recipeId == item.recipeId } // 이미 item이 representative임
+                            StyledGroupFolderItemCard(
+                                modifier = itemModifier, // onGloballyPositioned 적용
+                                groupName = item.groupName ?: item.groupId,
+                                representativeImageUrl = itemsInGroup.firstOrNull()?.image, // 그룹 내 첫번째 아이템 이미지 사용
+                                itemCount = itemsInGroup.size,
+                                itemSize = itemSize,
+                                onClick = {
+                                    showGroupDetailOverlay = item.groupId
+                                },
+                                onUngroupClick = {
+                                    viewModel.ungroup(item.groupId)
+                                }
+                                // onDrop 콜백은 processDrop으로 중앙화되므로 제거 또는 다른 용도로 사용
+                            )
                         } else {
                             StyledRecipeItemCard(
                                 item = item,
                                 itemSize = itemSize,
-                                modifier = Modifier.onGloballyPositioned {
-                                    recipeCardBoundsMap[item.recipeId] = it.boundsInWindow()
-                                },
+                                modifier = itemModifier, // onGloballyPositioned 적용
                                 onClick = {
                                     val intent = Intent(context, RecipeCookingActivity::class.java)
                                     intent.putExtra("recipe_id", item.recipeId)
                                     context.startActivity(intent)
                                 },
-                                onDragStart = { draggingItem = it },
-                                onDrag = { offset ->
-                                    Log.d("Offset", "Dragging offset: $offset")
-                                    dragOffset += offset },
+                                onDragStart = { startedItem ->
+                                    draggingItem = startedItem
+                                    dragOffset = Offset.Zero // 드래그 시작 시 오프셋 초기화
+                                },
+                                onDrag = { offsetDelta ->
+                                    dragOffset += offsetDelta
+                                },
                                 onDragEnd = {
-                                    draggingItem = null
-                                    dragOffset = Offset.Zero
-                                    dragPositionInWindow = Offset.Zero // <- 이거 중요
+                                    draggingItem?.let { currentDraggingItem ->
+                                        processDrop(currentDraggingItem, dragPositionInWindow)
+                                    }
+                                    // processDrop 내부에서 draggingItem = null 등으로 상태 초기화
                                 },
                                 draggingItem = draggingItem,
                                 dragOffset = dragOffset,
-                                dragPositionInWindow = dragPositionInWindow,
-                                onUpdateDragPosition = { pos ->
-                                    dragPositionInWindow = pos
+                                // dragPositionInWindow 는 StyledRecipeItemCard 내부에서 업데이트된 값을 사용
+                                onUpdateDragPosition = { newPosition ->
+                                    dragPositionInWindow = newPosition
                                 }
                             )
                         }
                     }
-
-
-
                 }
-                LaunchedEffect(draggingItem, dragPositionInWindow) {
-                    val source = draggingItem ?: return@LaunchedEffect
-
-                    for (target in displayList) {
-                        if (target.recipeId == source.recipeId) continue
-                        val bounds = recipeCardBoundsMap[target.recipeId] ?: continue
-
-                        if (bounds.contains(dragPositionInWindow)) {
-                            Log.d("DropDebug", " 충돌 감지 → ${source.recipeId} vs ${target.recipeId}")
-
-                            val sourceGroupId = source.groupId.orEmpty()
-                            val targetGroupId = target.groupId.orEmpty()
-
-                            when {
-                                sourceGroupId.isBlank() && targetGroupId.isBlank() -> {
-                                    viewModel.createGroup(source, target)
-                                }
-                                sourceGroupId.isBlank() && targetGroupId.isNotBlank() -> {
-                                    viewModel.addToGroup(targetGroupId, source)
-                                }
-                                sourceGroupId != targetGroupId && targetGroupId.isNotBlank() -> {
-                                    viewModel.addToGroup(targetGroupId, source)
-                                }
-                            }
-
-                            break
-                        }
-                    }
-                }
-
-
-
-
-
-
-
-
-
-
-
+                // 중요: 기존의 LaunchedEffect(draggingItem, dragPositionInWindow) { ... } 블록은 제거합니다.
+                // 모든 드롭 로직은 processDrop 함수를 통해 onDragEnd에서 처리됩니다.
             }
         }
 
-        // 그룹 상세 보기 오버레이
         AnimatedVisibility(
             visible = showGroupDetailOverlay != null,
             enter = fadeIn(),
@@ -268,7 +270,7 @@ fun MyRecipeStorageScreen(
         ) {
             showGroupDetailOverlay?.let { groupId ->
                 val items = galleryItems.filter { it.groupId == groupId }
-                val groupName = items.firstOrNull()?.groupName ?: "Unnamed"
+                val groupName = items.firstOrNull()?.groupName ?: "Unnamed Group"
 
                 StyledGroupDetailOverlay(
                     groupName = groupName,
@@ -287,7 +289,6 @@ fun MyRecipeStorageScreen(
                 )
             }
         }
-
     }
 }
 
@@ -384,13 +385,6 @@ fun EmptyState(modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        // 여기에 레시피 추가 버튼을 넣을 수도 있습니다.
-        // Spacer(Modifier.height(32.dp))
-        // Button(onClick = { /* 레시피 추가 화면으로 이동 */ }) {
-        //     Icon(Icons.Filled.Add, contentDescription = "Add Recipe")
-        //     Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-        //     Text("레시피 추가하기")
-        // }
     }
 }
 
@@ -399,21 +393,20 @@ fun StyledRecipeItemCard(
     item: GalleryItem,
     itemSize: Dp,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier, // onGloballyPositioned를 위해 외부에서 Modifier를 받도록 함
     onDragStart: (GalleryItem) -> Unit = {},
-    onDrag: (Offset) -> Unit = {},
+    onDrag: (Offset) -> Unit = {}, // Offset은 드래그로 인한 위치 변화량(delta)
     onDragEnd: () -> Unit = {},
     draggingItem: GalleryItem? = null,
-    dragOffset: Offset = Offset.Zero,
-    dragPositionInWindow: Offset = Offset.Zero,
-    onUpdateDragPosition: (Offset) -> Unit = {}
+    dragOffset: Offset = Offset.Zero, // 전체 드래그 오프셋 (부모로부터 받음)
+    onUpdateDragPosition: (Offset) -> Unit = {} // 현재 드래그 포인터의 화면 내 절대 위치 업데이트 콜백
 ) {
     var isFavorite by remember { mutableStateOf(false) }
     var layoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    var cardBoundsInWindow by remember { mutableStateOf<Rect?>(null) }
-    // 애니메이션 효과 추가
+    // cardBoundsInWindow는 이제 MyRecipeStorageScreen의 recipeCardBoundsMap을 통해 관리됨
+
     val cardScale by animateFloatAsState(
-        targetValue = if (isFavorite) 1.05f else 1.0f,
+        targetValue = if (draggingItem?.recipeId == item.recipeId) 1.1f else if (isFavorite) 1.05f else 1.0f, // 드래그 중인 아이템은 살짝 크게
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -421,35 +414,46 @@ fun StyledRecipeItemCard(
         label = "cardScale"
     )
 
-    val dragModifier = Modifier
-        .onGloballyPositioned {
-            layoutCoordinates = it
-            cardBoundsInWindow = it.boundsInWindow()
-
-        }
-        .pointerInput(item) {
+    // 드래그 제스처와 위치 업데이트를 위한 Modifier 통합
+    val combinedModifier = modifier // 외부에서 전달된 Modifier (onGloballyPositioned 포함)
+        .pointerInput(item) { // key를 item으로 하여 item이 변경되면 제스처 감지 재시작 (안정성)
             detectDragGestures(
                 onDragStart = {
+                    Log.d("DragTest", "onDragStart for ${item.recipeId}")
                     onDragStart(item)
-
                 },
                 onDrag = { change, dragAmount ->
                     change.consume()
-                    onDrag(dragAmount)
+                    onDrag(dragAmount) // 부모에게 dragAmount(delta) 전달
 
-                    layoutCoordinates?.let { coords ->
-                        val dragPosInWindow = coords.localToWindow(change.position)
-                        onUpdateDragPosition(dragPosInWindow)
-                        Log.d("Offset", "Dragging drawPosInWindow: $dragPosInWindow")
+                    // 현재 드래그 중인 포인터의 화면 내 절대 위치 계산 및 업데이트
+                    layoutCoordinates?.let { lc ->
+                        // change.position은 해당 Composable 내의 로컬 좌표
+                        val positionInRoot = lc.localToRoot(change.position) // 화면 루트 기준 좌표
+                        // boundsInWindow()는 윈도우 기준 좌표. 일반적으로 localToWindow가 더 적합할 수 있음.
+                        // 여기서는 dragPositionInWindow가 윈도우 기준 좌표를 의미하므로 localToWindow 사용
+                        val windowPosition = lc.localToWindow(change.position)
+                        onUpdateDragPosition(windowPosition)
+                        Log.d("DragPosition", "Item ${item.recipeId} drag windowPosition: $windowPosition, localPos: ${change.position}, dragAmount: $dragAmount")
                     }
-                }
-                ,
+                },
                 onDragEnd = {
+                    Log.d("DragTest", "onDragEnd for ${item.recipeId}")
                     onDragEnd()
+                },
+                onDragCancel = {
+                    Log.d("DragTest", "onDragCancel for ${item.recipeId}")
+                    onDragEnd() // 취소 시에도 onDragEnd 로직 수행하여 상태 초기화
                 }
             )
         }
-    val offsetModifier = if (draggingItem?.recipeId == item.recipeId) {
+        .onGloballyPositioned { coordinates -> // Modifier 체인 순서 중요
+            layoutCoordinates = coordinates
+            // recipeCardBoundsMap 업데이트는 이제 MyRecipeStorageScreen에서 Modifier를 통해 직접 수행
+        }
+
+
+    val currentOffsetModifier = if (draggingItem?.recipeId == item.recipeId) {
         Modifier.offset {
             IntOffset(dragOffset.x.toInt(), dragOffset.y.toInt())
         }
@@ -458,80 +462,60 @@ fun StyledRecipeItemCard(
     }
 
     Card(
-        modifier = modifier
-            .then(dragModifier)
-            .then(offsetModifier)
+        modifier = combinedModifier // .onGloballyPositioned가 포함된 Modifier
+            .then(currentOffsetModifier) // 그 다음에 오프셋 적용
             .width(itemSize)
-            .aspectRatio(0.75f) // 높이를 조금 더 늘려서 정보 공간 확보
+            .aspectRatio(0.75f)
             .graphicsLayer(
                 scaleX = cardScale,
-                scaleY = cardScale
+                scaleY = cardScale,
+                alpha = if (draggingItem != null && draggingItem.recipeId != item.recipeId) 0.7f else 1.0f // 다른 아이템 드래그 시 반투명
             )
             .clickable(onClick = onClick)
             .shadow(
-                elevation = 8.dp,
+                elevation = if (draggingItem?.recipeId == item.recipeId) 16.dp else 8.dp, // 드래그 중 그림자 강화
                 shape = RoundedCornerShape(16.dp),
                 clip = false
             ),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 6.dp, 
-            pressedElevation = 12.dp, 
-            hoveredElevation = 10.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            // 이미지 섹션
+        Column(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.7f) // 이미지가 카드의 70% 차지
+                    .weight(0.7f)
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             ) {
-                // Observe painter state properly
                 val painter = rememberAsyncImagePainter(model = item.image)
-                var isLoading by remember { mutableStateOf(true) }
-                var isError by remember { mutableStateOf(false) }
+                var isLoadingImage by remember(item.image) { mutableStateOf(true) }
+                var isErrorImage by remember(item.image) { mutableStateOf(false) }
 
-                // Observe painter state changes
                 LaunchedEffect(painter) {
                     snapshotFlow { painter.state }.collect { state ->
-                        isLoading = state is AsyncImagePainter.State.Loading
-                        isError = state is AsyncImagePainter.State.Error
+                        isLoadingImage = state is AsyncImagePainter.State.Loading
+                        isErrorImage = state is AsyncImagePainter.State.Error
                     }
                 }
 
-
-                // Always show the image
                 Image(
                     painter = painter,
                     contentDescription = item.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-
-                // 그라데이션 오버레이 추가 (텍스트 가독성 향상)
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.3f)
-                                ),
+                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.3f)),
                                 startY = 0f,
                                 endY = Float.POSITIVE_INFINITY
                             )
                         )
                 )
-
-                // 좋아요 버튼 (우상단)
                 IconButton(
                     onClick = { isFavorite = !isFavorite },
                     modifier = Modifier.align(Alignment.TopEnd)
@@ -540,38 +524,24 @@ fun StyledRecipeItemCard(
                         imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Favorite",
                         tint = if (isFavorite) Color(0xFFE91E63) else Color.White,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .shadow(4.dp, CircleShape)
+                        modifier = Modifier.size(24.dp).shadow(4.dp, CircleShape)
                     )
                 }
 
-                // Show loading overlay
-                if (isLoading) {
+                if (isLoadingImage) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)),
+                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(itemSize / 4),
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        CircularProgressIndicator(modifier = Modifier.size(itemSize / 4), color = MaterialTheme.colorScheme.primary)
                     }
                 }
-
-                // Show error overlay
-                if (isError) {
+                if (isErrorImage) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f)),
+                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
                                 Icons.Filled.Restaurant,
                                 contentDescription = "Image failed to load",
@@ -579,46 +549,31 @@ fun StyledRecipeItemCard(
                                 modifier = Modifier.size(itemSize / 3)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "이미지 로드 실패",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Center
-                            )
+                            Text("이미지 로드 실패", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f), textAlign = TextAlign.Center)
                         }
                     }
                 }
             }
-
-            // 정보 섹션
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.3f) // 정보가 카드의 30% 차지
+                    .weight(0.3f)
                     .padding(12.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // 레시피 이름
                 Text(
                     text = item.name,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 20.sp
-                    ),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, lineHeight = 20.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // 추가 정보 (생성 시간, 그룹 정보 등)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 카테고리/그룹 정보
                     if (item.groupId.isNotBlank()) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -626,32 +581,19 @@ fun StyledRecipeItemCard(
                             modifier = Modifier.padding(end = 4.dp)
                         ) {
                             Text(
-                                text = "그룹",
+                                text = "그룹", // 또는 item.groupName
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
-
-                    // 시간 정보 (생성 시간이 있다면)
                     item.creationTimestamp?.let { timestamp ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Schedule,
-                                contentDescription = "Time",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Schedule, contentDescription = "Time", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = remember(timestamp) {
-                                    // 간단한 시간 포맷팅 (실제로는 더 정교한 포맷팅 필요)
-                                    java.text.SimpleDateFormat("MM/dd", java.util.Locale.getDefault())
-                                        .format(java.util.Date(timestamp))
-                                },
+                                text = remember(timestamp) { java.text.SimpleDateFormat("MM/dd", java.util.Locale.getDefault()).format(java.util.Date(timestamp)) },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -670,44 +612,27 @@ fun StyledGroupFolderItemCard(
     itemCount: Int,
     itemSize: Dp,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    draggingItem: GalleryItem? = null,
-    dragPositionInWindow: Offset = Offset.Zero,
-    dragOffset: Offset = Offset.Zero,
-    onDrop: (GalleryItem) -> Unit = {},
+    modifier: Modifier = Modifier, // onGloballyPositioned를 위해 외부에서 Modifier를 받도록 함
     onUngroupClick: () -> Unit = {}
+    // onDrop 콜백 제거: MyRecipeStorageScreen의 processDrop에서 중앙 처리
 ) {
     var isPressed by remember { mutableStateOf(false) }
-    var cardBoundsInWindow by remember { mutableStateOf<Rect?>(null) }
     var showUngroupDialog by remember { mutableStateOf(false) }
-    val modifierWithPosition = modifier.onGloballyPositioned { layoutCoordinates ->
-        val bounds = layoutCoordinates.boundsInWindow()
-        Log.d("Bounds", " onGloballyPositioned called, bounds = $bounds")
-        cardBoundsInWindow = bounds
-        Log.d("DropDebug", " CardBounds: $bounds")
-    }
 
     // 애니메이션 효과
     val cardScale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1.0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
         label = "groupCardScale"
     )
-
     val cardRotation by animateFloatAsState(
         targetValue = if (isPressed) 2f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "groupCardRotation"
     )
 
     Card(
-        modifier = modifierWithPosition
+        modifier = modifier // 외부에서 전달된 Modifier (onGloballyPositioned 포함)
             .width(itemSize)
             .aspectRatio(0.75f)
             .graphicsLayer(
@@ -726,314 +651,120 @@ fun StyledGroupFolderItemCard(
                     onLongPress = { showUngroupDialog = true }
                 )
             }
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(20.dp),
-                clip = false
-            ),
+            .shadow(elevation = 12.dp, shape = RoundedCornerShape(20.dp), clip = false),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 8.dp,
-            pressedElevation = 16.dp,
-            hoveredElevation = 12.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (showUngroupDialog) {
                 AlertDialog(
                     onDismissRequest = { showUngroupDialog = false },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            onUngroupClick() //  전달받은 함수 실행
-                            showUngroupDialog = false
-                        }) { Text("해제하기") }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showUngroupDialog = false }) { Text("취소") }
-                    },
+                    confirmButton = { TextButton(onClick = { onUngroupClick(); showUngroupDialog = false }) { Text("해제하기") } },
+                    dismissButton = { TextButton(onClick = { showUngroupDialog = false }) { Text("취소") } },
                     title = { Text("그룹 해제") },
                     text = { Text("이 그룹을 해제하시겠습니까?") }
                 )
             }
-            // 배경 그라데이션
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
                     .background(
                         Brush.radialGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.tertiaryContainer,
-                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
-                            ),
+                            colors = listOf(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)),
                             radius = itemSize.value * 1.5f
                         )
                     )
             )
-
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxSize().padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // 상단 아이콘 영역
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(0.6f)
+                    modifier = Modifier.fillMaxWidth().weight(0.6f)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-                        ),
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (representativeImageUrl != null) {
-                        // Observe painter state properly
                         val painter = rememberAsyncImagePainter(model = representativeImageUrl)
-                        var isLoading by remember { mutableStateOf(true) }
-                        var isError by remember { mutableStateOf(false) }
+                        var isLoadingImage by remember(representativeImageUrl) { mutableStateOf(true) }
+                        var isErrorImage by remember(representativeImageUrl) { mutableStateOf(false) }
 
-                        // Observe painter state changes
                         LaunchedEffect(painter) {
                             snapshotFlow { painter.state }.collect { state ->
-                                isLoading = state is AsyncImagePainter.State.Loading
-                                isError = state is AsyncImagePainter.State.Error
+                                isLoadingImage = state is AsyncImagePainter.State.Loading
+                                isErrorImage = state is AsyncImagePainter.State.Error
                             }
                         }
-
                         Box(modifier = Modifier.fillMaxSize()) {
-
-                            // Always show the image
                             Image(
                                 painter = painter,
                                 contentDescription = "$groupName representative image",
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(RoundedCornerShape(16.dp))
+                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
                             )
-
-                            // 폴더 효과를 위한 오버레이
                             Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                MaterialTheme.colorScheme.tertiaryContainer.copy(
-                                                    alpha = 0.3f
-                                                )
-                                            )
-                                        )
-                                    )
+                                modifier = Modifier.fillMaxSize()
+                                    .background(Brush.verticalGradient(colors = listOf(Color.Transparent, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f))))
                             )
-
-                            // 폴더 아이콘 (우하단)
                             Icon(
                                 imageVector = Icons.Filled.FolderSpecial,
                                 contentDescription = "Folder Icon",
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(8.dp)
-                                    .size(20.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                        CircleShape
-                                    )
+                                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(20.dp)
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), CircleShape)
                                     .padding(4.dp),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
-
-                            // Show loading overlay
-                            if (isLoading) {
+                            if (isLoadingImage) {
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                                        ),
+                                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(itemSize * 0.15f),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    CircularProgressIndicator(modifier = Modifier.size(itemSize * 0.15f), color = MaterialTheme.colorScheme.primary)
                                 }
                             }
-
-                            // Show error overlay
-                            if (isError) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.FolderShared,
-                                        contentDescription = "Group Folder Icon (error)",
-                                        modifier = Modifier.size(itemSize * 0.25f),
-                                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
+                            if (isErrorImage) {
+                                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    Icon(Icons.Filled.FolderShared, contentDescription = "Group Folder Icon (error)", modifier = Modifier.size(itemSize * 0.25f), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                                 }
                             }
                         }
                     } else {
-                        // 대표 이미지가 없는 경우
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.FolderSpecial,
-                                contentDescription = "Group Folder Icon",
-                                modifier = Modifier.size(itemSize * 0.3f),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Icon(Icons.Filled.FolderSpecial, contentDescription = "Group Folder Icon", modifier = Modifier.size(itemSize * 0.3f), tint = MaterialTheme.colorScheme.primary)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary
-                            ) {
-                                Text(
-                                    text = "$itemCount",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary) {
+                                Text(text = "$itemCount", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
                             }
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // 하단 정보 영역
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.weight(0.4f)
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.4f)) {
                     Text(
                         text = groupName,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
-
                     Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.RestaurantMenu,
-                            contentDescription = "Recipe Icon",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Icon(Icons.Filled.RestaurantMenu, contentDescription = "Recipe Icon", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "$itemCount 개의 레시피",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                        )
+                        Text(text = "$itemCount 개의 레시피", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
                     }
                 }
             }
-
-            // 반짝이는 효과 (선택적)
             if (isPressed) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Color.White.copy(alpha = 0.1f)
-                        )
-                )
+                Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.1f)))
             }
-
-//            LaunchedEffect(draggingItem, dragPositionInWindow) {
-//                Log.d("Debug", "Bounds: ${cardBoundsInWindow?.toString()}")
-//                Log.d("Debug", "Drag Pos: $dragPositionInWindow")
-//
-//                if (
-//                    draggingItem != null &&
-//                    cardBoundsInWindow != null
-//                ) {
-//                    // ⬇️ 바운드 확장
-//                    val expandedBounds = cardBoundsInWindow!!.inset(-1000f)
-//
-//                    Log.d("DropCheck", " 확장된 카드 바운드: $expandedBounds")
-//                    Log.d("DropCheck", " 드래그 위치: $dragPositionInWindow")
-//
-//                    if (expandedBounds.contains(dragPositionInWindow)) {
-//                        Log.d("Drop", " Dropped into $groupName!")
-//                        Log.d("DropDebug", "드래그된 카드가 이 그룹 카드에 닿았습니다!")
-//                        onDrop(draggingItem!!)
-//                    }
-//                }
-//            }
-//            LaunchedEffect(draggingItem, dragPositionInWindow) {
-//                Log.d("DropDebug", "draggingItem = $draggingItem")
-//                Log.d("DropDebug", "cardBoundsInWindow = $cardBoundsInWindow")
-//
-//                val bounds = cardBoundsInWindow
-//                if (draggingItem != null && bounds != null) {
-//                    val expandedBounds = bounds.inflate(1000f)
-//                    Log.d("DropDebug", "bounds = $expandedBounds, dragPos = $dragPositionInWindow")
-//
-//                    if (expandedBounds.contains(dragPositionInWindow)) {
-//                        Log.d("DropDebug", " 충돌 감지됨 → 그룹화 시도")
-//                        onDrop(draggingItem!!)
-//                    }
-//                } else {
-//                    Log.d("DropDebug", " 충돌 체크 불가 - draggingItem 또는 bounds 가 null")
-//                }
-//            }
-
-
-
-
-
-
-                // 충돌 텍스트 체크
-//            Column(
-//                modifier = Modifier
-//                    .align(Alignment.BottomStart)
-//                    .padding(8.dp)
-//            ) {
-//                Text(
-//                    text = "dragOffset: $dragOffset",
-//                    style = MaterialTheme.typography.labelSmall,
-//                    color = Color.Red
-//                )
-//                Text(
-//                    text = "cardBounds: ${
-//                        cardBoundsInWindow?.let {
-//                            "(${it.left.toInt()}, ${it.top.toInt()}, ${it.right.toInt()}, ${it.bottom.toInt()})"
-//                        } ?: "null"
-//                    }",
-//                    style = MaterialTheme.typography.labelSmall,
-//                    color = Color.Red
-//                )
-//            }
-
         }
     }
 }
+
 @Composable
 fun StyledGroupDetailOverlay(
     groupName: String,
@@ -1042,10 +773,10 @@ fun StyledGroupDetailOverlay(
     onItemClick: (GalleryItem) -> Unit,
     gridItemSize: Dp,
     modifier: Modifier = Modifier,
-    onRenameGroup: (String) -> Unit = {} //  이름 변경
+    onRenameGroup: (String) -> Unit = {}
 ) {
-    var isEditingName by remember { mutableStateOf(false) }
-    var editedName by remember { mutableStateOf(groupName) }
+    var isEditingName by remember(groupName) { mutableStateOf(false) } // groupName 변경 시 초기화
+    var editedName by remember(groupName) { mutableStateOf(groupName) } // groupName 변경 시 초기화
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -1060,11 +791,8 @@ fun StyledGroupDetailOverlay(
             tonalElevation = 8.dp
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                //  그룹명 편집 섹션
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 24.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -1072,43 +800,29 @@ fun StyledGroupDetailOverlay(
                         TextField(
                             value = editedName,
                             onValueChange = { editedName = it },
-                            textStyle = MaterialTheme.typography.titleLarge,
+                            textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                             singleLine = true,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                            )
                         )
                         IconButton(onClick = {
-                            onRenameGroup(editedName) //  이름 변경 호출
+                            if (editedName.isNotBlank()) { // 빈 이름 방지
+                                onRenameGroup(editedName)
+                            }
                             isEditingName = false
-                        }) {
-                            Icon(Icons.Default.Check, contentDescription = "저장")
-                        }
+                        }) { Icon(Icons.Default.Check, contentDescription = "저장") }
                     } else {
-                        Text(
-                            text = groupName,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { isEditingName = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "이름 수정")
-                        }
+                        Text(text = groupName, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { editedName = groupName; isEditingName = true }) { Icon(Icons.Default.Edit, contentDescription = "이름 수정") }
                     }
-
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = "닫기",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "닫기", tint = MaterialTheme.colorScheme.onSurface) }
                 }
-
-                //  레시피 목록
                 if (itemsInGroup.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize().padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
                         Text("이 그룹에는 레시피가 없습니다.", style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
@@ -1120,10 +834,11 @@ fun StyledGroupDetailOverlay(
                         modifier = Modifier.weight(1f)
                     ) {
                         items(itemsInGroup, key = { item -> "detail_${item.recipeId}" }) { item ->
-                            StyledRecipeItemCard(
+                            StyledRecipeItemCard( // StyledRecipeItemCard는 onGloballyPositioned를 내부적으로 사용하지 않으므로 modifier를 직접 전달
                                 item = item,
                                 itemSize = gridItemSize,
                                 onClick = { onItemClick(item) }
+                                // 상세 오버레이 내에서는 드래그 기능 불필요
                             )
                         }
                     }
@@ -1132,12 +847,13 @@ fun StyledGroupDetailOverlay(
         }
     }
 }
-// 범위 확장 함수
-fun Rect.inset(pixels: Float): Rect {
-    return Rect(
-        left - pixels,
-        top - pixels,
-        right + pixels,
-        bottom + pixels
-    )
-}
+
+// 범위 확장 함수 (사용하지 않는다면 제거 가능)
+// fun Rect.inset(pixels: Float): Rect {
+// return Rect(
+// left - pixels,
+// top - pixels,
+// right + pixels,
+// bottom + pixels
+// )
+// }
