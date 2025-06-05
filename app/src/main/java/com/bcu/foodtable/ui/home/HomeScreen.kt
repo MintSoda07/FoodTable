@@ -893,10 +893,6 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     onSuccess = { navController.popBackStack() }
                 )
             }
-            composable("recipeView/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: ""
-                ChannelViewPageScreen(channelName = id, navController = navController)
-            }
 
             composable(Screen.Subscribe.route) {
                 SubscribeScreen(viewModel = subscribeViewModel, navController = navController)
