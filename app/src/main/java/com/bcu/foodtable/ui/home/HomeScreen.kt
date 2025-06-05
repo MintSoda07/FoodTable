@@ -115,7 +115,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
-import com.bcu.foodtable.JetpackCompose.Channel.WriteScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.WriteScreen
 import com.bcu.foodtable.JetpackCompose.screens.CardGameScreen
 import com.bcu.foodtable.JetpackCompose.screens.CommunityTab
 import com.bcu.foodtable.JetpackCompose.screens.LadderGameScreen
@@ -888,13 +888,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
             }
             composable("write/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
-                WriteScreen(channelName = channelName, onUploadSuccess = {
-                    navController.popBackStack()
-                })
-            }
-            composable("recipeView/{id}") { backStackEntry ->
-                val id = backStackEntry.arguments?.getString("id") ?: ""
-                ChannelViewPageScreen(channelName = id, navController = navController)
+                WriteScreen(
+                    channelName = channelName,
+                    onSuccess = { navController.popBackStack() }
+                )
             }
 
             composable(Screen.Subscribe.route) {
