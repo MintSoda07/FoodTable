@@ -1,6 +1,9 @@
 
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
+import android.net.Uri
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,9 +24,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
+import com.bcu.foodtable.ai.OpenAIClient
+import com.bcu.foodtable.useful.RecipeItem
+import com.google.gson.Gson
+import java.util.UUID
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -226,6 +238,97 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             }
         )
     }
+    // 상단에 추가
+    val aiViewModel: AiHelperViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return AiHelperViewModel(OpenAIClient()) as T
+            }
+        }
+    )
+    val aiState by aiViewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val gson = remember { Gson() }
+
+// 버튼 추가
+    // AI 추천 버튼
+    Button(
+        onClick = {
+            val takenOut = outsideFridge.map { it.name }.joinToString(", ")
+            aiViewModel.onInputChange(takenOut)
+            aiViewModel.sendMessage()
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
+        Text("🍳 꺼낸 재료로 AI 요리 추천")
+    }
+
+
+// 응답이 도착하면 AiRecipeScreen으로 이동
+    LaunchedEffect(aiState.resultText) {
+        if (aiState.resultText.isNotBlank()) {
+            Log.d("AI_RAW", aiState.resultText)  // 이제 실제 조리 단계가 포함된 원문이 출력됩니다.
+
+            val recipeName = Regex("""◆(.*?)◆""")
+                .find(aiState.resultText)
+                ?.groupValues?.getOrNull(1)
+                ?: "AI 추천 요리"
+
+            val ingredients = Regex("""◆.*?◆\((.*?)\)""")
+                .find(aiState.resultText)
+                ?.groupValues?.getOrNull(1)
+                ?.split(",")?.map { it.trim() }
+                ?: emptyList()
+
+            // “○없음” 또는 숫자+마침표만 있는 케이스 모두를 포괄하도록
+            val stepRegex = Regex(
+                """^[\u0020\u00A0\u3000]*[○\u25CB\u2460]?\s*\d+\..*""",
+                RegexOption.MULTILINE
+            )
+
+            val matches = stepRegex.findAll(aiState.resultText).toList()
+            Log.d("AI_REGEX_MATCH_COUNT", "match 개수 = ${matches.size}")
+            matches.forEach { match ->
+                Log.d("AI_REGEX_MATCH_LINE", "[${match.value}]")
+            }
+
+            val order = matches
+                .map { it.value.trim() }
+                .joinToString(" ")
+            Log.d("AI_ORDER_STRING", "order = \"$order\"")
+
+            if (order.isBlank()) {
+                Log.e("AI_ORDER", " 조리 단계 없음\n${aiState.resultText}")
+                Toast.makeText(context, "AI가 조리 단계를 반환하지 않았어요", Toast.LENGTH_LONG).show()
+                return@LaunchedEffect
+            }
+
+            val recipe = RecipeItem(
+                id = UUID.randomUUID().toString(),
+                name = recipeName,
+                description = "AI가 추천한 요리입니다.",
+                imageResId = "",
+                ingredients = ingredients,
+                order = order,
+                tags = listOf("AI추천"),
+                C_categories = listOf("AI")
+            )
+
+            val encodedRecipeJson = Uri.encode(Gson().toJson(recipe))
+            Log.d("AI_NAV", "🔁 페이지 전환: recipe=${recipe.name}")
+            navController.navigate("ai_recipe/$encodedRecipeJson")
+
+            aiViewModel.hideWarning()
+        }
+    }
+
+
+
+
+
+
 }
 fun getEmojiForIngredient(name: String): String {
     return when (name) {

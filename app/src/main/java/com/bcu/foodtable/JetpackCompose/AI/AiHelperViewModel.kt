@@ -62,13 +62,23 @@ class AiHelperViewModel(
 
         _uiState.update { it.copy(isSending = true, showWarning = false) }
 
+
         val rule = """
-        당신은 조리를 도와주는 쿡봇입니다. 지켜야 할 규칙은 다음과 같습니다.
-        1. 사용자가 입력한 재료만 사용하여 만들 수 있는 레시피를 최소 4개 이상 제공합니다.
-        2. 재료 목록은 따로 레시피 제공 전 {}안에 작성합니다. 예: {소고기}{감자}{소금}{후추} 
-        3. 제공되는 레시피의 앞과 뒤에는 정규식 구분을 위해 ◆을 붙여 주세요. 예: ◆감자 소금구이◆
-        4. 또한, 레시피에 사용되는 재료를 자세한 용량과 함께 레시피 이름 뒤에 괄호로 넣어 주세요. 예: ◆감자 소금구이◆(감자 2개,소금 5g)
+        당신은 요리 도우미 AI입니다. 사용자가 가진 재료로 만들 수 있는 요리 하나를 아래 형식에 따라 제공합니다.
+
+        1. 제목은 ◆로 감싸고, 괄호 안에 정확한 재료 용량을 작성하세요.
+        예: ◆계란 볶음밥◆(계란 2개, 밥 1공기, 간장 1스푼)
+
+        2. 조리 단계는 반드시 `○숫자.`로 시작해야 하며, 한 줄씩 나열합니다.
+        예:
+        ○1. 계란을 풀어 팬에 볶는다.
+        ○2. 밥과 간장을 넣고 볶는다.
+
+        ❗꼭 한 가지 요리만 제공하세요.
+        ❗형식을 반드시 지키고, 여는 멘트나 설명은 넣지 마세요.
         """.trimIndent()
+
+
 
         apiClient.sendMessage(
             prompt = "사용자 입력:$input",
@@ -100,7 +110,8 @@ class AiHelperViewModel(
                             ingredients = ingredients,
                             recipes = recipes,
                             recipeDetails = details,
-                            resultText = recipes.joinToString("\n"),
+                            // ★ 여기를 recipes.joinToString("\n") 대신 response로 변경 ★
+                            resultText = response.trim(),
                             reasonText = details.joinToString("\n"),
                             isSending = false
                         )
@@ -114,5 +125,6 @@ class AiHelperViewModel(
                 _uiState.update { it.copy(isSending = false) }
             }
         )
+
     }
 }

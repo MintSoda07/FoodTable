@@ -250,49 +250,48 @@ class RecipeGalleryViewModel : ViewModel() {
             try {
                 val userId = UserManager.getUser()?.uid ?: return@launch
 
-                //  1. 레시피 정보 읽기 (레시피 이름 필요)
+                // 1. recipe/{recipeId} 문서에서 name 필드 가져오기
                 val recipeSnapshot = db.collection("recipe")
                     .document(recipeId)
                     .get()
                     .await()
 
                 if (!recipeSnapshot.exists()) {
-                    Log.e("FirestoreUpdate", "레시피 문서 없음: $recipeId")
+                    Log.e("FirestoreUpdate", " 레시피 문서 없음: $recipeId")
                     return@launch
                 }
 
                 val recipeName = recipeSnapshot.getString("name") ?: "Unknown"
 
-                // 🔹 2. 업데이트할 데이터 준비
+                // 2. 저장할 필드 구성
                 val updates = mutableMapOf<String, Any>(
                     "groupId" to newGroupId,
                     "name" to recipeName
                 )
                 newGroupName?.let { updates["groupName"] = it }
 
-                //  3. Firestore에 병합 저장
-                db.collection("user")  //  "users"인지 꼭 확인 필요
+                // 3. users/{uid}/recipe_storage/{recipeId}에 merge로 저장
+                db.collection("user")
                     .document(userId)
                     .collection("recipe_storage")
                     .document(recipeId)
                     .set(updates, SetOptions.merge())
                     .await()
 
-                // 4. 로컬 상태 업데이트
+                // 4. local 상태 갱신
                 _galleryItems.value = _galleryItems.value.map {
                     if (it.recipeId == recipeId)
                         it.copy(groupId = newGroupId, groupName = newGroupName ?: it.groupName)
                     else it
                 }
 
-                Log.d("FirestoreUpdate", "그룹 및 이름 업데이트 완료: $recipeId → $newGroupId ($recipeName)")
+                Log.d("FirestoreUpdate", " 그룹 및 이름 업데이트 완료: $recipeId → $newGroupId ($recipeName)")
 
             } catch (e: Exception) {
-                Log.e("FirestoreUpdate", "그룹 정보 업데이트 실패", e)
+                Log.e("FirestoreUpdate", " 그룹 정보 업데이트 실패", e)
             }
         }
     }
-
 
 
 
