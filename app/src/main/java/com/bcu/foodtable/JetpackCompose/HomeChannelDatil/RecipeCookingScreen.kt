@@ -66,13 +66,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.bcu.foodtable.TTS.CookingAiViewModel
 import com.bcu.foodtable.TTS.CookingAiViewModelFactory
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctionsException
+import kotlinx.coroutines.tasks.await
 
 fun byteArrayToBase64(byteArray: ByteArray): String {
     return Base64.encodeToString(byteArray, Base64.NO_WRAP)
@@ -93,7 +97,10 @@ data class CookingStepState(
 
 
 @Composable
-fun RecipeCookingScreen(recipe: RecipeItem) {
+fun RecipeCookingScreen(
+    recipe: RecipeItem,
+    navController: NavController  // Compose 내비게이션 사용 시
+) {
     val application = LocalContext.current.applicationContext as Application
     val firebaseFunctionsInstance = remember { Firebase.functions("us-central1") }
     val aiViewModelFactory =
@@ -272,6 +279,52 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
     }
 
 
+    val firestore = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+
+    // ───────────────────────────────────────────────────────
+    // 1) 채널 소유 여부를 담을 상태
+    // ───────────────────────────────────────────────────────
+    var isChannelOwner by remember { mutableStateOf(false) }
+    var channelCheckFinished by remember { mutableStateOf(false) } // 로딩 완료 체크
+
+    // ───────────────────────────────────────────────────────
+    // 2) Firestore에서 "채널 이름(name) == recipe.contained_channel" 으로 조회하여 owner 비교
+    // ───────────────────────────────────────────────────────
+    LaunchedEffect(recipe.contained_channel) {
+        if (currentUser == null) {
+            // 비로그인 상태면 무조건 false 처리
+            isChannelOwner = false
+            channelCheckFinished = true
+            return@LaunchedEffect
+        }
+
+        try {
+            // 방법: whereEqualTo("name", recipe.contained_channel) → 문서가 단건이라고 가정
+            val querySnapshot = firestore
+                .collection("channel")
+                .whereEqualTo("name", recipe.contained_channel)
+                .limit(1)
+                .get()
+                .await()
+
+            if (!querySnapshot.isEmpty) {
+                // 첫 번째 문서만 가져와서 owner 필드를 읽는다
+                val doc = querySnapshot.documents[0]
+                val ownerUid = doc.getString("owner")
+
+                isChannelOwner = (ownerUid == currentUser.uid)
+            } else {
+                // 채널 이름이 존재하지 않으면, false 처리
+                isChannelOwner = false
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "채널 소유자 확인 중 오류: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            isChannelOwner = false
+        } finally {
+            channelCheckFinished = true
+        }
+    }
 
 
 
@@ -291,15 +344,21 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                 )
             )
     ) {
+        // LazyColumn을 쓰되, channelCheckFinished가 true가 되어야 본문을 노출
+        if (!channelCheckFinished) {
+            // 채널 소유 여부 로딩 중에는 프로그레스 표시
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            return@Box
+        }
+
         LazyColumn(
             modifier = Modifier.padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(
-                top = 24.dp,
-                bottom = 40.dp
-            )
+            contentPadding = PaddingValues(top = 24.dp, bottom = 40.dp)
         ) {
             item {
-                // Hero Section with Glass Morphism Effect
+                // ─────────────────────────────────────────────────
+                //   3-1) 레시피 토퍼: 제목 + 수정 버튼 (소유자 여부에 따라 노출)
+                // ─────────────────────────────────────────────────
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -310,19 +369,42 @@ fun RecipeCookingScreen(recipe: RecipeItem) {
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Text(
-                            recipe.name,
-                            style = MaterialTheme.typography.displaySmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFE25532), // primary 색상
-                                letterSpacing = (-0.5).sp
-                            ),
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // 레시피 이름
+                            Text(
+                                recipe.name,
+                                style = MaterialTheme.typography.displaySmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFFE25532),
+                                    letterSpacing = (-0.5).sp
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
 
+                            // “수정” 아이콘: isChannelOwner이 true일 때만 나타내기
+                            if (isChannelOwner) {
+                                IconButton(
+                                    onClick = {
+                                        // EditRecipeScreen으로 이동: recipeId와 contained_channel을 인자로 전달
+                                        navController.navigate("edit/${recipe.id}/${recipe.contained_channel}")
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "레시피 수정",
+                                        tint = Color(0xFFE25532)
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 레시피 대표 이미지
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()

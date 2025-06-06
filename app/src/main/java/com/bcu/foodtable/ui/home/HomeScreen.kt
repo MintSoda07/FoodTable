@@ -136,6 +136,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
 import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
 import com.bcu.foodtable.ui.home.AiChatBox as AiChatBox1
@@ -1290,6 +1293,26 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 WriteScreen(
                     channelName = channelName,
                     onSuccess = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "edit/{recipeId}/{channelName}",
+                arguments = listOf(
+                    navArgument("recipeId") { type = NavType.StringType },
+                    navArgument("channelName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+                val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
+
+                // EditRecipeScreen을 호출, 수정 완료 시 onSuccess 콜백으로 뒤로 이동
+                EditRecipeScreen(
+                    recipeId = recipeId,
+                    channelName = channelName,
+                    onSuccess = {
+                        // 수정 완료 후 뒤로 돌아가기
+                        navController.popBackStack()
+                    }
                 )
             }
 
