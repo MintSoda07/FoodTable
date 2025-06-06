@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.bcu.foodtable.ui.home.FoodTableTheme
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.RecipeItem
 import com.google.firebase.Timestamp
@@ -250,6 +251,7 @@ fun EditRecipeScreen(
     // ──────────────────────────────────────────────────────────────────────
     // 3) EditRecipeScreen UI 렌더링
     // ──────────────────────────────────────────────────────────────────────
+    FoodTableTheme {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -779,7 +781,7 @@ fun EditRecipeScreen(
 
         Spacer(Modifier.height(40.dp))
     }
-}
+}}
 
 //// ────────────────────────────────────────────────────────────────────────────
 //// Step 데이터 클래스: 조리 단계 정보를 담습니다

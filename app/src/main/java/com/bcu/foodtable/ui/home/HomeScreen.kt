@@ -1306,14 +1306,14 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
 
                 // EditRecipeScreen을 호출, 수정 완료 시 onSuccess 콜백으로 뒤로 이동
-                EditRecipeScreen(
-                    recipeId = recipeId,
-                    channelName = channelName,
-                    onSuccess = {
-                        // 수정 완료 후 뒤로 돌아가기
-                        navController.popBackStack()
-                    }
-                )
+                // FoodTableTheme 으로 래핑
+                FoodTableTheme {
+                    EditRecipeScreen(
+                        recipeId = recipeId,
+                        channelName = channelName,
+                        onSuccess = { navController.popBackStack() }
+                    )
+                }
             }
 
             composable(Screen.Subscribe.route) {
