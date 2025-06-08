@@ -1126,95 +1126,151 @@ private fun TimerSection(
     timerState: StepTimerState,
     timerTitle: String,
     onFinish: () -> Unit,
-    onNext: () -> Unit
+    onNext: () -> Unit // 코드에는 남겨두되, UI 상에는 사용하지 않음
 ) {
     var isRunning by remember { mutableStateOf(false) }
-    var isPaused by remember { mutableStateOf(false) }
+    var isPaused  by remember { mutableStateOf(false) }
+
+    val totalMillis     = remember { timerState.remainingTime.value }
+    val remainingMillis by timerState.remainingTime
+    val progress = if (totalMillis > 0L) remainingMillis / totalMillis.toFloat() else 0f
+
+    // MM:SS 포맷
+    val minutes  = (remainingMillis / 1000L) / 60
+    val seconds  = (remainingMillis / 1000L) % 60
+    val timeText = String.format("%02d:%02d", minutes, seconds)
+
+    // 컬러
+    val progressColor = Color(0xFFB9806D)
+    val trackColor    = Color(0xFFF3E0DC)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDE1D5)), // secondaryContainer 색상
-        border = BorderStroke(1.dp, Color(0xFFE25532).copy(alpha = 0.3f)) // primary 색상
+        shape    = RoundedCornerShape(16.dp),
+        colors   = CardDefaults.cardColors(containerColor = Color(0xFFFFFBF8)),
+        border   = BorderStroke(1.dp, Color(0xFFE25532).copy(alpha = 0.3f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 타이틀
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("⏰", fontSize = 20.sp, modifier = Modifier.padding(end = 8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⏰", fontSize = 18.sp, modifier = Modifier.padding(end = 6.dp))
                 Text(
                     timerTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE25532) // primary 색상
+                        color      = Color(0xFFE25532)
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // 타이머 바 UI
-            StepTimer(timerState = timerState, onFinish = {
-                isRunning = false
-                isPaused = false
-                onFinish()
-            })
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // 버튼 영역
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // 원형 프로그레스 + 시간
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp),
+                contentAlignment = Alignment.Center
             ) {
-                // 시작 또는 재시작 버튼
-                ModernTimerButton(
-                    text = if (!isRunning && !isPaused) "⏵ 시작" else "▶ 재시작",
-                    onClick = {
-                        if (!isRunning && !isPaused) {
-                            // 시작
-                            timerState.start {
-                                isRunning = false
-                                isPaused = false
-                                onFinish()
-                            }
-                        } else {
-                            // 재시작
-                            timerState.resume()
-                        }
-                        isRunning = true
-                        isPaused = false
-                    },
-                    backgroundColor = Color(0xFFB9806D), // tertiary 색상
-                    modifier = Modifier.weight(1f)
+                CircularProgressIndicator(
+                    progress    = progress,
+                    color       = progressColor,
+                    strokeWidth = 5.dp,
+                    modifier    = Modifier.size(60.dp)
                 )
-
-                // 일시정지 버튼
-                ModernTimerButton(
-                    text = "⏸ 일시정지",
-                    onClick = {
-                        timerState.pause()
-                        isRunning = false
-                        isPaused = true
-                    },
-                    backgroundColor = Color(0xFF5D4037), // onSecondaryContainer 색상
-                    modifier = Modifier.weight(1f),
-                    enabled = isRunning
+                Text(
+                    timeText,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize   = 14.sp
+                    )
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            ModernActionButton(
-                text = "➡ 다음 단계",
-                onClick = onNext,
-                backgroundColor = Color(0xFFE25532), // primary 색상
-                textColor = Color.White,
-                modifier = Modifier.fillMaxWidth()
+
+            Spacer(Modifier.height(8.dp))
+
+            // 리니어 프로그레스 바
+            LinearProgressIndicator(
+                progress   = progress,
+                color      = progressColor,
+                trackColor = trackColor,
+                modifier   = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
             )
+
+            Spacer(Modifier.height(16.dp))
+
+            // 버튼 영역: 시작/일시정지 & 초기화
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // 시작 / 재시작 / 정지 버튼
+                ModernTimerButton(
+                    text = when {
+                        !isRunning && !isPaused -> "⏵ 시작"
+                        isPaused                -> "▶ 재시작"
+                        else                    -> "⏸ 정지"
+                    },
+                    onClick = {
+                        when {
+                            !isRunning && !isPaused -> {
+                                timerState.start {
+                                    isRunning = false; isPaused = false; onFinish()
+                                }
+                                isRunning = true
+                            }
+                            isPaused -> {
+                                timerState.resume()
+                                isRunning = true; isPaused = false
+                            }
+                            else -> {
+                                timerState.pause()
+                                isRunning = false; isPaused = true
+                            }
+                        }
+                    },
+                    backgroundColor = progressColor,
+                    modifier        = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                )
+
+                // 초기화 버튼만 보여주고, 다음 단계는 UI에는 없음
+                ModernActionButton(
+                    text            = "⏲ 초기화",
+                    onClick         = {
+                        timerState.stop()
+                        isRunning = false
+                        isPaused  = false
+                    },
+                    backgroundColor = progressColor,
+                    textColor       = Color.White,
+                    modifier        = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                )
+
+                /* 나중에 다시 Next 버튼을 쓰고 싶다면 주석 해제
+                ModernActionButton(
+                    text            = "➡ 다음 단계",
+                    onClick         = onNext,
+                    backgroundColor = Color(0xFFE25532),
+                    textColor       = Color.White,
+                    modifier        = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                )
+                */
+            }
         }
     }
 }
+
+
+
 
 
 @Composable

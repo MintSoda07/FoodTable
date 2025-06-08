@@ -53,6 +53,9 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
+import com.bcu.foodtable.ui.home.AppBottomNavigationBar
+import com.bcu.foodtable.ui.home.AppTopBar
+import com.bcu.foodtable.ui.home.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +73,49 @@ fun MyRecipeStorageScreen(
     var draggingItem: GalleryItem? by remember { mutableStateOf(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     var dragPositionInWindow by remember { mutableStateOf(Offset.Zero) }
+
+    val screens = listOf(
+        Screen.Home,
+        Screen.Subscribe,
+        Screen.Social,
+        Screen.RecipeStorage,
+        Screen.MyPage
+    )
+//    // 2) Scaffold 에 TopBar/BottomBar 달기
+//    Scaffold(
+//        topBar = {
+//            AppTopBar(
+//                selectedTab = selectedTab,
+//                screens = screens,
+//                user = user
+//            )
+//        },
+//        bottomBar = {
+//            AppBottomNavigationBar(
+//                screens = screens,
+//                selectedTab = selectedTab,
+//                onTabSelected = { index ->
+//                    selectedTab = index
+//                    navController.navigate(screens[index].route) {
+//                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+//                        launchSingleTop = true
+//                        restoreState = true
+//                    }
+//                }
+//            )
+//        }
+//    ) { innerPadding ->
+//        // 3) 실제 콘텐츠 호출부: MyRecipeStorageScreen
+//        Box(Modifier.padding(innerPadding)) {
+//            MyRecipeStorageScreen(
+//                modifier = Modifier.fillMaxSize(),
+//                viewModel = recipeGalleryViewModel,
+//                homeViewModel = homeViewModel
+//            )
+//        }
+//    }
+    // RecipeStorage가 네 번째 탭(인덱스 3)이니까
+    var selectedTab by remember { mutableStateOf(3) }
 
     // 각 레시피 카드/그룹 대표 카드의 화면 내 경계(bounds)를 저장합니다.
     val recipeCardBoundsMap = remember { mutableStateMapOf<String, Rect>() }
@@ -434,7 +480,10 @@ fun StyledRecipeItemCard(
                         // 여기서는 dragPositionInWindow가 윈도우 기준 좌표를 의미하므로 localToWindow 사용
                         val windowPosition = lc.localToWindow(change.position)
                         onUpdateDragPosition(windowPosition)
-                        Log.d("DragPosition", "Item ${item.recipeId} drag windowPosition: $windowPosition, localPos: ${change.position}, dragAmount: $dragAmount")
+                        Log.d(
+                            "DragPosition",
+                            "Item ${item.recipeId} drag windowPosition: $windowPosition, localPos: ${change.position}, dragAmount: $dragAmount"
+                        )
                     }
                 },
                 onDragEnd = {
@@ -524,13 +573,17 @@ fun StyledRecipeItemCard(
                         imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Favorite",
                         tint = if (isFavorite) Color(0xFFE91E63) else Color.White,
-                        modifier = Modifier.size(24.dp).shadow(4.dp, CircleShape)
+                        modifier = Modifier
+                            .size(24.dp)
+                            .shadow(4.dp, CircleShape)
                     )
                 }
 
                 if (isLoadingImage) {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(modifier = Modifier.size(itemSize / 4), color = MaterialTheme.colorScheme.primary)
@@ -538,7 +591,9 @@ fun StyledRecipeItemCard(
                 }
                 if (isErrorImage) {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f)),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.9f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -667,21 +722,29 @@ fun StyledGroupFolderItemCard(
                 )
             }
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
                     .background(
                         Brush.radialGradient(
-                            colors = listOf(MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)),
+                            colors = listOf(
+                                MaterialTheme.colorScheme.tertiaryContainer,
+                                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+                            ),
                             radius = itemSize.value * 1.5f
                         )
                     )
             )
             Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Box(
-                    modifier = Modifier.fillMaxWidth().weight(0.6f)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(0.6f)
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)),
                     contentAlignment = Alignment.Center
@@ -702,23 +765,43 @@ fun StyledGroupFolderItemCard(
                                 painter = painter,
                                 contentDescription = "$groupName representative image",
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(16.dp))
                             )
                             Box(
-                                modifier = Modifier.fillMaxSize()
-                                    .background(Brush.verticalGradient(colors = listOf(Color.Transparent, MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f))))
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                MaterialTheme.colorScheme.tertiaryContainer.copy(
+                                                    alpha = 0.3f
+                                                )
+                                            )
+                                        )
+                                    )
                             )
                             Icon(
                                 imageVector = Icons.Filled.FolderSpecial,
                                 contentDescription = "Folder Icon",
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(20.dp)
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), CircleShape)
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp)
+                                    .size(20.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                                        CircleShape
+                                    )
                                     .padding(4.dp),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
                             if (isLoadingImage) {
                                 Box(
-                                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(itemSize * 0.15f), color = MaterialTheme.colorScheme.primary)
@@ -759,7 +842,9 @@ fun StyledGroupFolderItemCard(
                 }
             }
             if (isPressed) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.1f)))
+                Box(modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White.copy(alpha = 0.1f)))
             }
         }
     }
@@ -792,7 +877,9 @@ fun StyledGroupDetailOverlay(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 8.dp, top = 20.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -822,7 +909,9 @@ fun StyledGroupDetailOverlay(
                     IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "닫기", tint = MaterialTheme.colorScheme.onSurface) }
                 }
                 if (itemsInGroup.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp), contentAlignment = Alignment.Center) {
                         Text("이 그룹에는 레시피가 없습니다.", style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
