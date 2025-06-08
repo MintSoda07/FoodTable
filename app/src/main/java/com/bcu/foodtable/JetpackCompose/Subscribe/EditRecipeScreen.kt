@@ -44,6 +44,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 // ────────────────────────────────────────────────────────────────────────────
 // ★ EditRecipeScreen: 기존에 업로드된 레시피를 불러와 수정하는 화면 ★
@@ -51,6 +53,8 @@ import java.util.*
 //   • channelName: 해당 레시피가 속한 채널 이름(name) (권한 검증 시 사용)
 //   • onSuccess: 수정 완료 후 호출할 콜백 (예: 뒤로 돌아가기, 새로 고침 등)
 // ────────────────────────────────────────────────────────────────────────────
+
+
 @OptIn(
     ExperimentalFoundationApi::class,
     ExperimentalLayoutApi::class,
@@ -65,6 +69,9 @@ fun EditRecipeScreen(
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
     val currentUser = FirebaseAuth.getInstance().currentUser
+    // 삭제 확인 다이얼로그 노출 상태
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var isDeleting by remember { mutableStateOf(false) }
 
     // ──────────────────────────────────────────────────────────────────────
     // 1) 초기 로딩 상태: Firestore에서 기존 Recipe를 불러오고, 에러 처리
@@ -778,7 +785,58 @@ fun EditRecipeScreen(
         ) {
             Text(if (isUploading) "수정 중..." else "레시피 수정 완료")
         }
+// ───────────── 삭제 버튼 ─────────────
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = { showDeleteDialog = true },
+            enabled = !isUploading && !isDeleting,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFD32F2F),  // Material red 700
+                contentColor = Color.White
+            )
+        ) {
+            Text(if (isDeleting) "삭제 중..." else "레시피 삭제")
+        }
 
+// 삭제 확인 다이얼로그
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("레시피 삭제") },
+                text = { Text("정말 이 레시피를 삭제하시겠습니까? 삭제된 레시피는 복구할 수 없습니다.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteDialog = false
+                        isDeleting = true
+                        // Firestore에서 문서 삭제
+                        firestore.collection("recipe")
+                            .document(recipeId)
+                            .delete()
+                            .addOnSuccessListener {
+                                Toast.makeText(context, "레시피가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                                isDeleting = false
+                                onSuccess()  // 뒤로 이동 또는 새로고침 콜백
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(context, "삭제 실패: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                isDeleting = false
+                            }
+                    }) {
+                        Text("삭제")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        showDeleteDialog = false
+                    }) {
+                        Text("취소")
+                    }
+                }
+            )
+        }
         Spacer(Modifier.height(40.dp))
     }
 }}
