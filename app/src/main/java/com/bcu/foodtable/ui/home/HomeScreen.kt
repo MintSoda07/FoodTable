@@ -1323,7 +1323,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 SocialScreen(navController = navController)
             }
             composable(Screen.RecipeStorage.route) {
-                MyRecipeStorageScreen(navController)
+                MyRecipeStorageScreen()
             }
             composable(Screen.MyPage.route) {
                 ProfileMainScreen(paddingValues = paddingValues)
