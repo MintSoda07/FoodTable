@@ -76,6 +76,16 @@ dependencies {
     implementation(libs.logging.interceptor)
     implementation(libs.converter.gson)
     implementation("com.airbnb.android:lottie-compose:6.1.0")
+
+    //카카오톡
+    implementation("com.kakao.sdk:v2-all:2.21.4") // 전체 모듈 설치, 2.11.0 버전부터 지원
+    implementation(libs.v2.user) // 카카오 로그인 API 모듈
+    implementation(libs.v2.share) // 카카오톡 공유 API 모듈
+    implementation(libs.v2.talk) // 카카오톡 채널, 카카오톡 소셜, 카카오톡 메시지 API 모듈
+    implementation(libs.v2.friend) // 피커 API 모듈
+    implementation(libs.v2.navi) // 카카오내비 API 모듈
+    implementation(libs.v2.cert) // 카카오톡 인증 서비스 API 모듈
+
 // App Check
     implementation("com.google.firebase:firebase-appcheck-ktx")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")

@@ -46,6 +46,12 @@ firebaseDatabaseKtx = "21.0.0"
 firebaseMlModeldownloaderKtx = "25.0.1"
 composeMaterial = "1.4.1"
 tvMaterial = "1.0.0"
+v2Cert = "2.21.4"
+v2Navi = "2.21.4"
+v2Friend = "2.21.4"
+v2Share = "2.21.4"
+v2Talk = "2.21.4"
+v2User = "2.21.4"
 
 [libraries]
 accompanist-flowlayout = { module = "com.google.accompanist:accompanist-flowlayout", version.ref = "accompanistFlowlayout" }
@@ -109,6 +115,12 @@ firebase-database-ktx = { group = "com.google.firebase", name = "firebase-databa
 firebase-ml-modeldownloader-ktx = { group = "com.google.firebase", name = "firebase-ml-modeldownloader-ktx", version.ref = "firebaseMlModeldownloaderKtx" }
 androidx-compose-material = { group = "androidx.wear.compose", name = "compose-material", version.ref = "composeMaterial" }
 androidx-tv-material = { group = "androidx.tv", name = "tv-material", version.ref = "tvMaterial" }
+v2-cert = { module = "com.kakao.sdk:v2-cert", version.ref = "v2Cert" }
+v2-friend = { module = "com.kakao.sdk:v2-friend", version.ref = "v2Friend" }
+v2-navi = { module = "com.kakao.sdk:v2-navi", version.ref = "v2Navi" }
+v2-share = { module = "com.kakao.sdk:v2-share", version.ref = "v2Share" }
+v2-talk = { module = "com.kakao.sdk:v2-talk", version.ref = "v2Talk" }
+v2-user = { module = "com.kakao.sdk:v2-user", version.ref = "v2User" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
