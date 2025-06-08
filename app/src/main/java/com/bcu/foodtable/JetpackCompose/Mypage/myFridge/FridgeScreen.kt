@@ -60,60 +60,31 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     val doorRotation by animateFloatAsState(
         targetValue = when {
             isClosing -> 0f
-            isOpen -> -130f
-            dragOffset > 0 -> (-130f * (dragOffset / 200f)).coerceIn(-130f, 0f)
+            isOpen -> -120f
+            dragOffset > 0 -> (-120f * (dragOffset / 200f)).coerceIn(-120f, 0f)
             else -> 0f
         },
-        animationSpec = if (isClosing) {
-            spring(
-                dampingRatio = Spring.DampingRatioHighBouncy,
-                stiffness = Spring.StiffnessMedium
-            )
-        } else {
-            spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        },
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "doorRotation"
     )
 
     val doorShadow by animateFloatAsState(
-        targetValue = if (isOpen) 24f else 8f,
-        animationSpec = tween(600),
+        targetValue = if (isOpen) 20f else 12f,
+        animationSpec = tween(400),
         label = "doorShadow"
     )
 
     val contentAlpha by animateFloatAsState(
         targetValue = if (isOpen) 1f else 0f,
         animationSpec = tween(
-            durationMillis = if (isOpen) 500 else 200,
+            durationMillis = if (isOpen) 300 else 150,
             delayMillis = if (isOpen) 100 else 0,
             easing = FastOutSlowInEasing
         ),
         label = "contentAlpha"
-    )
-
-    val coldAirAlpha by animateFloatAsState(
-        targetValue = if (showColdEffect && isOpen) 0.7f else 0f,
-        animationSpec = tween(
-            durationMillis = 1500,
-            easing = LinearOutSlowInEasing
-        ),
-        finishedListener = { showColdEffect = false },
-        label = "coldAirAlpha"
-    )
-
-    // 냉장고 내부 빛 애니메이션
-    val infiniteTransition = rememberInfiniteTransition(label = "light")
-    val lightPulse by infiniteTransition.animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "lightPulse"
     )
 
     // 초기 데이터 로드
@@ -158,82 +129,50 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0E27)) // 다크 네이비 배경
-    ) {
-        // 배경 그라데이션 효과
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(
-                brush = Brush.radialGradient(
+            .background(
+                Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF1E3A5F).copy(alpha = 0.3f),
-                        Color(0xFF0A0E27)
-                    ),
-                    center = Offset(size.width * 0.5f, size.height * 0.3f),
-                    radius = size.width
+                        Color(0xFFF5F5F5),
+                        Color(0xFFE8E8E8)
+                    )
                 )
             )
-        }
-
+    ) {
         // 메인 냉장고 컨테이너
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.8f)
+                .fillMaxWidth(0.9f)
+                .fillMaxHeight(0.75f)
                 .align(Alignment.Center)
                 .graphicsLayer {
-                    // 3D 원근감
-                    rotationY = if (isOpen) 8f else 0f
-                    cameraDistance = 12f * density.density
+                    rotationX = -5f
+                    cameraDistance = 16f * density.density
                 }
         ) {
-            // 냉장고 본체 (내부) - 글래스모피즘 효과
+            // 냉장고 본체 (내부)
             Card(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        alpha = 0.95f
                         shadowElevation = 16f
                     },
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF1A1F3A).copy(alpha = 0.9f)
+                    containerColor = Color.White
                 ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = Color(0xFF3D5AFE).copy(alpha = 0.3f)
-                )
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // 내부 조명 효과
-                    if (isOpen) {
-                        Canvas(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer { alpha = contentAlpha * lightPulse }
-                        ) {
-                            // 상단 LED 조명
-                            drawRect(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFFE3F2FD).copy(alpha = 0.6f),
-                                        Color.Transparent
-                                    ),
-                                    startY = 0f,
-                                    endY = size.height * 0.4f
+                    // 내부 배경 그라데이션
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFFFAFAFA),
+                                    Color(0xFFF0F0F0)
                                 )
                             )
-
-                            // 측면 조명
-                            drawRect(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFFBBDEFB).copy(alpha = 0.3f),
-                                        Color.Transparent,
-                                        Color(0xFFBBDEFB).copy(alpha = 0.3f)
-                                    )
-                                )
-                            )
-                        }
+                        )
                     }
 
                     // 냉장고 내부 컨텐츠
@@ -241,100 +180,93 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer { alpha = contentAlpha }
-                            .padding(20.dp)
+                            .padding(16.dp)
                     ) {
-                        // 온도 표시 및 섹션 선택
+                        // 헤더 영역
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 온도 디스플레이
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color(0xFF00E5FF).copy(alpha = 0.1f),
-                                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f))
+                            // 온도 표시
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFF2196F3).copy(alpha = 0.1f)
+                                )
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Thermostat,
                                         contentDescription = "Temperature",
-                                        tint = Color(0xFF00E5FF),
-                                        modifier = Modifier.size(20.dp)
+                                        tint = Color(0xFF2196F3),
+                                        modifier = Modifier.size(18.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = when(selectedSection) {
                                             "냉장" -> "3°C"
                                             "냉동" -> "-18°C"
                                             else -> "7°C"
                                         },
-                                        color = Color(0xFF00E5FF),
-                                        fontWeight = FontWeight.Bold,
-                                        style = MaterialTheme.typography.titleMedium
+                                        color = Color(0xFF2196F3),
+                                        fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
                             }
 
-                            // 섹션 토글 버튼
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFF1E88E5).copy(alpha = 0.1f))
-                                    .border(
-                                        1.dp,
-                                        Color(0xFF1E88E5).copy(alpha = 0.3f),
-                                        RoundedCornerShape(20.dp)
-                                    )
+                            // 섹션 선택 탭
+                            Card(
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF5F5F5)
+                                )
                             ) {
-                                fridgeSections.forEach { section ->
-                                    val isSelected = selectedSection == section
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(20.dp))
-                                            .then(
-                                                if (isSelected) {
-                                                    Modifier.background(
-                                                        Brush.horizontalGradient(
-                                                            colors = listOf(
-                                                                Color(0xFF1E88E5),
-                                                                Color(0xFF1976D2)
-                                                            )
-                                                        )
-                                                    )
-                                                } else {
-                                                    Modifier
-                                                }
+                                Row(
+                                    modifier = Modifier.padding(4.dp)
+                                ) {
+                                    fridgeSections.forEach { section ->
+                                        val isSelected = selectedSection == section
+                                        Card(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    selectedSection = section
+                                                    if (section == "냉동") showColdEffect = true
+                                                },
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (isSelected)
+                                                    Color(0xFF2196F3)
+                                                else
+                                                    Color.Transparent
                                             )
-                                            .clickable {
-                                                selectedSection = section
-                                                if (section == "냉동") showColdEffect = true
-                                            }
-                                            .padding(horizontal = 20.dp, vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = section,
-                                            color = if (isSelected) Color.White else Color(0xFF90CAF9),
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
+                                        ) {
+                                            Text(
+                                                text = section,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                                color = if (isSelected) Color.White else Color(0xFF666666),
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // 재료 그리드 with 홀로그램 효과
+                        // 재료 그리드
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(3),
                             modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            contentPadding = PaddingValues(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             itemsIndexed(
                                 items = fridgeMap[selectedSection] ?: emptyList(),
@@ -354,19 +286,10 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                             }
                         }
                     }
-
-                    // 차가운 공기 효과 (냉동칸 선택 시)
-                    if (showColdEffect) {
-                        ColdAirEffect(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .graphicsLayer { alpha = coldAirAlpha }
-                        )
-                    }
                 }
             }
 
-            // 하이테크 냉장고 문
+            // 냉장고 문
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -380,13 +303,6 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                             onDragEnd = {
                                 isOpen = dragOffset > 100f
                                 dragOffset = 0f
-                                if (isOpen) {
-                                    showColdEffect = selectedSection == "냉동"
-                                    scope.launch {
-                                        kotlinx.coroutines.delay(100)
-                                        isClosing = false
-                                    }
-                                }
                             },
                             onHorizontalDrag = { _, dragAmount ->
                                 dragOffset = (dragOffset + dragAmount).coerceIn(0f, 200f)
@@ -397,195 +313,179 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         if (isOpen) {
                             isClosing = true
                             scope.launch {
-                                kotlinx.coroutines.delay(500)
+                                kotlinx.coroutines.delay(300)
                                 isOpen = false
                                 isClosing = false
                             }
                         } else {
                             isOpen = true
-                            showColdEffect = selectedSection == "냉동"
                         }
                     }
             ) {
-                // 문 외관 - 미래지향적 디자인
                 Card(
                     modifier = Modifier.fillMaxSize(),
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(
-                        width = 2.dp,
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFF64B5F6),
-                                Color(0xFF1976D2),
-                                Color(0xFF0D47A1)
-                            )
-                        )
-                    )
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFE0E0E0)
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        // 메탈릭 그라데이션
+                        // 메탈릭 효과
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
-                                        Color(0xFF37474F),
-                                        Color(0xFF263238),
-                                        Color(0xFF1C2833)
+                                        Color(0xFFEEEEEE),
+                                        Color(0xFFDDDDDD),
+                                        Color(0xFFCCCCCC),
+                                        Color(0xFFDDDDDD),
+                                        Color(0xFFEEEEEE)
                                     )
                                 )
                             )
 
-                            // 디지털 패턴
-                            val patternSize = 40.dp.toPx()
-                            for (x in 0..size.width.toInt() step patternSize.toInt()) {
-                                for (y in 0..size.height.toInt() step patternSize.toInt()) {
-                                    drawCircle(
-                                        color = Color(0xFF42A5F5).copy(alpha = 0.05f),
-                                        radius = 2.dp.toPx(),
-                                        center = Offset(x.toFloat(), y.toFloat())
+                            // 광택 효과
+                            drawRect(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.3f),
+                                        Color.Transparent,
+                                        Color.White.copy(alpha = 0.1f)
+                                    ),
+                                    start = Offset(0f, 0f),
+                                    end = Offset(size.width * 0.5f, size.height)
+                                )
+                            )
+                        }
+
+                        // 중앙 로고/브랜드
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .offset(y = (-50).dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                shadowElevation = 4.dp,
+                                modifier = Modifier.size(80.dp)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Kitchen,
+                                        contentDescription = "Fridge",
+                                        tint = Color(0xFF2196F3),
+                                        modifier = Modifier.size(48.dp)
                                     )
                                 }
                             }
-                        }
-
-                        // 스마트 디스플레이
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .padding(top = 48.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // 디지털 시계
-                            val currentTime = remember { derivedStateOf { java.time.LocalTime.now() } }
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color.Black.copy(alpha = 0.7f),
-                                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f))
-                            ) {
-                                Text(
-                                    text = String.format("%02d:%02d", currentTime.value.hour, currentTime.value.minute),
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = Color(0xFF00E5FF),
-                                    fontWeight = FontWeight.Light
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // 로고
-                            Icon(
-                                imageVector = Icons.Default.AcUnit,
-                                contentDescription = "Smart Fridge",
-                                tint = Color(0xFF64B5F6),
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .graphicsLayer {
-                                        rotationZ = if (isOpen) 180f else 0f
-                                    }
-                            )
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Text(
-                                text = "SMART FRIDGE",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = Color(0xFF90CAF9),
-                                fontWeight = FontWeight.Thin,
-                                letterSpacing = 4.sp
+                                text = "Smart Fridge",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF424242),
+                                fontWeight = FontWeight.Light
                             )
                         }
 
-                        // 터치 가이드 (홀로그램 효과)
-                        if (!isOpen) {
-                            val shimmerTransition = rememberInfiniteTransition(label = "shimmer")
-                            val shimmerAlpha by shimmerTransition.animateFloat(
-                                initialValue = 0.3f,
-                                targetValue = 0.8f,
-                                animationSpec = infiniteRepeatable(
-                                    animation = tween(1500, easing = FastOutSlowInEasing),
-                                    repeatMode = RepeatMode.Reverse
-                                ),
-                                label = "shimmerAlpha"
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .offset(y = 80.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color(0xFF00E5FF).copy(alpha = shimmerAlpha * 0.3f),
-                                                Color(0xFF00E5FF).copy(alpha = shimmerAlpha * 0.1f),
-                                                Color(0xFF00E5FF).copy(alpha = shimmerAlpha * 0.3f)
-                                            )
+                        // 문 손잡이
+                        Box(
+                            modifier = Modifier
+                                .width(8.dp)
+                                .height(120.dp)
+                                .align(Alignment.CenterEnd)
+                                .offset(x = (-24).dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color(0xFF9E9E9E),
+                                            Color(0xFF757575),
+                                            Color(0xFF616161),
+                                            Color(0xFF757575),
+                                            Color(0xFF9E9E9E)
                                         )
                                     )
-                                    .border(
-                                        1.dp,
-                                        Color(0xFF00E5FF).copy(alpha = shimmerAlpha),
-                                        RoundedCornerShape(24.dp)
-                                    )
-                                    .padding(horizontal = 32.dp, vertical = 16.dp)
+                                )
+                        )
+
+                        // 터치 힌트
+                        if (!isOpen) {
+                            Card(
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.Black.copy(alpha = 0.6f)
+                                ),
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 32.dp)
+                                    .alpha(if (!isOpen) 1f else 0f)
                             ) {
                                 Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.TouchApp,
                                         contentDescription = "Touch",
-                                        tint = Color(0xFF00E5FF),
-                                        modifier = Modifier.size(24.dp)
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "TOUCH TO OPEN",
-                                        color = Color(0xFF00E5FF),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Medium,
-                                        letterSpacing = 2.sp
+                                        text = "터치하여 열기",
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodySmall
                                     )
                                 }
                             }
-                        }
-
-                        // 미래적인 손잡이
-                        Box(
-                            modifier = Modifier
-                                .width(4.dp)
-                                .height(160.dp)
-                                .align(Alignment.CenterEnd)
-                                .offset(x = (-32).dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color(0xFF42A5F5),
-                                            Color(0xFF1E88E5),
-                                            Color(0xFF1565C0)
-                                        )
-                                    )
-                                )
-                        ) {
-                            // LED 인디케이터
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(20.dp)
-                                    .align(Alignment.Center)
-                                    .background(
-                                        if (isOpen) Color(0xFF00E676) else Color(0xFF448AFF)
-                                    )
-                            )
                         }
                     }
                 }
             }
         }
 
-        // 하단 스마트 트레이 (꺼낸 재료)
+        // AI 추천 버튼
+        AnimatedVisibility(
+            visible = isOpen && (fridgeMap[selectedSection]?.isNotEmpty() == true),
+            enter = fadeIn() + slideInVertically(),
+            exit = fadeOut() + slideOutVertically(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 80.dp, end = 24.dp)
+        ) {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    // AI 추천 기능 - 현재 섹션의 랜덤 재료 선택
+                    fridgeMap[selectedSection]?.randomOrNull()?.let { ingredient ->
+                        showDialog.value = ingredient
+                    }
+                },
+                containerColor = Color(0xFF4CAF50),
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "AI 추천",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "AI 레시피 추천",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // 하단 트레이 (꺼낸 재료)
         AnimatedVisibility(
             visible = outsideFridge.isNotEmpty(),
             enter = slideInVertically { it } + fadeIn(),
@@ -600,41 +500,26 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             )
         }
 
-        // 플로팅 액션 버튼 - 네온 효과
-        Box(
+        // 재료 추가 버튼
+        FloatingActionButton(
+            onClick = {
+                navController.navigate("add_ingredient?section=$selectedSection")
+            },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(32.dp)
+                .padding(24.dp),
+            containerColor = Color(0xFF2196F3),
+            contentColor = Color.White
         ) {
-            // 네온 글로우
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .blur(20.dp)
-                    .background(
-                        Color(0xFF00E5FF).copy(alpha = 0.6f),
-                        CircleShape
-                    )
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "재료 추가",
+                modifier = Modifier.size(24.dp)
             )
-
-            FloatingActionButton(
-                onClick = {
-                    navController.navigate("add_ingredient?section=$selectedSection")
-                },
-                containerColor = Color(0xFF1976D2),
-                contentColor = Color.White,
-                modifier = Modifier.size(56.dp)
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "재료 추가",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
         }
     }
 
-    // 추천 요리 다이얼로그
+    // AI 추천 다이얼로그
     showDialog.value?.let { selectedIngredient ->
         FuturisticDialog(
             ingredient = selectedIngredient,
@@ -659,26 +544,14 @@ fun DraggableHolographicIngredientCard(
 
     val scale by animateFloatAsState(
         targetValue = when {
-            isDragging -> 1.1f
-            isPressed -> 0.9f
+            isDragging -> 1.15f
+            isPressed -> 0.95f
             else -> 1f
         },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         )
-    )
-
-    // 홀로그램 애니메이션
-    val infiniteTransition = rememberInfiniteTransition(label = "hologram")
-    val hologramOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "hologramOffset"
     )
 
     Card(
@@ -689,9 +562,8 @@ fun DraggableHolographicIngredientCard(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                rotationY = if (!isDragging) sin(hologramOffset * 2 * PI.toFloat()) * 5f else 0f
                 alpha = if (isDragging) 0.8f else 1f
-                shadowElevation = if (isDragging) 24f else 8f
+                shadowElevation = if (isDragging) 16f else 4f
             }
             .pointerInput(Unit) {
                 detectDragGestures(
@@ -725,143 +597,61 @@ fun DraggableHolographicIngredientCard(
                     }
                 )
             },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isDragging)
-                Color(0xFF00E5FF).copy(alpha = 0.2f)
+                Color(0xFF2196F3).copy(alpha = 0.1f)
             else
-                Color(0xFF1A237E).copy(alpha = 0.3f)
+                Color.White
         ),
-        border = BorderStroke(
-            width = if (isDragging) 2.dp else 1.dp,
-            brush = Brush.linearGradient(
-                colors = if (isDragging)
-                    listOf(
-                        Color(0xFF00E5FF),
-                        Color(0xFF00B8D4),
-                        Color(0xFF00E5FF)
-                    )
-                else
-                    listOf(
-                        Color(0xFF00E5FF).copy(alpha = 0.8f),
-                        Color(0xFF00E5FF).copy(alpha = 0.2f),
-                        Color(0xFF00E5FF).copy(alpha = 0.8f)
-                    ),
-                start = Offset(0f, 0f),
-                end = Offset(100f * hologramOffset, 100f * hologramOffset)
-            )
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDragging) 8.dp else 2.dp
         )
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // 드래그 시 이펙트
-            if (isDragging) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = 0.5f }
-                ) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF00E5FF).copy(alpha = 0.3f),
-                                Color.Transparent
-                            ),
-                            radius = size.minDimension * 0.8f
-                        ),
-                        radius = size.minDimension * 0.8f
-                    )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // 이모지
+            Text(
+                text = getEmojiForIngredient(ingredient.name),
+                fontSize = 32.sp,
+                modifier = Modifier.graphicsLayer {
+                    if (isDragging) {
+                        rotationZ = 10f
+                    }
                 }
-            }
+            )
 
-            // 홀로그램 스캔라인 효과
-            if (!isDragging) {
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = 0.3f }
-                ) {
-                    val lineY = size.height * hologramOffset
-                    drawLine(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color(0xFF00E5FF),
-                                Color.Transparent
-                            )
-                        ),
-                        start = Offset(0f, lineY),
-                        end = Offset(size.width, lineY),
-                        strokeWidth = 2.dp.toPx()
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(4.dp))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceEvenly
+            // 이름
+            Text(
+                text = ingredient.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF424242),
+                maxLines = 1
+            )
+
+            // 수량
+            Card(
+                shape = RoundedCornerShape(4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFF5F5F5)
+                ),
+                modifier = Modifier.padding(top = 4.dp)
             ) {
-                // 3D 이모지 효과
                 Text(
-                    text = getEmojiForIngredient(ingredient.name),
-                    fontSize = if (isDragging) 40.sp else 36.sp,
-                    modifier = Modifier.graphicsLayer {
-                        shadowElevation = if (isDragging) 16f else 8f
-                    }
+                    text = "${ingredient.quantity}",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF666666),
+                    fontWeight = FontWeight.SemiBold
                 )
-
-                // 이름 (글리치 효과)
-                Box {
-                    if (!isDragging) {
-                        Text(
-                            text = ingredient.name,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF00E5FF).copy(alpha = 0.3f),
-                            modifier = Modifier.offset(x = 1.dp, y = 1.dp)
-                        )
-                    }
-                    Text(
-                        text = ingredient.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = if (isDragging) Color(0xFF00E5FF) else Color.White
-                    )
-                }
-
-                // 수량 디지털 디스플레이
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.5f),
-                    border = BorderStroke(
-                        1.dp,
-                        Color(0xFF00E5FF).copy(alpha = if (isDragging) 1f else 0.5f)
-                    )
-                ) {
-                    Text(
-                        text = "${ingredient.quantity}",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFF00E5FF),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // 드래그 인디케이터
-                AnimatedVisibility(
-                    visible = isDragging,
-                    enter = fadeIn() + scaleIn(),
-                    exit = fadeOut() + scaleOut()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PanTool,
-                        contentDescription = "Dragging",
-                        tint = Color(0xFF00E5FF),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
         }
     }
@@ -877,23 +667,11 @@ fun HolographicIngredientCard(
 ) {
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.9f else 1f,
+        targetValue = if (isPressed) 0.95f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         )
-    )
-
-    // 홀로그램 애니메이션
-    val infiniteTransition = rememberInfiniteTransition(label = "hologram")
-    val hologramOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "hologramOffset"
     )
 
     Card(
@@ -903,7 +681,6 @@ fun HolographicIngredientCard(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
-                rotationY = sin(hologramOffset * 2 * PI.toFloat()) * 5f
             }
             .combinedClickable(
                 onClick = onClick,
@@ -918,92 +695,48 @@ fun HolographicIngredientCard(
                     }
                 )
             },
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1A237E).copy(alpha = 0.3f)
+            containerColor = Color.White
         ),
-        border = BorderStroke(
-            width = 1.dp,
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    Color(0xFF00E5FF).copy(alpha = 0.8f),
-                    Color(0xFF00E5FF).copy(alpha = 0.2f),
-                    Color(0xFF00E5FF).copy(alpha = 0.8f)
-                ),
-                start = Offset(0f, 0f),
-                end = Offset(100f * hologramOffset, 100f * hologramOffset)
-            )
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // 홀로그램 스캔라인 효과
-            Canvas(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = 0.3f }
-            ) {
-                val lineY = size.height * hologramOffset
-                drawLine(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color(0xFF00E5FF),
-                            Color.Transparent
-                        )
-                    ),
-                    start = Offset(0f, lineY),
-                    end = Offset(size.width, lineY),
-                    strokeWidth = 2.dp.toPx()
-                )
-            }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = getEmojiForIngredient(ingredient.name),
+                fontSize = 32.sp
+            )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceEvenly
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = ingredient.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF424242),
+                maxLines = 1
+            )
+
+            Card(
+                shape = RoundedCornerShape(4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFF5F5F5)
+                ),
+                modifier = Modifier.padding(top = 4.dp)
             ) {
-                // 3D 이모지 효과
                 Text(
-                    text = getEmojiForIngredient(ingredient.name),
-                    fontSize = 36.sp,
-                    modifier = Modifier.graphicsLayer {
-                        shadowElevation = 8f
-                    }
+                    text = "${ingredient.quantity}",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF666666),
+                    fontWeight = FontWeight.SemiBold
                 )
-
-                // 이름 (글리치 효과)
-                Box {
-                    Text(
-                        text = ingredient.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF00E5FF).copy(alpha = 0.3f),
-                        modifier = Modifier.offset(x = 1.dp, y = 1.dp)
-                    )
-                    Text(
-                        text = ingredient.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
-                }
-
-                // 수량 디지털 디스플레이
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.5f),
-                    border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f))
-                ) {
-                    Text(
-                        text = "${ingredient.quantity}",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color(0xFF00E5FF),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
         }
     }
@@ -1013,17 +746,17 @@ fun HolographicIngredientCard(
 fun ColdAirEffect(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         // 차가운 안개 효과
-        val mistParticles = 50
+        val mistParticles = 30
         for (i in 0 until mistParticles) {
             val x = size.width * kotlin.random.Random.nextFloat()
             val y = size.height * kotlin.random.Random.nextFloat()
-            val radius = (20..60).random().toFloat()
+            val radius = (30..80).random().toFloat()
 
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFFE3F2FD).copy(alpha = 0.3f),
-                        Color(0xFFBBDEFB).copy(alpha = 0.1f),
+                        Color(0xFF2196F3).copy(alpha = 0.1f),
+                        Color(0xFF64B5F6).copy(alpha = 0.05f),
                         Color.Transparent
                     ),
                     center = Offset(x, y),
@@ -1045,80 +778,56 @@ fun SmartTray(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF0D47A1).copy(alpha = 0.95f)
+            containerColor = Color.White
         ),
-        border = BorderStroke(
-            width = 1.dp,
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color(0xFF42A5F5),
-                    Color(0xFF1976D2)
-                )
-            )
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
-            // 헤더
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // 애니메이션 아이콘
-                    val rotation by rememberInfiniteTransition(label = "trayIcon").animateFloat(
-                        initialValue = 0f,
-                        targetValue = 360f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(3000, easing = LinearEasing),
-                            repeatMode = RepeatMode.Restart
-                        ),
-                        label = "iconRotation"
-                    )
-
                     Icon(
-                        imageVector = Icons.Default.Widgets,
+                        imageVector = Icons.Default.ShoppingBasket,
                         contentDescription = "Smart Tray",
-                        tint = Color(0xFF00E5FF),
-                        modifier = Modifier
-                            .size(28.dp)
-                            .graphicsLayer { rotationZ = rotation }
+                        tint = Color(0xFF2196F3),
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "SMART TRAY",
+                        text = "꺼낸 재료",
                         style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        color = Color(0xFF424242),
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                // 카운터
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF00E5FF).copy(alpha = 0.2f),
-                    border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f))
+                Card(
+                    shape = CircleShape,
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF2196F3).copy(alpha = 0.1f)
+                    )
                 ) {
                     Text(
                         text = "${items.size}",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color(0xFF00E5FF),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF2196F3),
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // 아이템 그리드
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(items.size) { index ->
                     val ingredient = items[index]
@@ -1140,32 +849,20 @@ fun FloatingIngredientChip(
     var offset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
 
-    // 플로팅 애니메이션
-    val infiniteTransition = rememberInfiniteTransition(label = "float")
-    val floatY by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "floatY"
-    )
-
     Card(
         modifier = Modifier
-            .size(width = 100.dp, height = 90.dp)
+            .size(width = 90.dp, height = 80.dp)
             .offset {
                 IntOffset(
                     offset.x.toInt(),
-                    (offset.y + if (!isDragging) floatY else 0f).toInt()
+                    offset.y.toInt()
                 )
             }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { isDragging = true },
                     onDragEnd = {
-                        if (offset.y < -150f) {
+                        if (offset.y < -100f) {
                             onReturn()
                         }
                         offset = Offset.Zero
@@ -1178,18 +875,15 @@ fun FloatingIngredientChip(
             }
             .graphicsLayer {
                 alpha = if (isDragging) 0.8f else 1f
-                scaleX = if (isDragging) 1.15f else 1f
-                scaleY = if (isDragging) 1.15f else 1f
-                shadowElevation = if (isDragging) 16f else 8f
+                scaleX = if (isDragging) 1.1f else 1f
+                scaleY = if (isDragging) 1.1f else 1f
+                shadowElevation = if (isDragging) 12f else 4f
             },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1E88E5).copy(alpha = 0.3f)
+            containerColor = Color(0xFFF5F5F5)
         ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = Color(0xFF42A5F5).copy(alpha = if (isDragging) 1f else 0.6f)
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1200,23 +894,23 @@ fun FloatingIngredientChip(
         ) {
             Text(
                 text = getEmojiForIngredient(ingredient.name),
-                fontSize = 28.sp
+                fontSize = 24.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = ingredient.name,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White,
-                maxLines = 1
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF666666),
+                maxLines = 1,
+                fontWeight = FontWeight.Medium
             )
 
-            // 드래그 힌트
             if (!isDragging && offset == Offset.Zero) {
                 Icon(
                     imageVector = Icons.Default.SwipeUp,
                     contentDescription = "Swipe up",
-                    tint = Color(0xFF00E5FF).copy(alpha = 0.5f),
-                    modifier = Modifier.size(16.dp)
+                    tint = Color(0xFF9E9E9E),
+                    modifier = Modifier.size(12.dp)
                 )
             }
         }
@@ -1231,20 +925,11 @@ fun FuturisticDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF0A0E27).copy(alpha = 0.95f)
+                containerColor = Color.White
             ),
-            border = BorderStroke(
-                width = 2.dp,
-                brush = Brush.linearGradient(
-                    colors = listOf(
-                        Color(0xFF00E5FF),
-                        Color(0xFF1976D2),
-                        Color(0xFF00E5FF)
-                    )
-                )
-            )
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -1255,81 +940,153 @@ fun FuturisticDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "AI",
-                        tint = Color(0xFF00E5FF),
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF4CAF50).copy(alpha = 0.1f),
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "AI",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "AI RECIPE SUGGESTION",
+                            text = "AI 레시피 추천",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF00E5FF),
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            color = Color(0xFF212121),
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = "${ingredient.name} 활용 레시피",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF90CAF9)
+                            color = Color(0xFF757575)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // 레시피 리스트
-                recipes.forEach { recipe ->
-                    Surface(
+                // 재료 표시
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF5F5F5)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF1976D2).copy(alpha = 0.2f),
-                        border = BorderStroke(
-                            1.dp,
-                            Color(0xFF42A5F5).copy(alpha = 0.3f)
-                        )
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Restaurant,
-                                contentDescription = null,
-                                tint = Color(0xFF64B5F6),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = getEmojiForIngredient(ingredient.name),
+                            fontSize = 32.sp
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
                             Text(
-                                text = recipe,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White
+                                text = ingredient.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF424242)
                             )
+                            Text(
+                                text = "수량: ${ingredient.quantity}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF757575)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 레시피 리스트
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    recipes.forEach { recipe ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { /* 레시피 상세 보기 */ },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.05f)
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                Color(0xFF4CAF50).copy(alpha = 0.2f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Restaurant,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = recipe,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color(0xFF424242),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    tint = Color(0xFF9E9E9E),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // 닫기 버튼
-                OutlinedButton(
-                    onClick = onDismiss,
+                // 버튼
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFF00E5FF)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color(0xFF00E5FF)
-                    )
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "CLOSE",
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF757575)
+                        )
+                    ) {
+                        Text("닫기")
+                    }
+
+                    Button(
+                        onClick = { /* 전체 레시피 보기 */ },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        )
+                    ) {
+                        Text("더 보기")
+                    }
                 }
             }
         }
