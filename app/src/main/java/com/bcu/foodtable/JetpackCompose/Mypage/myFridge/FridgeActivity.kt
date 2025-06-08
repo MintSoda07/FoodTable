@@ -49,7 +49,10 @@ fun FridgeApp() {
             composable("recipe_cook/{recipeJson}") { backStackEntry ->
                 val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
                 val recipeItem = Gson().fromJson(recipeJson, RecipeItem::class.java)
-                RecipeCookingScreen(recipeItem)
+                RecipeCookingScreen(
+                    recipe = recipeItem,
+                    navController = navController
+                )
             }
         }
     }
