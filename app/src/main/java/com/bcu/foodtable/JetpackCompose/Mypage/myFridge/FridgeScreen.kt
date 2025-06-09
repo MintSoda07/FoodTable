@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -110,20 +111,27 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
     // 재료 이동 함수들
     fun moveIngredientToOutside(ingredient: Ingredient, fromSection: String) {
+        Log.d("FridgeDebug", "moveIngredientToOutside() called for ${ingredient.name} from $fromSection")
         val removed = fridgeMap[fromSection]?.removeIf { it.id == ingredient.id } == true
         if (removed) {
             outsideFridge.removeAll { it.id == ingredient.id }
             outsideFridge.add(ingredient)
+            Log.d("FridgeDebug", " → outsideFridge now: ${outsideFridge.map { it.name }}")
+        }
+        else {
+            Log.d("FridgeDebug", " → remove failed: not found in $fromSection")
         }
     }
 
     fun moveIngredientToFridge(ingredient: Ingredient, toSection: String) {
+        Log.d("FridgeDebug", "moveIngredientToFridge() called for ${ingredient.name} to $toSection")
         val removed = outsideFridge.removeIf { it.id == ingredient.id }
         val exists = fridgeMap[toSection]?.any { it.id == ingredient.id } == true
-
+        Log.d("FridgeDebug", " → removed from outside: $removed, already exists in fridge: $exists")
         if (removed && !exists) {
             val updated = ingredient.copy(section = toSection)
             fridgeMap[toSection]?.add(updated)
+            Log.d("FridgeDebug", " → fridgeMap[$toSection] now: ${fridgeMap[toSection]?.map { it.name }}")
             viewModel.updateIngredientSection(ingredient.id, toSection)
         }
     }
@@ -571,6 +579,7 @@ fun DraggableHolographicIngredientCard(
                 detectDragGestures(
                     onDragStart = {
                         isDragging = true
+
                     },
                     onDragEnd = {
                         if (offset.getDistance() > 100f) {
@@ -720,15 +729,20 @@ fun SmartTray(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(items.size) { idx ->
-                    val ingredient = items[idx]
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                // itemsCount 대신 items(items = , key = ) 사용
+            ) {
+                items(
+                    items = items,
+                    key = { ing -> ing.id }     // ← 여기서 고유 key 지정
+                ) { ingredient ->
                     FloatingIngredientChip(
                         ingredient = ingredient,
                         onReturn = {
-                            // 전역에서 제거
+                            Log.d("FridgeDebug", "Returning ${ingredient.name}")
+                            onItemReturn(ingredient)
                             GlobalTray.items.remove(ingredient)
-                            Log.d("Fridge",""+GlobalTray.items)
                         }
                     )
                 }
@@ -756,10 +770,16 @@ fun FloatingIngredientChip(
             }
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { isDragging = true },
+                    onDragStart = { isDragging = true
+                        Log.d("FridgeDebug", "Drag started on ${ingredient.name}")
+                    },
                     onDragEnd = {
+                        Log.d("FridgeDebug", "Drag ended on ${ingredient.name} with offset y=${offset.y}")
                         if (offset.y < -100f) {
+                            Log.d("FridgeDebug", " → offset threshold passed, calling onReturn()")
                             onReturn()
+                        } else {
+                            Log.d("FridgeDebug", " → offset threshold NOT passed, cancelling return")
                         }
                         offset = Offset.Zero
                         isDragging = false
