@@ -79,6 +79,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.compose.animation.with
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.RecipeItem
@@ -1052,9 +1054,14 @@ fun getGreetingText(name: String?): Pair<String, String> {
 @Composable
 fun HomeTopBar(
     user: User?,
+    isScrolled: Boolean
 ) {
     val userPoint = user?.point ?: 0
     val (greetingTitle, greetingSub) = getGreetingText(user?.name)
+    val elevation by animateDpAsState(
+        targetValue = if (isScrolled) 4.dp else 0.dp,
+        label = "topBarElevation"
+    )
 
     TopAppBar(
         title = {
@@ -1136,12 +1143,14 @@ fun HomeTopBar(
 fun AppTopBar(
     selectedTab: Int,
     screens: List<Screen>,
-    user: User?
+    user: User?,
+    isScrolled: Boolean
 ) {
     when (screens[selectedTab]) {
         Screen.Home, Screen.Subscribe, Screen.MyPage -> {
             HomeTopBar(
-                user = user
+                user = user,
+                isScrolled = isScrolled
             )
         }
         else -> {}
@@ -1177,6 +1186,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val coroutineScope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showBottomSheet by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
@@ -1201,7 +1211,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
             AppTopBar(
                 selectedTab = selectedTab,
                 screens = screens,
-                user = user
+                user = user,
+                isScrolled = listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
             )
         },
         bottomBar = {
@@ -1256,7 +1267,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                             onSearchQueryChange = { searchQuery = it },
                             focusManager = focusManager,
                             context = context,
-                            homeViewModel = viewModel
+                            homeViewModel = viewModel,
+                            listState = listState
                         )
                     }
                 }
@@ -1992,7 +2004,8 @@ private fun HomeContent(
     onSearchQueryChange: (TextFieldValue) -> Unit,
     focusManager: FocusManager,
     context: Context,
-    homeViewModel: HomeViewModel
+    homeViewModel: HomeViewModel,
+    listState: LazyListState
 ) {
     // 필터 상태 관리
     val mainFilterOptions = listOf("요리 종류", "난이도", "소요 시간")
@@ -2010,6 +2023,7 @@ private fun HomeContent(
     val prepTimeOptions = listOf("15분 이내", "30분 이내", "1시간 이내", "1시간 이상")
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
@@ -2138,9 +2152,10 @@ private fun HomeContent(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "No recipes found matching your criteria.\\nTry adjusting your search or filters!",
+                        "조건에 맞는 레시피가 없어요.\n검색어나 필터를 조정해보세요!",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                         modifier = Modifier.padding(16.dp)
                     )
                 }
@@ -2150,101 +2165,112 @@ private fun HomeContent(
                 items = filteredRecipes,
                 key = { recipe -> recipe.id.ifBlank { recipe.name + recipe.hashCode() } }, // 고유 키 보장
             ) { recipe ->
-                val cardModifier = Modifier.animateItemPlacement(tween(durationMillis = 300))
-                val context = LocalContext.current
-                val scope = rememberCoroutineScope()
-                val db = FirebaseFirestore.getInstance()
 
-                var showPurchaseDialog by remember { mutableStateOf(false) }
-                var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+                var isVisible by remember { mutableStateOf(false) }
 
-                ModernRecipeCard(
-                    recipe = recipe,
-                    onCardClick  = {
-                        scope.launch {
-                            val uid = UserManager.getUser()!!.uid
+                LaunchedEffect(key1 = recipe.id) {
+                    isVisible = true
+                }
 
-                            db.collection("user")
-                                .document(uid)
-                                .collection("purchased")
-                                .document(recipe.id)
-                                .get()
-                                .addOnSuccessListener { document ->
-                                    if (document.exists()) {
-                                        // ✅ 이미 구매함 → 바로 이동
-                                        homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
-                                        val intent = Intent(context, RecipeCookingActivity::class.java)
-                                        intent.putExtra("recipe_id", recipe.id)
-                                        context.startActivity(intent)
-                                    } else {
-                                        // ❌ 미구매 → 모달 표시
-                                        selectedRecipe = recipe
-                                        showPurchaseDialog = true
+                // isVisible 상태에 따라 애니메이션을 적용합니다.
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = slideInVertically(
+                        initialOffsetY = { it / 2 },
+                        animationSpec = tween(durationMillis = 500, delayMillis = 50)
+                    ) + fadeIn(animationSpec = tween(400)),
+                ) { // <-- 여는 중괄호
+
+                    // --- ModernRecipeCard와 모든 관련 로직이 이 안으로 들어옵니다 ---
+                    val cardModifier = Modifier.animateItemPlacement(tween(durationMillis = 300))
+                    val context = LocalContext.current
+                    val scope = rememberCoroutineScope()
+                    val db = FirebaseFirestore.getInstance()
+
+                    var showPurchaseDialog by remember { mutableStateOf(false) }
+                    var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+
+                    ModernRecipeCard(
+                        recipe = recipe,
+                        onCardClick  = {
+                            scope.launch {
+                                val uid = UserManager.getUser()!!.uid
+
+                                db.collection("user")
+                                    .document(uid)
+                                    .collection("purchased")
+                                    .document(recipe.id)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        if (document.exists()) {
+                                            homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
+                                            val intent = Intent(context, RecipeCookingActivity::class.java)
+                                            intent.putExtra("recipe_id", recipe.id)
+                                            context.startActivity(intent)
+                                        } else {
+                                            selectedRecipe = recipe
+                                            showPurchaseDialog = true
+                                        }
                                     }
-                                }
-                                .addOnFailureListener {
-                                    Toast.makeText(context, "구매 여부 확인 실패", Toast.LENGTH_SHORT).show()
-                                }
-                        }
-                    },
-                    modifier = cardModifier
-                )
-
-// 🔽 모달창 (결제 다이얼로그)
-                if (showPurchaseDialog && selectedRecipe != null) {
-                    PurchaseDialog(
-                        recipeName = selectedRecipe!!.name,
-                        cost = selectedRecipe!!.cost,
-                        onConfirm = {
-                            showPurchaseDialog = false
-
-                            val uid = UserManager.getUser()!!.uid
-                            val userRef = db.collection("user").document(uid)
-
-                            userRef.get().addOnSuccessListener { document ->
-                                val currentPoint = document.getLong("point")?.toInt() ?: 0
-
-                                if (currentPoint >= selectedRecipe!!.cost) {
-                                    val newPoint = currentPoint - selectedRecipe!!.cost
-
-                                    // 1. 포인트 차감
-                                    userRef.update("point", newPoint)
-                                        .addOnSuccessListener {
-                                            // 2. purchased 등록
-                                            userRef.collection("purchased")
-                                                .document(selectedRecipe!!.id)
-                                                .set(mapOf("purchased" to true))
-                                                .addOnSuccessListener {
-                                                    Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
-
-                                                    // 3. 다음 화면으로 이동
-                                                    val intent = Intent(context, RecipeCookingActivity::class.java)
-                                                    intent.putExtra("recipe_id", selectedRecipe!!.id)
-                                                    context.startActivity(intent)
-                                                }
-                                                .addOnFailureListener {
-                                                    Toast.makeText(context, "구매 처리 실패", Toast.LENGTH_SHORT).show()
-                                                }
-                                        }
-                                        .addOnFailureListener {
-                                            Toast.makeText(context, "포인트 차감 실패", Toast.LENGTH_SHORT).show()
-                                        }
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            }.addOnFailureListener {
-                                Toast.makeText(context, "사용자 정보 조회 실패", Toast.LENGTH_SHORT).show()
+                                    .addOnFailureListener {
+                                        Toast.makeText(context, "구매 여부 확인 실패", Toast.LENGTH_SHORT).show()
+                                    }
                             }
                         },
-                        onDismiss = {
-                            showPurchaseDialog = false
-                        }
+                        modifier = cardModifier
                     )
+
+                    if (showPurchaseDialog && selectedRecipe != null) {
+                        PurchaseDialog(
+                            recipeName = selectedRecipe!!.name,
+                            cost = selectedRecipe!!.cost,
+                            onConfirm = {
+                                showPurchaseDialog = false
+                                // ... 기존 구매 확정 로직 ...
+                                val uid = UserManager.getUser()!!.uid
+                                val userRef = db.collection("user").document(uid)
+
+                                userRef.get().addOnSuccessListener { document ->
+                                    val currentPoint = document.getLong("point")?.toInt() ?: 0
+                                    if (currentPoint >= selectedRecipe!!.cost) {
+                                        val newPoint = currentPoint - selectedRecipe!!.cost
+                                        userRef.update("point", newPoint)
+                                            .addOnSuccessListener {
+                                                userRef.collection("purchased")
+                                                    .document(selectedRecipe!!.id)
+                                                    .set(mapOf("purchased" to true))
+                                                    .addOnSuccessListener {
+                                                        Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
+                                                        val intent = Intent(context, RecipeCookingActivity::class.java)
+                                                        intent.putExtra("recipe_id", selectedRecipe!!.id)
+                                                        context.startActivity(intent)
+                                                    }
+                                                    .addOnFailureListener {
+                                                        Toast.makeText(context, "구매 처리 실패", Toast.LENGTH_SHORT).show()
+                                                    }
+                                            }
+                                            .addOnFailureListener {
+                                                Toast.makeText(context, "포인트 차감 실패", Toast.LENGTH_SHORT).show()
+                                            }
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }.addOnFailureListener {
+                                    Toast.makeText(context, "사용자 정보 조회 실패", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onDismiss = {
+                                showPurchaseDialog = false
+                            }
+                        )
+                    }
                 }
+            }
+        }
 
                 @Composable
                 fun PurchaseDialog(
@@ -2274,8 +2300,8 @@ private fun HomeContent(
 
             }
         }
-    }
-}
+
+
 @Composable
 fun PurchaseDialog(
     recipeName: String,
