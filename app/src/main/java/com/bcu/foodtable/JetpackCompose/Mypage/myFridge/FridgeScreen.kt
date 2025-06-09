@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -52,6 +53,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     val fridgeMap = remember { fridgeSections.associateWith { mutableStateListOf<Ingredient>() }.toMutableMap() }
     val outsideFridge = remember { mutableStateListOf<Ingredient>() }
     val showDialog = remember { mutableStateOf<Ingredient?>(null) }
+
 
     // 파티클 효과를 위한 상태
     var showColdEffect by remember { mutableStateOf(false) }
@@ -572,6 +574,9 @@ fun DraggableHolographicIngredientCard(
                     },
                     onDragEnd = {
                         if (offset.getDistance() > 100f) {
+                            if (!GlobalTray.items.contains(ingredient)) {
+                                GlobalTray.items.add(ingredient)
+                            }
                             onDragEnd()
                         }
                         offset = Offset.Zero
@@ -657,117 +662,6 @@ fun DraggableHolographicIngredientCard(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun HolographicIngredientCard(
-    ingredient: Ingredient,
-    index: Int,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
-) {
-    var isPressed by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        )
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    }
-                )
-            },
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = getEmojiForIngredient(ingredient.name),
-                fontSize = 32.sp
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = ingredient.name,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF424242),
-                maxLines = 1
-            )
-
-            Card(
-                shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF5F5F5)
-                ),
-                modifier = Modifier.padding(top = 4.dp)
-            ) {
-                Text(
-                    text = "${ingredient.quantity}",
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF666666),
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun ColdAirEffect(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        // 차가운 안개 효과
-        val mistParticles = 30
-        for (i in 0 until mistParticles) {
-            val x = size.width * kotlin.random.Random.nextFloat()
-            val y = size.height * kotlin.random.Random.nextFloat()
-            val radius = (30..80).random().toFloat()
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF2196F3).copy(alpha = 0.1f),
-                        Color(0xFF64B5F6).copy(alpha = 0.05f),
-                        Color.Transparent
-                    ),
-                    center = Offset(x, y),
-                    radius = radius
-                ),
-                radius = radius,
-                center = Offset(x, y)
-            )
-        }
-    }
-}
 
 @Composable
 fun SmartTray(
@@ -826,14 +720,16 @@ fun SmartTray(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(items.size) { index ->
-                    val ingredient = items[index]
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(items.size) { idx ->
+                    val ingredient = items[idx]
                     FloatingIngredientChip(
                         ingredient = ingredient,
-                        onReturn = { onItemReturn(ingredient) }
+                        onReturn = {
+                            // 전역에서 제거
+                            GlobalTray.items.remove(ingredient)
+                            Log.d("Fridge",""+GlobalTray.items)
+                        }
                     )
                 }
             }
@@ -917,207 +813,65 @@ fun FloatingIngredientChip(
     }
 }
 
-@Composable
-fun FuturisticDialog(
-    ingredient: Ingredient,
-    recipes: List<String>,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color.White
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // 헤더
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF4CAF50).copy(alpha = 0.1f),
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.AutoAwesome,
-                                contentDescription = "AI",
-                                tint = Color(0xFF4CAF50),
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "AI 레시피 추천",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color(0xFF212121),
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "${ingredient.name} 활용 레시피",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF757575)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // 재료 표시
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFF5F5F5)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = getEmojiForIngredient(ingredient.name),
-                            fontSize = 32.sp
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = ingredient.name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF424242)
-                            )
-                            Text(
-                                text = "수량: ${ingredient.quantity}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF757575)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 레시피 리스트
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    recipes.forEach { recipe ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { /* 레시피 상세 보기 */ },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFF4CAF50).copy(alpha = 0.05f)
-                            ),
-                            border = BorderStroke(
-                                1.dp,
-                                Color(0xFF4CAF50).copy(alpha = 0.2f)
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Restaurant,
-                                    contentDescription = null,
-                                    tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = recipe,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color(0xFF424242),
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Spacer(modifier = Modifier.weight(1f))
-                                Icon(
-                                    imageVector = Icons.Default.ChevronRight,
-                                    contentDescription = null,
-                                    tint = Color(0xFF9E9E9E),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // 버튼
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF757575)
-                        )
-                    ) {
-                        Text("닫기")
-                    }
-
-                    Button(
-                        onClick = { /* 전체 레시피 보기 */ },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        )
-                    ) {
-                        Text("더 보기")
-                    }
-                }
-            }
-        }
-    }
-}
 
 fun getEmojiForIngredient(name: String): String {
     return when (name) {
-        "계란" -> "🥚"
-        "당근" -> "🥕"
-        "상추" -> "🥬"
-        "소고기" -> "🥩"
-        "양파" -> "🧅"
-        "감자" -> "🥔"
-        "우유" -> "🥛"
-        "치즈" -> "🧀"
-        "토마토" -> "🍅"
-        "사과" -> "🍎"
-        "바나나" -> "🍌"
-        "빵" -> "🍞"
-        "닭고기" -> "🍗"
-        "돼지고기" -> "🥓"
-        "생선" -> "🐟"
-        "새우" -> "🦐"
-        "버섯" -> "🍄"
-        "브로콜리" -> "🥦"
-        "옥수수" -> "🌽"
-        "고추" -> "🌶️"
-        "버터" -> "🧈"
-        "요거트" -> "🥛"
-        "아이스크림" -> "🍨"
+        // 단백질류
+        "계란"              -> "🥚"
+        "소고기"            -> "🥩"
+        "닭고기", "치킨"    -> "🍗"
+        "돼지고기"          -> "🥓"
+        "생선", "참치", "연어" -> "🐟"
+        "새우"              -> "🦐"
+        "오징어"            -> "🦑"
+        "문어"              -> "🐙"
+        "조개"              -> "🦪"
+
+        // 채소류
+        "당근"              -> "🥕"
+        "상추", "양배추"     -> "🥬"
+        "브로콜리"          -> "🥦"
+        "감자"              -> "🥔"
+        "고구마"            -> "🍠"
+        "양파"              -> "🧅"
+        "마늘"              -> "🧄"
+        "고추", "피망"      -> "🌶️"
+        "토마토"            -> "🍅"
+        "버섯"              -> "🍄"
+        "호박"              -> "🎃"
+        "옥수수"            -> "🌽"
+
+        // 과일류
+        "사과"              -> "🍎"
+        "바나나"            -> "🍌"
+        "수박"              -> "🍉"
+        "포도"              -> "🍇"
+        "딸기"              -> "🍓"
+        "키위"              -> "🥝"
+        "파인애플"          -> "🍍"
+
+        // 유제품·가공품
+        "우유", "요거트"     -> "🥛"
+        "치즈"              -> "🧀"
+        "버터"              -> "🧈"
+        "아이스크림"        -> "🍨"
+
+        // 곡류·빵·간식
+        "쌀", "밥"          -> "🍚"
+        "빵", "토스트"      -> "🍞"
+        "케이크"            -> "🎂"
+        "쿠키"              -> "🍪"
+        "초코", "초콜릿"    -> "🍫"
+
+        // 패스트푸드·간편식
+        "피자"              -> "🍕"
+        "햄버거"            -> "🍔"
+        "핫도그", "소시지"  -> "🌭"
+        "샌드위치"          -> "🥪"
+        "타코"              -> "🌮"
+        "라면"              -> "🍜"
+        "스파게티", "파스타"-> "🍝"
+
         else -> "🍽️"
     }
 }
