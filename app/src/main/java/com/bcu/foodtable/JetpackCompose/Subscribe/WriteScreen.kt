@@ -119,11 +119,11 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
     }
 
     // “01시 01분 01초” 형태로 포맷
-    fun getFormattedTime(): String {
+    fun getFormattedTime() : String {
         val h = hour.text.padStart(2, '0')
         val m = minute.text.padStart(2, '0')
         val s = second.text.padStart(2, '0')
-        return "${h}시 ${m}분 ${s}초"
+        return "$h:$m:$s"
     }
 
     Column(

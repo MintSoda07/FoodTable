@@ -70,7 +70,18 @@ class HomeViewModel(
         setupTimeManager()
         setupBehaviorTracker()
         startRecommendationUpdateTimer()
+        FirebaseFirestore.getInstance()
+            .collection("recipe")
+            .addSnapshotListener { snaps, e ->
+                if (e != null) return@addSnapshotListener
+                val list = snaps?.documents
+                    ?.mapNotNull { it.toObject(RecipeItem::class.java)?.apply { id = it.id } }
+                    ?: emptyList()
+                _recipes.value = list
+            }
     }
+
+
 
     /**
      * 🤖 AI 기반 시간대별 추천을 업데이트합니다.

@@ -1325,16 +1325,24 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     navArgument("channelName") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
-                val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+                val recipeId    = backStackEntry.arguments?.getString("recipeId") ?: ""
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
 
-                // EditRecipeScreen을 호출, 수정 완료 시 onSuccess 콜백으로 뒤로 이동
-                // FoodTableTheme 으로 래핑
                 FoodTableTheme {
                     EditRecipeScreen(
-                        recipeId = recipeId,
-                        channelName = channelName,
-                        onSuccess = { navController.popBackStack() }
+                        recipeId        = recipeId,
+                        channelName     = channelName,
+                        onModifySuccess = {
+                            // 수정 완료 → 이전 화면으로
+                            navController.popBackStack()
+                        },
+                        onDeleteSuccess = {
+                            // 삭제 완료 → 홈 화면으로
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
             }
