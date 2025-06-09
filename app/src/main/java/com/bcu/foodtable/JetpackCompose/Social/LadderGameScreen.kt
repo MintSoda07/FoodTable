@@ -32,7 +32,7 @@ import kotlin.math.floor
 import kotlin.random.Random
 
 // ─── 테마 정의 ────────────────────────────────────────────────────────────
-private val WarmLightColorScheme = lightColorScheme(
+val WarmLightColorScheme = lightColorScheme(
     primary = Color(0xFFE25532), onPrimary = Color.White,
     primaryContainer = Color(0xFFFFE2D6), onPrimaryContainer = Color(0xFF5C2B1B),
     background = Color(0xFFFFFBF8), onBackground = Color(0xFF3A2C28),

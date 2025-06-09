@@ -101,10 +101,12 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.RestaurantMenu, "오늘밥") { MiniGameTab(navController) },
             WheelItem(Icons.Default.EmojiEvents, "랭킹") { ScreenStub("랭킹 탭") },
             WheelItem(Icons.Default.MilitaryTech, "챌린지") { ChallengeTab() },
-            WheelItem(Icons.Default.People, "친구") { ScreenStub("친구 탭") },
-            WheelItem(Icons.Default.QuestionAnswer, "채팅") { ScreenStub("채팅 탭") },
-            WheelItem(Icons.Default.Map, "맛집도") { navController.navigate("matzip") },
-
+            WheelItem(Icons.Default.People, "친구") { FriendsTab() },
+            WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab() },
+            WheelItem(Icons.Default.Map, "맛집도")   {
+                // 이제 여기서는 단순히 지도를 렌더링만
+                RestaurantV2MapScreen(modifier = Modifier.fillMaxSize())
+            },
         )
     }
 
@@ -173,7 +175,9 @@ fun SocialScreen(navController: NavHostController) {
                     items = wheelItems.map { it.icon to it.label },
                     haloColor = MaterialTheme.colorScheme.primary, // 테마 색상 사용
                     onSelectionChanged = { newIndex ->
-                        if (selectedIndex != newIndex) {
+                        if (wheelItems[newIndex].label == "맛집도") {
+                            navController.navigate("matzip")
+                        } else {
                             selectedIndex = newIndex
                         }
                     },
