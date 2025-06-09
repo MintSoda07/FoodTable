@@ -103,7 +103,8 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.MilitaryTech, "챌린지") { ChallengeTab() },
             WheelItem(Icons.Default.People, "친구") { ScreenStub("친구 탭") },
             WheelItem(Icons.Default.QuestionAnswer, "채팅") { ScreenStub("채팅 탭") },
-            WheelItem(Icons.Default.Map, "맛집도") { ScreenStub("맛집도 탭") },
+            WheelItem(Icons.Default.Map, "맛집도") { navController.navigate("matzip") },
+
         )
     }
 

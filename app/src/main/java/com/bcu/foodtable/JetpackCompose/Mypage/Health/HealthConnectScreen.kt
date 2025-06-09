@@ -75,7 +75,9 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
     Scaffold(
         topBar = {
             HomeTopBar(
-                user = user
+                user = user,
+                isScrolled = false
+
             )
         },
         bottomBar = {
