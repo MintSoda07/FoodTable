@@ -32,6 +32,7 @@ class RecipeCookingActivity : ComponentActivity() {
             return
         }
 
+
         setContent {
             // 1) NavController 생성
             val navController = rememberNavController()
@@ -137,5 +138,10 @@ class RecipeCookingActivity : ComponentActivity() {
 
             }
         }
+    }
+    override fun onBackPressed() {
+        // 채널 화면으로 돌아갈 때 항상 RESULT_OK를 전달
+        setResult(Activity.RESULT_OK)
+        super.onBackPressed()
     }
 }

@@ -451,17 +451,88 @@ fun ChannelViewPageScreen(
                     }
 
                     "Liked" -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "좋아요한 레시피가 없습니다.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        // 1) 유저가 좋아요 누른 레시피만 필터
+                        val likedRecipes = remember(recipes, userId) {
+                            recipes.filter { recipe ->
+                                // RecipeItem에 likedUsers: List<String> 프로퍼티가 있다고 가정
+                                recipe.likedUsers?.contains(userId) == true
+                            }
                         }
-                    }
+
+                        if (likedRecipes.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "좋아요한 레시피가 없습니다.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(
+                                    items = likedRecipes,
+                                    key = { recipe -> recipe.id.ifBlank { recipe.name + recipe.hashCode() } }
+                                ) {  recipe ->
+                                    // 1) isPurchased 변수 선언
+                                    var isPurchased by remember { mutableStateOf(false) }
+                                    // 2) Firestore 조회해서 초기화
+                                    LaunchedEffect(recipe.id, userId) {
+                                        try {
+                                            val snapshot = FirebaseFirestore
+                                                .getInstance()
+                                                .collection("user")
+                                                .document(userId)
+                                                .collection("purchased")
+                                                .document(recipe.id)
+                                                .get()
+                                                .await()
+                                            isPurchased = snapshot.exists()
+                                        } catch (_: Exception) {
+                                            isPurchased = false
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .animateItemPlacement()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                Log.d("RECIPE_DEBUG", "Clicked recipe id=${recipe.id}")
+                                                val intent = Intent(context, RecipeCookingActivity::class.java).apply {
+                                                    putExtra("recipe_id", recipe.id)
+                                                }
+                                                launcher.launch(intent)
+                                            }
+                                            .background(MaterialTheme.colorScheme.surface)
+                                            .padding(4.dp)
+                                    ) {
+                                        RecipeCard(
+                                            recipe = recipe,
+                                            isPurchased = isPurchased,
+                                            onClick = {
+                                                Log.d("RECIPE_DEBUG", "Clicked recipe id=${recipe.id}")
+                                                val intent = Intent(context, RecipeCookingActivity::class.java).apply {
+                                                    putExtra("recipe_id", recipe.id)
+                                                }
+                                                launcher.launch(intent)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        }
                 }
             }
         }
