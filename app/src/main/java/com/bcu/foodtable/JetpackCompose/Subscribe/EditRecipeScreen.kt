@@ -80,6 +80,7 @@ fun EditRecipeScreen(
     var loadErrorMessage by remember { mutableStateOf<String?>(null) }
     var originalRecipe by remember { mutableStateOf<RecipeItem?>(null) }
 
+
     // 문서를 비동기 호출하여 originalRecipe에 저장
     LaunchedEffect(recipeId) {
         try {
@@ -220,17 +221,21 @@ fun EditRecipeScreen(
 
             // 단계(order 필드 예시: "○1. 제목○2. 제목..." 형태)
             recipeSteps.clear()
+
+            val regex = Regex(
+                """^\s*○?\s*\d+\.\s*\(([^)]+)\)\s*(.*?)(?:\s*\(([^()]+?),\s*([0-9]{2}시 [0-9]{2}분 [0-9]{2}초)\))?$"""
+            )
+
             r.order.split("○")
                 .filter { it.isNotBlank() }
                 .forEach { raw ->
-                    // “1. 제목(방법) (HH:MM:SS)” 형태 파싱 식 예시
-                    val regex =
-                        Regex("""^\s*○?\s*\d+\.\s*\(([^)]+)\)\s*(.*?)(?:\s*\(([^()]+?),\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\))?$""")
                     val match = regex.find(raw.trim())
+
                     val titleText = match?.groupValues?.getOrNull(1) ?: ""
                     val descText = match?.groupValues?.getOrNull(2) ?: raw
                     val methodText = match?.groupValues?.getOrNull(3)
                     val timeText = match?.groupValues?.getOrNull(4)
+
                     recipeSteps.add(
                         Step(
                             title = titleText,
@@ -673,6 +678,7 @@ fun EditRecipeScreen(
         // 3-10) 수정 완료 버튼
         Button(
             onClick = {
+
                 // 필수 입력값 체크
                 if (title.text.isBlank() ||
                     description.text.isBlank() ||
@@ -686,6 +692,29 @@ fun EditRecipeScreen(
                 }
 
                 isUploading = true
+
+
+                val originalOrder = originalRecipe?.order ?: ""
+                val originalStepCount = Regex("""○\d+\.""").findAll(originalOrder).count()
+                val newOrder = recipeSteps.drop(originalStepCount) // 새로 추가된 단계만 추출
+
+                val appendedSteps = newOrder.mapIndexed { idx, step ->
+                    val index = originalStepCount + idx + 1
+                    val title = step.title.trim()
+                    val desc = step.description.trim()
+                    val method = step.method?.trim()
+                    val time = step.time?.trim()
+
+                    // 시간과 방법 둘 다 있을 때만 포맷 포함
+                    val timerText = if (!method.isNullOrBlank() && !time.isNullOrBlank()) {
+                        " ($method, $time)"
+                    } else ""
+
+                    "○$index. ($title) $desc$timerText"
+                }.joinToString("")
+
+                val mergedOrder = originalOrder + appendedSteps
+
 
                 // 1) 새 이미지를 골랐는지 확인
                 if (selectedImageUri != null) {
@@ -706,8 +735,7 @@ fun EditRecipeScreen(
                                 "C_categories" to listOfNotNull(selectedCategory, selectedDifficulty),
                                 "tags" to tags,
                                 "ingredients" to ingredients,
-                                "order" to "○" + recipeSteps.mapIndexed { idx, s -> "${idx + 1}. ${s.title}" }
-                                    .joinToString("○"),
+                                "order" to mergedOrder,
                                 "contained_channel" to channelName,
                                 "authorId" to (currentUser?.uid ?: ""),
                                 "authorName" to (originalRecipe?.authorName ?: ""),
@@ -751,8 +779,7 @@ fun EditRecipeScreen(
                         "C_categories" to listOfNotNull(selectedCategory, selectedDifficulty),
                         "tags" to tags,
                         "ingredients" to ingredients,
-                        "order" to "○" + recipeSteps.mapIndexed { idx, s -> "${idx + 1}. ${s.title}" }
-                            .joinToString("○"),
+                        "order" to mergedOrder,
                         "contained_channel" to channelName,
                         "authorId" to (currentUser?.uid ?: ""),
                         "authorName" to (originalRecipe?.authorName ?: ""),
