@@ -1,8 +1,11 @@
 // 파일: ChannelViewPageScreen.kt
 package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
+import android.app.Activity
 import android.content.Intent
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -67,6 +70,15 @@ fun ChannelViewPageScreen(
         if (!loaded && channelName.isNotBlank()) {
             viewModel.loadAll(channelName, userId)
             loaded = true
+        }
+    }
+    // 1) launcher 정의
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // 수정/삭제 직후 다시 불러오기
+            viewModel.loadAll(channelName, userId)
         }
     }
 
@@ -417,7 +429,7 @@ fun ChannelViewPageScreen(
                                             val intent = Intent(context, RecipeCookingActivity::class.java).apply {
                                                 putExtra("recipe_id", recipe.id)
                                             }
-                                            context.startActivity(intent)
+                                            launcher.launch(intent)
                                         }
                                         .background(MaterialTheme.colorScheme.surface)
                                         .padding(4.dp)
@@ -430,7 +442,7 @@ fun ChannelViewPageScreen(
                                             val intent = Intent(context, RecipeCookingActivity::class.java).apply {
                                                 putExtra("recipe_id", recipe.id)
                                             }
-                                            context.startActivity(intent)
+                                            launcher.launch(intent)
                                         }
                                     )
                                 }
