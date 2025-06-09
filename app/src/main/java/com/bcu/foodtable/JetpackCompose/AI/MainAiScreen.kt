@@ -2,6 +2,7 @@ package com.bcu.foodtable.JetpackCompose.AI
 
 import android.content.Intent
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -39,7 +40,7 @@ fun MainAiScreen(
     val aiChattingViewModel = remember { AiChattingViewModel(openAIClient) }
     val aiHelperViewModel = remember { AiHelperViewModel(openAIClient) }
     val aiRecommendationViewModel = remember { AiRecommendationViewModel(openAIClient) }
-
+    val listState = rememberLazyListState()
     LaunchedEffect(Unit) {
         homeViewModel.loadUserInfo() // Load user info for top bar
     }
@@ -47,7 +48,8 @@ fun MainAiScreen(
     Scaffold(
         topBar = {
             HomeTopBar(
-                user = user
+                user = user,
+                isScrolled = listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
             )
         },
         bottomBar = {

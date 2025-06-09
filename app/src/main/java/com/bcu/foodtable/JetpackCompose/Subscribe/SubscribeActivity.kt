@@ -64,7 +64,9 @@ fun SubscribeScreenWithNavigation(
     Scaffold(
         topBar = {
             HomeTopBar(
-                user = user
+                user = user,
+                isScrolled = false
+
             )
         },
         bottomBar = {
