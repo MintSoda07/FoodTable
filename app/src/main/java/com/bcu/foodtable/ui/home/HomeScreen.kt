@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.home
 
+
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -138,6 +139,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
 import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
@@ -1237,6 +1240,14 @@ fun HomeScreen(viewModel: HomeViewModel) {
             composable("challenge") {
                 val challengeViewModel: ChallengeViewModel = viewModel()
                 ChallengeScreen(viewModel = challengeViewModel)
+            }
+            // 3) 맛집도 탭 — RestaurantV2MapScreen
+            composable("matzip") { backStackEntry ->
+                val matzipViewModel: MatzipViewModel = viewModel(backStackEntry)
+                RestaurantV2MapScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    viewModel = matzipViewModel
+                )
             }
             composable(Screen.Home.route) {
                 Box(
