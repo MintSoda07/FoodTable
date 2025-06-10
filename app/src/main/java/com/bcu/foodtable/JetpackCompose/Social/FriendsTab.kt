@@ -59,14 +59,14 @@ fun FriendsTab() {
         isLoading = true
         try {
             val snap = Firebase.firestore
-                .collection("users").document(currentUid)
+                .collection("user").document(currentUid)
                 .collection("friends")
                 .get().await()
             friends.clear()
             snap.documents.forEach { doc ->
                 val friendUid = doc.id
                 val userSnap = Firebase.firestore
-                    .collection("users").document(friendUid)
+                    .collection("user").document(friendUid)
                     .get().await()
                 userSnap.toObject(User::class.java)
                     ?.let { friends.add(it.copy(uid = friendUid)) }
@@ -88,7 +88,7 @@ fun FriendsTab() {
             searchResults.clear()
             try {
                 val snap = Firebase.firestore
-                    .collection("users")
+                    .collection("user")
                     .orderBy("name")
                     .startAt(nameQuery)
                     .endAt(nameQuery + "\uf8ff")
@@ -266,12 +266,12 @@ fun FriendsTab() {
                         isAdding = true
                         try {
                             val snap = Firebase.firestore
-                                .collection("users")
+                                .collection("user")
                                 .document(addUidText)
                                 .get().await()
                             if (snap.exists()) {
                                 Firebase.firestore
-                                    .collection("users")
+                                    .collection("user")
                                     .document(currentUid)
                                     .collection("friends")
                                     .document(addUidText)
