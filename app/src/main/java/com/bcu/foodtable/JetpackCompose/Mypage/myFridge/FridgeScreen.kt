@@ -532,7 +532,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     // AI 추천 다이얼로그
     showDialog.value?.let { selectedIngredient ->
         FuturisticDialog(
-            ingredient = selectedIngredient,
+            ingredients = GlobalTray.items,
             recipes = viewModel.findRecipesByIngredient(selectedIngredient.name),
             onDismiss = { showDialog.value = null }
         )
