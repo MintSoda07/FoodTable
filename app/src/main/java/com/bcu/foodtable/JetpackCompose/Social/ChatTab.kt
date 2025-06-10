@@ -1,84 +1,172 @@
 package com.bcu.foodtable.JetpackCompose.Social
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.*
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.bcu.foodtable.data.GlobalChatManager
+import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.bcu.foodtable.R
+import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.useful.UserManager
-import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.ktx.firestore
-import com.google.firebase.ktx.Firebase
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 @Composable
-fun ChatTab() {
+fun ChatTab(
+    navController: NavHostController
+) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val colors  = WarmLightColorScheme
+    val uid     = UserManager.getUser()!!.uid
+    val db      = FirebaseFirestore.getInstance()
 
-    // 전역 chatThreads 리스트를 구독
-    val threads by remember { derivedStateOf { GlobalChatManager.chatThreads } }
+    // 1) /users/{uid}/chats 문서 ID 목록
+    var friendUids by remember { mutableStateOf<List<String>>(emptyList()) }
+    var loadingUids by remember { mutableStateOf(true) }
 
-    // 최초에 한 번만 Firebase에서 각 친구별 마지막 메시지 로드
-    LaunchedEffect(Unit) {
+    LaunchedEffect(uid) {
         try {
-            val uid = UserManager.getUser()!!.uid
-            GlobalChatManager.chatThreads.clear()
-
-            // 먼저 친구 목록을 읽어서
-            val friendsSnap = Firebase.firestore
-                .collection("users").document(uid)
-                .collection("friends")
-                .get().await()
-
-            friendsSnap.documents.forEach { friendDoc ->
-                val friendUid = friendDoc.id
-                // 각 친구 채팅에서 최신 메시지 하나 가져오기
-                val chatSnap = Firebase.firestore
-                    .collection("users").document(uid)
-                    .collection("friends").document(friendUid)
-                    .collection("chats")
-                    .orderBy("timestamp", Query.Direction.DESCENDING)
-                    .limit(1)
-                    .get()
-                    .await()
-                val lastMsg = chatSnap.documents.firstOrNull()
-                    ?.getString("message")
-                    ?: "<메시지 없음>"
-                GlobalChatManager.chatThreads.add(friendUid to lastMsg)
-            }
+            val snap = db.collection("users")           // ← users로 변경
+                .document(uid)
+                .collection("chats")
+                .get()
+                .await()
+            friendUids = snap.documents.map { it.id }
         } catch (e: Exception) {
-            Toast.makeText(context, "채팅 목록 로드 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "채팅 스레드 로드 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+        } finally {
+            loadingUids = false
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(threads) { (friendUid, lastMsg) ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        // 클릭 시 클립보드에 친구 UID 복사
-                        clipboard.setText(AnnotatedString(friendUid))
-                        Toast.makeText(context, "UID 복사됨: $friendUid", Toast.LENGTH_SHORT).show()
+    // 2) 각 friendUid에 대응하는 User 로딩
+    val friends = remember { mutableStateListOf<User>() }
+    var loadingUsers by remember { mutableStateOf(false) }
+
+    LaunchedEffect(friendUids) {
+        if (friendUids.isNotEmpty()) {
+            loadingUsers = true
+            friends.clear()
+            friendUids.forEach { friendUid ->
+                try {
+                    val doc = db.collection("users")       // ← users로 변경
+                        .document(friendUid)
+                        .get()
+                        .await()
+                    doc.toObject(User::class.java)
+                        ?.let { friends.add(it.copy(uid = friendUid)) }
+                } catch (_: Exception) { /* ignore */ }
+            }
+            loadingUsers = false
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        Text(
+            text = "채팅 친구 목록",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(16.dp)
+        )
+
+        when {
+            loadingUids || loadingUsers -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = colors.primary)
+                }
+            }
+            friends.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "대화를 시작한 친구가 없습니다.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = colors.onBackground
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(friends, key = { it.uid }) { user ->
+                        ChatContactCard(
+                            user = user,
+                            colors = colors,
+                            onClick = { navController.navigate("chat/${user.uid}") }
+                        )
                     }
-                    .padding(12.dp)
-            ) {
-                Text(text = "상대: $friendUid")
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "마지막 메시지: $lastMsg")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatContactCard(
+    user: User,
+    colors: ColorScheme,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = user.image.ifBlank { null } ?: R.drawable.baseline_restaurant_menu_24,
+                contentDescription = null,
+                placeholder = painterResource(R.drawable.baseline_restaurant_menu_24),
+                error       = painterResource(R.drawable.baseline_restaurant_menu_24),
+                modifier    = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = user.name.ifBlank { "이름 없음" },
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = user.description.ifBlank { "설명이 없습니다." },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(onClick = onClick) {
+                Icon(Icons.Default.Chat, contentDescription = "채팅", tint = colors.primary)
             }
         }
     }

@@ -141,6 +141,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
@@ -1248,6 +1249,18 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(
+                route = "chat/{uid}",
+                arguments = listOf(
+                    navArgument("uid") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val targetUid = backStackEntry.arguments?.getString("uid") ?: return@composable
+                DetailedChatScreen(
+                    navController = navController,
+                    targetUid = targetUid
+                )
+            }
             composable("challenge") {
                 val challengeViewModel: ChallengeViewModel = viewModel()
                 ChallengeScreen(viewModel = challengeViewModel)
