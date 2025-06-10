@@ -534,6 +534,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
         FuturisticDialog(
             ingredients = GlobalTray.items,
             recipes = viewModel.findRecipesByIngredient(selectedIngredient.name),
+            navController = navController,
             onDismiss = { showDialog.value = null }
         )
     }
