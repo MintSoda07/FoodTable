@@ -144,6 +144,7 @@ import androidx.navigation.navArgument
 import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
+import com.bcu.foodtable.JetpackCompose.Social.UserProfileScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
 import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
@@ -1249,6 +1250,19 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(
+                route = "profile/{uid}",
+                arguments = listOf(navArgument("uid") {
+                    type = NavType.StringType
+                })
+            ) { backStackEntry ->
+                val uid = backStackEntry.arguments?.getString("uid") ?: return@composable
+                UserProfileScreen(
+                    onBack    = { navController.popBackStack() },
+                    targetUid = uid
+                )
+            }
+
             composable(
                 route = "chat/{uid}",
                 arguments = listOf(
