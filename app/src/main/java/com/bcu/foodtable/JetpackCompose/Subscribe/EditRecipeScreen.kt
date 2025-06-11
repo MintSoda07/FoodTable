@@ -5,47 +5,51 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.material3.AssistChip
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.compose.rememberAsyncImagePainter
+import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.home.FoodTableTheme
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.RecipeItem
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.*
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 
 // ────────────────────────────────────────────────────────────────────────────
 // ★ EditRecipeScreen: 기존에 업로드된 레시피를 불러와 수정하는 화면 ★
@@ -54,40 +58,108 @@ import androidx.compose.material3.TextButton
 //   • onSuccess: 수정 완료 후 호출할 콜백 (예: 뒤로 돌아가기, 새로 고침 등)
 // ────────────────────────────────────────────────────────────────────────────
 
+// 데이터 클래스 (기존 코드와 동일)
+//data class Step(
+//    val title: String,
+//    val description: String,
+//    val method: String?,
+//    val time: String?
+//)
 
-@OptIn(
-    ExperimentalFoundationApi::class,
-    ExperimentalLayoutApi::class,
-    ExperimentalMaterial3Api::class  // material3 API도 실험적이면 추가
-)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun EditRecipeScreen(
-         recipeId: String,
-        channelName: String,
-        onModifySuccess: () -> Unit,
-        onDeleteSuccess: () -> Unit
-     ) {
+    recipeId: String,
+    channelName: String,
+    onModifySuccess: () -> Unit,
+    onDeleteSuccess: () -> Unit
+) {
+
     val context = LocalContext.current
     val firestore = FirebaseFirestore.getInstance()
     val currentUser = FirebaseAuth.getInstance().currentUser
-    // 삭제 확인 다이얼로그 노출 상태
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // 1) 초기 로딩 상태: Firestore에서 기존 Recipe를 불러오고, 에러 처리
-    // ──────────────────────────────────────────────────────────────────────
+    // 1) 초기 로딩 상태
     var isLoadingData by remember { mutableStateOf(true) }
     var loadErrorMessage by remember { mutableStateOf<String?>(null) }
     var originalRecipe by remember { mutableStateOf<RecipeItem?>(null) }
 
+    // 2) 수정 폼 상태값
+    var title by remember { mutableStateOf(TextFieldValue()) }
+    var description by remember { mutableStateOf(TextFieldValue()) }
+    var note by remember { mutableStateOf(TextFieldValue()) }
+    var originalImageUrl by remember { mutableStateOf<String?>(null) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    val recipeSteps = remember { mutableStateListOf<Step>() }
+    var ingredients by remember { mutableStateOf(mutableListOf<String>()) }
+    var tags by remember { mutableStateOf(mutableListOf<String>()) }
+    var priceInput by remember { mutableStateOf(TextFieldValue()) }
+    var durationInput by remember { mutableStateOf(TextFieldValue()) }
+    var categoryList by remember { mutableStateOf<List<String>>(emptyList()) }
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    val difficulties = listOf("쉬움", "보통", "어려움")
+    var selectedDifficulty by remember { mutableStateOf<String?>(null) }
+    var difficultyExpanded by remember { mutableStateOf(false) }
+    var isUploading by remember { mutableStateOf(false) }
 
-    // 문서를 비동기 호출하여 originalRecipe에 저장
+    var stepTitle by remember { mutableStateOf(TextFieldValue()) }
+    var stepDescription by remember { mutableStateOf(TextFieldValue()) }
+    var cookingMethod by remember { mutableStateOf(TextFieldValue()) }
+    var hour by remember { mutableStateOf(TextFieldValue()) }
+    var minute by remember { mutableStateOf(TextFieldValue()) }
+    var second by remember { mutableStateOf(TextFieldValue()) }
+    var useTimer by remember { mutableStateOf(false) }
+    var tagInput by remember { mutableStateOf(TextFieldValue()) }
+    var ingredientInput by remember { mutableStateOf(TextFieldValue()) }
+
+    val pickImageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> selectedImageUri = uri }
+
+    // 데이터 로딩 및 상태 초기화 로직
     LaunchedEffect(recipeId) {
+        isLoadingData = true
         try {
             val docSnap = firestore.collection("recipe").document(recipeId).get().await()
             if (docSnap.exists()) {
                 originalRecipe = docSnap.toObject(RecipeItem::class.java)
+                originalRecipe?.let { r ->
+                    title = TextFieldValue(r.name)
+                    description = TextFieldValue(r.description)
+                    note = TextFieldValue(r.note ?: "")
+                    originalImageUrl = r.imageResId
+                    priceInput = TextFieldValue(r.priceInSalt.toString())
+                    durationInput = TextFieldValue(r.duration.toString())
+                    selectedCategory = r.C_categories.getOrNull(0)
+                    selectedDifficulty = r.C_categories.getOrNull(1)
+                    recipeSteps.clear()
+                    // 정규식 개선: 타이머 없는 경우도 고려
+                    val stepRegex = Regex("""^\s*(\d+)\.\(([^)]+)\)\s*([^○]*)""")
+                    val timerRegex = Regex("""\(([^,]+),\s*(\d{2}:\d{2}:\d{2})\)""")
+
+                    r.order.split("○").filter { it.isNotBlank() }.forEach { raw ->
+                        stepRegex.find(raw)?.let { match ->
+                            val fullDescription = match.groupValues[3].trim()
+                            val timerMatch = timerRegex.find(fullDescription)
+
+                            val stepDescriptionText = if(timerMatch != null) {
+                                fullDescription.substringBefore(timerMatch.value).trim()
+                            } else {
+                                fullDescription
+                            }
+
+                            recipeSteps.add(Step(
+                                title = match.groupValues[2],
+                                description = stepDescriptionText,
+                                method = timerMatch?.groupValues?.getOrNull(1),
+                                time = timerMatch?.groupValues?.getOrNull(2)
+                            ))
+                        }
+                    }
+                    tags = r.tags.toMutableList()
+                    ingredients = r.ingredients.toMutableList()
+                }
             } else {
                 loadErrorMessage = "존재하지 않는 레시피입니다."
             }
@@ -97,830 +169,481 @@ fun EditRecipeScreen(
             isLoadingData = false
         }
     }
-
-    // 로딩 중 표시
-    if (isLoadingData) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-    // 로드 오류 시 메시지 표시 후 종료
-    if (loadErrorMessage != null) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = loadErrorMessage!!,
-                color = Color.Red,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-        return
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
-    // 2) originalRecipe를 바탕으로 “수정 폼” 상태값 초기화
-    // ──────────────────────────────────────────────────────────────────────
-    val scrollState = rememberScrollState()
-
-    // 2-0) 드롭다운/입력용 초기값
-    var categoryList by remember { mutableStateOf<List<String>>(emptyList()) }
-    var selectedCategory by remember { mutableStateOf<String?>(null) }
-    var categoryExpanded by remember { mutableStateOf(false) }
-
-    val difficulties = listOf("쉬움", "보통", "어려움")
-    var selectedDifficulty by remember { mutableStateOf<String?>(null) }
-    var difficultyExpanded by remember { mutableStateOf(false) }
-
-    // 2-1) 기본 텍스트/이미지/리스트 상태
-    var title by remember { mutableStateOf(TextFieldValue()) }
-    var description by remember { mutableStateOf(TextFieldValue()) }
-    var note by remember { mutableStateOf(TextFieldValue()) }
-
-    var originalImageUrl by remember { mutableStateOf<String?>(null) } // Firestore에 저장된 기존 URL
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }    // 사용자가 새로 고른 이미지
-
-    val recipeSteps = remember { mutableStateListOf<Step>() }
-    var ingredients by remember { mutableStateOf(mutableListOf<String>()) }
-    var tags by remember { mutableStateOf(mutableListOf<String>()) }
-
-    // 2-2) 가격, 소요시간(분)
-    var priceInput by remember { mutableStateOf(TextFieldValue()) }
-    var durationInput by remember { mutableStateOf(TextFieldValue()) }
-
-    // 2-3) “단계 입력”용 상태
-    var stepTitle by remember { mutableStateOf(TextFieldValue()) }
-    var stepDescription by remember { mutableStateOf(TextFieldValue()) }
-    var cookingMethod by remember { mutableStateOf(TextFieldValue()) }
-    var hour by remember { mutableStateOf(TextFieldValue()) }
-    var minute by remember { mutableStateOf(TextFieldValue()) }
-    var second by remember { mutableStateOf(TextFieldValue()) }
-    var useTimer by remember { mutableStateOf(false) }
-
-    // 2-4) “태그/재료 입력”용 상태
-    var tagInput by remember { mutableStateOf(TextFieldValue()) }
-    var ingredientInput by remember { mutableStateOf(TextFieldValue()) }
-
-    // 2-5) 폼을 제출할 때 업로드 상태
-    var isUploading by remember { mutableStateOf(false) }
-
-    // Image Picker Launcher
-    val pickImageLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-            if (uri != null) {
-                selectedImageUri = uri
-            }
-        }
-
-    // 2-6) Firestore에서 카테고리 목록 불러오기 (WriteScreen과 동일)
     LaunchedEffect(Unit) {
         try {
-            val doc = firestore
-                .collection("C_categories")
-                .document("C_food_types")
-                .get()
-                .await()
-            val list = doc.get("list") as? List<String>
-            if (!list.isNullOrEmpty()) {
-                categoryList = list
-            }
-        } catch (e: Exception) {
-            Toast.makeText(
-                context,
-                "카테고리 로드 실패: ${e.localizedMessage}",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
+            val doc = firestore.collection("C_categories").document("C_food_types").get().await()
+            (doc.get("list") as? List<String>)?.let { categoryList = it }
+        } catch (e: Exception) { Toast.makeText(context, "카테고리 로드 실패", Toast.LENGTH_SHORT).show() }
     }
 
-    // 2-7) originalRecipe 값을 기준으로 상태 초기화
-    LaunchedEffect(originalRecipe) {
-        originalRecipe?.let { r ->
-            title = TextFieldValue(r.name)
-            description = TextFieldValue(r.description)
-            note = TextFieldValue(r.note ?: "")
-
-            originalImageUrl = r.imageResId
-
-            priceInput = TextFieldValue(r.priceInSalt.toString())
-            durationInput = TextFieldValue(r.duration.toString())
-
-            // 카테고리/난이도
-            if (r.C_categories.isNotEmpty()) {
-                selectedCategory = r.C_categories.getOrNull(0)
-                selectedDifficulty = r.C_categories.getOrNull(1)
-            }
-
-            // 단계(order 필드 예시: "○1. 제목○2. 제목..." 형태)
-            recipeSteps.clear()
-
-            val regex = Regex(
-                """^\s*○?\s*\d+\.\s*\(([^)]+)\)\s*(.*?)(?:\s*\(([^()]+?),\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\))?$"""
-            )
-
-
-            r.order.split("○")
-                .filter { it.isNotBlank() }
-                .forEach { raw ->
-                    val match = regex.find(raw.trim())
-
-                    val titleText = match?.groupValues?.getOrNull(1) ?: ""
-                    val descText = match?.groupValues?.getOrNull(2) ?: raw
-                    val methodText = match?.groupValues?.getOrNull(3)
-                    val timeText = match?.groupValues?.getOrNull(4)
-
-                    recipeSteps.add(
-                        Step(
-                            title = titleText,
-                            description = descText,
-                            method = methodText,
-                            time = timeText
-                        )
-                    )
-                }
-
-            // 태그, 재료
-            tags = r.tags.toMutableList()
-            ingredients = r.ingredients.toMutableList()
-        }
-    }
-
-    // “HH시 MM분 SS초” 형태로 포맷
-    fun getFormattedTime() : String {
+    // “HH시 MM분 SS초” 형태로 포맷 (첫 번째 코드와 동일한 로직)
+    fun getFormattedTime(): String {
         val h = hour.text.padStart(2, '0')
         val m = minute.text.padStart(2, '0')
         val s = second.text.padStart(2, '0')
         return "$h:$m:$s"
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    // 3) EditRecipeScreen UI 렌더링
-    // ──────────────────────────────────────────────────────────────────────
+    // --- UI 디자인 업그레이드 ---
+
     FoodTableTheme {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .verticalScroll(scrollState)
-                .padding(16.dp)
-        ) {
-            // 3-1) 화면 제목
-            Text(
-                text = "레시피 수정",
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 3-2) 제목 / 설명 / 비고
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("제목") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("설명") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 4
-            )
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                label = { Text("비고 (note)") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 3-3) 소요 시간 입력 (분 단위 Int)
-            OutlinedTextField(
-                value = durationInput,
-                onValueChange = { newValue ->
-                    val filtered = newValue.text.filter { it.isDigit() }
-                    val cursorPos = filtered.length
-                    durationInput = TextFieldValue(
-                        text = filtered,
-                        selection = TextRange(cursorPos)
-                    )
-                },
-                label = { Text("소요 시간 (분 단위 정수)") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next
-                )
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 3-4) 가격 입력(숫자만)
-            OutlinedTextField(
-                value = priceInput,
-                onValueChange = { newValue ->
-                    val filtered = newValue.text.filter { it.isDigit() }
-                    val cursorPos = filtered.length
-                    priceInput = TextFieldValue(
-                        text = filtered,
-                        selection = TextRange(cursorPos)
-                    )
-                },
-                label = { Text("가격 (숫자만 입력)") },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Number,
-                    imeAction = ImeAction.Next
-                )
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 3-5) 카테고리 드롭다운
-            ExposedDropdownMenuBox(
-                expanded = categoryExpanded,
-                onExpandedChange = { categoryExpanded = !categoryExpanded }
-            ) {
-                OutlinedTextField(
-                    readOnly = true,
-                    value = selectedCategory ?: "",
-                    onValueChange = { },
-                    label = { Text("카테고리 선택") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = categoryExpanded,
-                    onDismissRequest = { categoryExpanded = false }
-                ) {
-                    categoryList.forEach { category ->
-                        DropdownMenuItem(
-                            text = { Text(category) },
-                            onClick = {
-                                selectedCategory = category
-                                categoryExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            // 3-6) 난이도 드롭다운
-            ExposedDropdownMenuBox(
-                expanded = difficultyExpanded,
-                onExpandedChange = { difficultyExpanded = !difficultyExpanded }
-            ) {
-                OutlinedTextField(
-                    readOnly = true,
-                    value = selectedDifficulty ?: "",
-                    onValueChange = { },
-                    label = { Text("난이도 선택") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = difficultyExpanded,
-                    onDismissRequest = { difficultyExpanded = false }
-                ) {
-                    difficulties.forEach { diff ->
-                        DropdownMenuItem(
-                            text = { Text(diff) },
-                            onClick = {
-                                selectedDifficulty = diff
-                                difficultyExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-
-            // 3-7) 이미지 선택 (기존 URL 또는 새 Uri)
-            if (selectedImageUri != null) {
-                // 새 이미지를 고른 경우
-                AsyncImage(
-                    model = selectedImageUri,
-                    contentDescription = "새로 선택된 이미지",
-                    modifier = Modifier
-                        .height(180.dp)
-                        .fillMaxWidth()
-                        .clickable { pickImageLauncher.launch("image/*") },
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                // 새 이미지를 고르지 않은 경우, 기존 Firestore URL 보여줌
-                Box(
-                    modifier = Modifier
-                        .height(180.dp)
-                        .fillMaxWidth()
-                        .background(Color.LightGray, shape = MaterialTheme.shapes.medium)
-                        .clickable { pickImageLauncher.launch("image/*") },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (!originalImageUrl.isNullOrEmpty()) {
-                        AsyncImage(
-                            model = originalImageUrl,
-                            contentDescription = "기존 이미지",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Text("이미지 선택", color = Color.DarkGray)
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-
-            // 3-8) 조리 단계 입력
-            Text(
-                "조리 단계 추가",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = stepTitle,
-                onValueChange = { stepTitle = it },
-                label = { Text("단계 제목") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(4.dp))
-
-            OutlinedTextField(
-                value = stepDescription,
-                onValueChange = { stepDescription = it },
-                label = { Text("단계 설명") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(4.dp))
-
-            OutlinedTextField(
-                value = cookingMethod,
-                onValueChange = { cookingMethod = it },
-                label = { Text("조리 방법") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(4.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = useTimer,
-                    onCheckedChange = { useTimer = it }
-                )
-                Text("타이머 사용")
-            }
-            Spacer(Modifier.height(4.dp))
-
-            if (useTimer) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 기존 hour 필드 대체
-                    OutlinedTextField(
-                        value = hour,
-                        onValueChange = { newV ->
-                            // 숫자만, 0~59 범위로 강제
-                            val num = newV.text.filter { it.isDigit() }
-                                .toIntOrNull()
-                                ?.coerceIn(0, 59)
-                                ?.toString() ?: ""
-                            hour = TextFieldValue(num, TextRange(num.length))
-                        },
-                        label = { Text("시") },
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Next
-                        )
-                    )
-
-                    // 기존 minute 필드 대체
-                    OutlinedTextField(
-                        value = minute,
-                        onValueChange = { newV ->
-                            val num = newV.text.filter { it.isDigit() }
-                                .toIntOrNull()
-                                ?.coerceIn(0, 59)
-                                ?.toString() ?: ""
-                            minute = TextFieldValue(num, TextRange(num.length))
-                        },
-                        label = { Text("분") },
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Next
-                        )
-                    )
-
-                    // 기존 second 필드 대체
-                    OutlinedTextField(
-                        value = second,
-                        onValueChange = { newV ->
-                            val num = newV.text.filter { it.isDigit() }
-                                .toIntOrNull()
-                                ?.coerceIn(0, 59)
-                                ?.toString() ?: ""
-                            second = TextFieldValue(num, TextRange(num.length))
-                        },
-                        label = { Text("초") },
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        )
-                    )
-
-                }
-                Spacer(Modifier.height(4.dp))
-
-                Text(
-                    text = "(${getFormattedTime()})",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-
-            Button(
-                onClick = {
-                    // 단계 추가
-                    val step = Step(
-                        title = stepTitle.text,
-                        description = stepDescription.text,
-                        method = if (useTimer) cookingMethod.text else null,
-                        time = if (useTimer) getFormattedTime() else null
-                    )
-                    recipeSteps.add(step)
-
-                    // 입력 초기화
-                    stepTitle = TextFieldValue("")
-                    stepDescription = TextFieldValue("")
-                    cookingMethod = TextFieldValue("")
-                    hour = TextFieldValue("")
-                    minute = TextFieldValue("")
-                    second = TextFieldValue("")
-                    useTimer = false
-                },
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("단계 추가")
-            }
-            Spacer(Modifier.height(12.dp))
-
-            if (recipeSteps.isNotEmpty()) {
-                Text(
-                    "추가된 조리 단계",
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Spacer(Modifier.height(8.dp))
-
-                recipeSteps.forEachIndexed { i, step ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .combinedClickable(
-                                onClick = { /* 클릭 시 별 동작 없음 */ },
-                                onLongClick = { recipeSteps.removeAt(i) }
-                            ),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "${i + 1}. ${step.title}",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "ㄴ ${step.description}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            step.time?.let { timeString ->
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "($timeString)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = { Text("레시피 수정", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onModifySuccess) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
                         }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-            }
+                    },
+                    actions = {
+                        Button(
+                            onClick = {
+                                if (title.text.isBlank() || description.text.isBlank() || selectedCategory.isNullOrBlank()) {
+                                    Toast.makeText(context, "필수 항목(제목, 설명, 카테고리)을 입력해주세요.", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                isUploading = true
+                                val updateRecipeAction = { imageUrl: String ->
+                                    val orderString = recipeSteps.mapIndexed { idx, s ->
+                                        val mainPart = "○${idx + 1}.(${s.title})${s.description}"
+                                        val timerPart = if (!s.method.isNullOrBlank() && !s.time.isNullOrBlank()) " (${s.method},${s.time})" else ""
+                                        mainPart + timerPart
+                                    }.joinToString("")
 
-            // 3-9) 태그/재료 입력
-            Text(
-                "태그 및 재료 입력",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-            )
-            Spacer(Modifier.height(8.dp))
+                                    val updatedMap = mutableMapOf<String, Any?>(
+                                        "name" to title.text,
+                                        "description" to description.text,
+                                        "note" to note.text,
+                                        "imageResId" to imageUrl,
+                                        "priceInSalt" to (priceInput.text.toIntOrNull() ?: 0),
+                                        "duration" to (durationInput.text.toIntOrNull() ?: 0),
+                                        "C_categories" to listOfNotNull(selectedCategory, selectedDifficulty),
+                                        "tags" to tags,
+                                        "ingredients" to ingredients,
+                                        "order" to orderString,
+                                        "contained_channel" to channelName,
+                                        "authorId" to currentUser?.uid,
+                                        "authorName" to originalRecipe?.authorName,
+                                        "likes" to originalRecipe?.likes,
+                                        "likedUsers" to originalRecipe?.likedUsers,
+                                        "cost" to (priceInput.text.toIntOrNull() ?: 0),
+                                        "estimatedCalories" to originalRecipe?.estimatedCalories,
+                                        "date" to Timestamp.now()
+                                    )
+                                    firestore.collection("recipe").document(recipeId).update(updatedMap.filterValues { it != null } as Map<String, Any>)
+                                        .addOnSuccessListener {
+                                            Toast.makeText(context, "레시피 수정 완료", Toast.LENGTH_SHORT).show()
+                                            onModifySuccess()
+                                        }
+                                        .addOnFailureListener { e -> Toast.makeText(context, "수정 실패: ${e.message}", Toast.LENGTH_LONG).show() }
+                                        .addOnCompleteListener { isUploading = false }
+                                }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = tagInput,
-                    onValueChange = { tagInput = it },
-                    label = { Text("태그") },
-                    modifier = Modifier.weight(1f)
-                )
-                Button(onClick = {
-                    if (tagInput.text.isNotBlank()) {
-                        tags.add("#${tagInput.text}")
-                        tagInput = TextFieldValue("")
-                    }
-                }) {
-                    Text("추가")
-                }
-            }
-            if (tags.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    tags.forEach { tag ->
-                        AssistChip(
-                            modifier = Modifier.combinedClickable(
-                                onClick = { /* 클릭 시 별 동작 없음 */ },
-                                onLongClick = { tags.remove(tag) }
-                            ),
-                            onClick = { /* 클릭 시 별 동작 없음 */ },
-                            label = { Text(tag) }
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = ingredientInput,
-                    onValueChange = { ingredientInput = it },
-                    label = { Text("재료") },
-                    modifier = Modifier.weight(1f)
-                )
-                Button(onClick = {
-                    if (ingredientInput.text.isNotBlank()) {
-                        ingredients.add(ingredientInput.text)
-                        ingredientInput = TextFieldValue("")
-                    }
-                }) {
-                    Text("추가")
-                }
-            }
-            if (ingredients.isNotEmpty()) {
-                Spacer(Modifier.height(4.dp))
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    ingredients.forEach { ing ->
-                        Text(
-                            text = "- $ing",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp)
-                                .combinedClickable(
-                                    onClick = { /* 클릭 시 별 동작 없음 */ },
-                                    onLongClick = { ingredients.remove(ing) }
-                                )
-                        )
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-            }
-
-            // 3-10) 수정 완료 버튼
-            Button(
-                onClick = {
-
-                    // 필수 입력값 체크
-                    if (title.text.isBlank() ||
-                        description.text.isBlank() ||
-                        selectedCategory.isNullOrBlank() ||
-                        selectedDifficulty.isNullOrBlank() ||
-                        priceInput.text.isBlank() ||
-                        durationInput.text.isBlank()
-                    ) {
-                        Toast.makeText(context, "모든 필드를 입력해주세요", Toast.LENGTH_SHORT).show()
-                        return@Button
-                    }
-
-                    isUploading = true
-
-
-                    // 1) UI상의 recipeSteps 전체를 ○1.○2.… 형태로 재조합
-                    val fullOrder = recipeSteps.mapIndexed { idx, step ->
-                        val main = "(${step.title.trim()}) ${step.description.trim()}"
-                        val timer = if (!step.method.isNullOrBlank() && !step.time.isNullOrBlank())
-                            " (${step.method.trim()},${step.time.trim()})"
-                        else
-                            ""
-                        "○${idx + 1}.$main$timer"
-                    }.joinToString("")  // 필요에 따라 " " 구분자 추가 가능
-
-
-                    // 1) 새 이미지를 골랐는지 확인
-                    if (selectedImageUri != null) {
-                        // 이미지 변경 필요: Storage에 업로드 → URL을 받아서 update
-                        FireStoreHelper.uploadImage(
-                            imageUri = selectedImageUri!!,
-                            imageName = UUID.randomUUID().toString(),
-                            folderName = "recipe_image",
-                            onSuccess = { newImageUrl ->
-                                // Firestore 문서 update
-                                val updatedMap = mutableMapOf<String, Any>(
-                                    "name" to title.text,
-                                    "description" to description.text,
-                                    "note" to note.text,
-                                    "imageResId" to newImageUrl,
-                                    "priceInSalt" to priceInput.text.toInt(),
-                                    "duration" to durationInput.text.toInt(),
-                                    "C_categories" to listOfNotNull(
-                                        selectedCategory,
-                                        selectedDifficulty
-                                    ),
-                                    "tags" to tags,
-                                    "ingredients" to ingredients,
-                                    "order" to fullOrder,
-                                    "contained_channel" to channelName,
-                                    "authorId" to (currentUser?.uid ?: ""),
-                                    "authorName" to (originalRecipe?.authorName ?: ""),
-                                    "likes" to (originalRecipe?.likes ?: 0),
-                                    "likedUsers" to (originalRecipe?.likedUsers
-                                        ?: listOf<String>()),
-                                    "cost" to priceInput.text.toInt(),
-                                    "estimatedCalories" to (originalRecipe?.estimatedCalories
-                                        ?: ""),
-                                    "date" to Timestamp.now()
-                                )
-
-                                firestore.collection("recipe").document(recipeId)
-                                    .update(updatedMap)
-                                    .addOnSuccessListener {
-                                        Toast.makeText(context, "레시피 수정 완료", Toast.LENGTH_SHORT)
-                                            .show()
-                                        isUploading = false
-                                        onModifySuccess()
-                                    }
-                                    .addOnFailureListener { e ->
-                                        Toast.makeText(
-                                            context,
-                                            "레시피 수정 실패: ${e.localizedMessage}",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        isUploading = false
-                                    }
+                                if (selectedImageUri != null) {
+                                    FireStoreHelper.uploadImage(selectedImageUri!!, UUID.randomUUID().toString(), "recipe_image",
+                                        onSuccess = { newImageUrl -> updateRecipeAction(newImageUrl) },
+                                        onFailure = { isUploading = false; Toast.makeText(context, "이미지 업로드 실패", Toast.LENGTH_SHORT).show() }
+                                    )
+                                } else {
+                                    updateRecipeAction(originalImageUrl ?: "")
+                                }
                             },
-                            onFailure = {
-                                isUploading = false
-                                Toast.makeText(context, "이미지 업로드 실패", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    } else {
-                        // 이미지 변경 없음: 기존 originalImageUrl 유지
-                        val updatedMap = mutableMapOf<String, Any>(
-                            "name" to title.text,
-                            "description" to description.text,
-                            "note" to note.text,
-                            "imageResId" to (originalImageUrl ?: ""),
-                            "priceInSalt" to priceInput.text.toInt(),
-                            "duration" to durationInput.text.toInt(),
-                            "C_categories" to listOfNotNull(selectedCategory, selectedDifficulty),
-                            "tags" to tags,
-                            "ingredients" to ingredients,
-                            "order" to fullOrder,
-                            "contained_channel" to channelName,
-                            "authorId" to (currentUser?.uid ?: ""),
-                            "authorName" to (originalRecipe?.authorName ?: ""),
-                            "likes" to (originalRecipe?.likes ?: 0),
-                            "likedUsers" to (originalRecipe?.likedUsers ?: listOf<String>()),
-                            "cost" to priceInput.text.toInt(),
-                            "estimatedCalories" to (originalRecipe?.estimatedCalories ?: ""),
-                            "date" to Timestamp.now()
-                        )
-
-                        firestore.collection("recipe").document(recipeId)
-                            .update(updatedMap)
-                            .addOnSuccessListener {
-                                Toast.makeText(context, "레시피 수정 완료", Toast.LENGTH_SHORT).show()
-                                isUploading = false
-                                onModifySuccess()
-                            }
-                            .addOnFailureListener { e ->
-                                Toast.makeText(
-                                    context,
-                                    "레시피 수정 실패: ${e.localizedMessage}",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                isUploading = false
-                            }
-                    }
-                },
-                enabled = recipeSteps.isNotEmpty() && !isUploading,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (isUploading) "수정 중..." else "레시피 수정 완료")
-            }
-// ───────────── 삭제 버튼 ─────────────
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { showDeleteDialog = true },
-                enabled = !isUploading && !isDeleting,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFD32F2F),  // Material red 700
-                    contentColor = Color.White
-                )
-            ) {
-                Text(if (isDeleting) "삭제 중..." else "레시피 삭제")
-            }
-
-// 2) 삭제 다이얼로그
-            if (showDeleteDialog) {
-                AlertDialog(
-                    onDismissRequest = { if (!isDeleting) showDeleteDialog = false },
-                    title = { Text("레시피 삭제") },
-                    text = {
-                        if (isDeleting) {
-                            // 로딩 중 UI
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Text("삭제 중입니다...")
-                            }
-                        } else {
-                            Text("정말 이 레시피를 삭제하시겠습니까? 삭제된 레시피는 복구할 수 없습니다.")
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            enabled = !isDeleting,
-                            onClick = {
-                                isDeleting = true
-                                firestore.collection("recipe")
-                                    .document(recipeId)
-                                    .delete()
-                                    .addOnSuccessListener {
-                                        isDeleting = false
-                                        showDeleteDialog = false
-                                        // 여기서 네비게이트 콜
-                                        onDeleteSuccess()
-                                    }
-                                    .addOnFailureListener { e ->
-                                        isDeleting = false
-                                        Toast.makeText(
-                                            context,
-                                            "삭제 실패: ${e.localizedMessage}",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                            }
+                            enabled = !isUploading && !isDeleting
                         ) {
-                            Text(if (isDeleting) "삭제 중..." else "삭제")
+                            if (isUploading) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("저장")
+                            }
                         }
                     },
-                    dismissButton = {
-                        if (!isDeleting) {
-                            TextButton(onClick = { showDeleteDialog = false }) {
-                                Text("취소")
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                    )
+                )
+            }
+        ) { paddingValues ->
+            if (isLoadingData) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                return@Scaffold
+            }
+            if (loadErrorMessage != null) {
+                Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    Text(loadErrorMessage ?: "알 수 없는 오류", color = MaterialTheme.colorScheme.error)
+                }
+                return@Scaffold
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    EditSectionCard(title = "기본 정보", icon = Icons.Default.Article) {
+                        OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("레시피 제목") }, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("한 줄 설명") }, modifier = Modifier.fillMaxWidth(), maxLines = 4)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("나만의 비고 (선택)") }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+
+                item {
+                    EditSectionCard(title = "대표 이미지", icon = Icons.Default.Image) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { pickImageLauncher.launch("image/*") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = selectedImageUri ?: originalImageUrl,
+                                contentDescription = "대표 이미지",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                                error = rememberAsyncImagePainter(model = R.drawable.ic_placeholder_dish_error),
+                                placeholder = rememberAsyncImagePainter(model = R.drawable.ic_placeholder_dish)
+                            )
+                            Box(
+                                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
+                                    Text("이미지를 변경하려면 터치하세요", color = Color.White, style = MaterialTheme.typography.bodySmall)
+                                }
                             }
                         }
                     }
-                )
+                }
+
+                item {
+                    EditSectionCard(title = "상세 정보", icon = Icons.Default.Tune) {
+                        ExposedDropdownMenuBox(expanded = categoryExpanded, onExpandedChange = { categoryExpanded = !categoryExpanded }) {
+                            OutlinedTextField(readOnly = true, value = selectedCategory ?: "", onValueChange = {}, label = { Text("카테고리") }, modifier = Modifier.fillMaxWidth().menuAnchor(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) })
+                            ExposedDropdownMenu(expanded = categoryExpanded, onDismissRequest = { categoryExpanded = false }) {
+                                categoryList.forEach { category -> DropdownMenuItem(text = { Text(category) }, onClick = { selectedCategory = category; categoryExpanded = false }) }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        ExposedDropdownMenuBox(expanded = difficultyExpanded, onExpandedChange = { difficultyExpanded = !difficultyExpanded }) {
+                            OutlinedTextField(readOnly = true, value = selectedDifficulty ?: "", onValueChange = {}, label = { Text("난이도") }, modifier = Modifier.fillMaxWidth().menuAnchor(), trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = difficultyExpanded) })
+                            ExposedDropdownMenu(expanded = difficultyExpanded, onDismissRequest = { difficultyExpanded = false }) {
+                                difficulties.forEach { diff -> DropdownMenuItem(text = { Text(diff) }, onClick = { selectedDifficulty = diff; difficultyExpanded = false }) }
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        // 숫자 필터링 로직 개선
+                        OutlinedTextField(
+                            value = durationInput,
+                            onValueChange = { newValue ->
+                                val filtered = newValue.text.filter { it.isDigit() }
+                                durationInput = TextFieldValue(text = filtered, selection = TextRange(filtered.length))
+                            },
+                            label = { Text("소요 시간 (분)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        // 숫자 필터링 로직 개선
+                        OutlinedTextField(
+                            value = priceInput,
+                            onValueChange = { newValue ->
+                                val filtered = newValue.text.filter { it.isDigit() }
+                                priceInput = TextFieldValue(text = filtered, selection = TextRange(filtered.length))
+                            },
+                            label = { Text("가격 (Salt)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                }
+
+                item {
+                    EditSectionCard(title = "태그 (${tags.size})", icon = Icons.Default.Style) {
+                        val focusManager = LocalFocusManager.current
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = tagInput,
+                                onValueChange = { tagInput = it },
+                                label = { Text("태그 추가") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (tagInput.text.isNotBlank() && !tags.contains("#${tagInput.text.trim()}")) {
+                                        tags.add("#${tagInput.text.trim()}")
+                                        tagInput = TextFieldValue("")
+                                        focusManager.clearFocus()
+                                    }
+                                })
+                            )
+                            IconButton(onClick = {
+                                if (tagInput.text.isNotBlank() && !tags.contains("#${tagInput.text.trim()}")) {
+                                    tags.add("#${tagInput.text.trim()}")
+                                    tagInput = TextFieldValue("")
+                                }
+                            }) { Icon(Icons.Default.Add, contentDescription = "태그 추가") }
+                        }
+                        if (tags.isNotEmpty()) {
+                            Spacer(Modifier.height(12.dp))
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                tags.forEach { tag ->
+                                    InputChip(selected = false, onClick = { tags.remove(tag) }, label = { Text(tag) }, trailingIcon = { Icon(Icons.Default.Close, contentDescription = "삭제", modifier = Modifier.size(18.dp)) })
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    EditSectionCard(title = "재료 (${ingredients.size})", icon = Icons.Default.Kitchen) {
+                        val focusManager = LocalFocusManager.current
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = ingredientInput,
+                                onValueChange = { ingredientInput = it },
+                                label = { Text("재료 추가") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (ingredientInput.text.isNotBlank() && !ingredients.contains(ingredientInput.text.trim())) {
+                                        ingredients.add(ingredientInput.text.trim())
+                                        ingredientInput = TextFieldValue("")
+                                        focusManager.clearFocus()
+                                    }
+                                })
+                            )
+                            IconButton(onClick = {
+                                if (ingredientInput.text.isNotBlank() && !ingredients.contains(ingredientInput.text.trim())) {
+                                    ingredients.add(ingredientInput.text.trim())
+                                    ingredientInput = TextFieldValue("")
+                                }
+                            }) { Icon(Icons.Default.Add, contentDescription = "재료 추가") }
+                        }
+                        if (ingredients.isNotEmpty()) {
+                            Spacer(Modifier.height(12.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                ingredients.forEach { ing ->
+                                    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { ingredients.remove(ing) }.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Remove, contentDescription = "삭제", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("- $ing", modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    EditSectionCard(title = "조리 단계 (${recipeSteps.size})", icon = Icons.Default.List) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(value = stepTitle, onValueChange = { stepTitle = it }, label = { Text("단계 제목") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(value = stepDescription, onValueChange = { stepDescription = it }, label = { Text("단계 설명") }, modifier = Modifier.fillMaxWidth())
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = useTimer, onCheckedChange = { useTimer = it })
+                                Text("타이머 사용")
+                            }
+                            // =================================================================
+                            // ★★★ 타이머 UI를 첫 번째 코드의 형태로 수정 ★★★
+                            // =================================================================
+                            AnimatedVisibility(visible = useTimer) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)){
+                                    OutlinedTextField(
+                                        value = cookingMethod,
+                                        onValueChange = { cookingMethod = it },
+                                        label = { Text("조리 방법 (예: 굽기)") },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = hour,
+                                            onValueChange = { newV ->
+                                                val num = newV.text.filter { it.isDigit() }
+                                                    .toIntOrNull()
+                                                    ?.coerceIn(0, 59)
+                                                    ?.toString() ?: ""
+                                                hour = TextFieldValue(num, TextRange(num.length))
+                                            },
+                                            label = { Text("시") },
+                                            modifier = Modifier.weight(1f),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                                        )
+                                        OutlinedTextField(
+                                            value = minute,
+                                            onValueChange = { newV ->
+                                                val num = newV.text.filter { it.isDigit() }
+                                                    .toIntOrNull()
+                                                    ?.coerceIn(0, 59)
+                                                    ?.toString() ?: ""
+                                                minute = TextFieldValue(num, TextRange(num.length))
+                                            },
+                                            label = { Text("분") },
+                                            modifier = Modifier.weight(1f),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                                        )
+                                        OutlinedTextField(
+                                            value = second,
+                                            onValueChange = { newV ->
+                                                val num = newV.text.filter { it.isDigit() }
+                                                    .toIntOrNull()
+                                                    ?.coerceIn(0, 59)
+                                                    ?.toString() ?: ""
+                                                second = TextFieldValue(num, TextRange(num.length))
+                                            },
+                                            label = { Text("초") },
+                                            modifier = Modifier.weight(1f),
+                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
+                                        )
+                                    }
+                                    Text(
+                                        text = "설정된 시간: ${getFormattedTime()}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(start = 4.dp)
+                                    )
+                                }
+                            }
+                            Button(
+                                onClick = {
+                                    val newStep = Step(
+                                        title = stepTitle.text,
+                                        description = stepDescription.text,
+                                        method = if (useTimer) cookingMethod.text else null,
+                                        time = if (useTimer) getFormattedTime() else null
+                                    )
+                                    recipeSteps.add(newStep)
+                                    // 입력 필드 초기화
+                                    stepTitle = TextFieldValue()
+                                    stepDescription = TextFieldValue()
+                                    cookingMethod = TextFieldValue()
+                                    hour = TextFieldValue()
+                                    minute = TextFieldValue()
+                                    second = TextFieldValue()
+                                    useTimer = false
+                                },
+                                modifier = Modifier.align(Alignment.End)
+                            ) { Text("단계 추가") }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            recipeSteps.forEachIndexed { i, step ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().combinedClickable(onClick = {}, onLongClick = { recipeSteps.removeAt(i) }),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                ) {
+                                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text("${i + 1}.", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Spacer(Modifier.width(8.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Text(step.title, fontWeight = FontWeight.SemiBold)
+                                            Text(step.description, style = MaterialTheme.typography.bodyMedium)
+                                            step.time?.let { timeString ->
+                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)){
+                                                    Icon(Icons.Default.Timer, contentDescription = "타이머", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.secondary)
+                                                    Spacer(Modifier.width(4.dp))
+                                                    Text("타이머: ${step.method} - $timeString", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary)
+                                                }
+                                            }
+                                        }
+                                        Icon(Icons.Default.Delete, contentDescription = "삭제", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("레시피 삭제", color = MaterialTheme.colorScheme.onErrorContainer, fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = { showDeleteDialog = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.DeleteForever, contentDescription = "삭제")
+                                Spacer(Modifier.width(8.dp))
+                                Text("삭제하기")
+                            }
+                        }
+                    }
+                }
             }
         }
-    } }
 
-//// ────────────────────────────────────────────────────────────────────────────
-//// Step 데이터 클래스: 조리 단계 정보를 담습니다
-//// ────────────────────────────────────────────────────────────────────────────
-//data class Step(
-//    val title: String,
-//    val description: String,
-//    val method: String?,
-//    val time: String?
-//)
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title = { Text("레시피 삭제") },
+                text = { Text("정말 이 레시피를 삭제하시겠습니까? 삭제된 레시피는 복구할 수 없습니다.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            isDeleting = true
+                            firestore.collection("recipe").document(recipeId).delete()
+                                .addOnSuccessListener {
+                                    Toast.makeText(context, "레시피가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
+                                    onModifySuccess()
+                                }
+                                .addOnFailureListener { e ->
+                                    Toast.makeText(context, "삭제 실패: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                }
+                                .addOnCompleteListener { isDeleting = false; showDeleteDialog = false }
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("삭제")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) { Text("취소") }
+                }
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun EditSectionCard(
+    title: String,
+    icon: ImageVector,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = icon, contentDescription = title, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            content()
+        }
+    }
+}
