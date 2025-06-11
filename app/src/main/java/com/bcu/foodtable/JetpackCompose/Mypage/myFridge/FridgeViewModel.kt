@@ -77,6 +77,7 @@ class FridgeViewModel : ViewModel() {
             it.key == normalized
         }?.value ?: listOf("추천 레시피 없음")
     }
+
 }
 
 object GlobalTray {

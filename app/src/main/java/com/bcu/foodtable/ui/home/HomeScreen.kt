@@ -141,6 +141,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AiRecipeScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
@@ -1345,6 +1348,31 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         }
                     )
                 }
+            }
+            // FridgeScreen
+            composable("fridge") {
+                val fridgeViewModel: FridgeViewModel = viewModel()
+                FridgeScreen(
+                    viewModel     = fridgeViewModel,
+                    navController = navController    // 전역 컨트롤러
+                )
+            }
+
+            // AI 추천 레시피 화면
+            composable(
+                route = "ai_recipe?name={name}",
+                arguments = listOf(navArgument("name") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                })
+            ) { backStackEntry ->
+                val recipeName = backStackEntry.arguments?.getString("name") ?: ""
+                val recipeItem = recipes.firstOrNull { it.name == recipeName }
+                    ?: RecipeItem(name=recipeName, description="", ingredients=emptyList(), order="")
+                AiRecipeScreen(
+                    recipe        = recipeItem,
+                    navController = navController
+                )
             }
 
             composable(Screen.Subscribe.route) {
