@@ -1,30 +1,39 @@
 package com.bcu.foodtable.JetpackCompose.Subscribe
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import android.util.Log
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.ExperimentalAnimationApi // AnimatedContent를 위해 추가
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background // 배경색 지정을 위해 추가
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState // animateItemPlacement를 위해 추가
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelCard
 import com.bcu.foodtable.useful.Channel
-import kotlin.math.absoluteValue
 
-
+@OptIn(ExperimentalAnimationApi::class) // AnimatedContent 사용을 위해 필요
 @Composable
 fun SubscribeScreen(
     viewModel: SubscribeViewModel,
@@ -34,255 +43,187 @@ fun SubscribeScreen(
     val subscribedChannels by viewModel.subscribedChannels.collectAsState()
     val myChannels by viewModel.myChannels.collectAsState()
     val recommendedChannels by viewModel.recommendedChannels.collectAsState()
-
+    Log.d("SubscribeUI", "UI에서 받은 채널 수: ${myChannels.size}")
     LaunchedEffect(Unit) {
         viewModel.fetchSubscribedChannels()
         viewModel.fetchMyChannels()
         viewModel.fetchRecommendedChannels()
     }
 
+    // LazyColumn 배경색 및 패딩 조정
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
-        contentPadding = PaddingValues(bottom = 100.dp)
+            .background(MaterialTheme.colorScheme.background) // 테마 배경색 적용
+            .padding(horizontal = 24.dp) // 좌우 패딩 증가
     ) {
-        // 1. 헤더
+        // 상단 헤더 영역 (기존 코드의 제목과 유사하게 구성)
         item {
-            GalleryHeader(
-                title = "구독",
-                description = "관심 채널의 소식을 가장 먼저 만나보세요."
+            Spacer(modifier = Modifier.height(28.dp)) // 상단 여백
+            Text(
+                text = "구독", // "구독" 제목은 헤더 영역에서 처리
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth()
             )
+            Text(
+                text = "관심 채널의 소식을 가장 먼저 만나보세요.", // 설명 추가
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(28.dp)) // 제목과 첫 섹션 사이 여백
         }
 
-        // 2. 내 구독 채널
-        item {
-            Section(
-                title = "내 구독 채널",
-                icon = Icons.Default.FavoriteBorder,
-                channels = subscribedChannels,
-                navController = navController,
-                emptyTitle = "구독 중인 채널이 없습니다",
-                emptyDescription = "마음에 드는 채널을 구독해보세요."
-            )
-        }
+        sectionHeader("내 구독 채널")
+        sectionContent(subscribedChannels, navController, "구독한 채널이 없습니다.", "관심 있는 채널을 구독하면 여기에 표시됩니다!")
+        sectionSpacer()
 
-        // 3. 내가 만든 채널
-        item {
-            Section(
-                title = "내 채널",
-                icon = Icons.Default.PersonPin,
-                channels = myChannels,
-                navController = navController,
-                emptyTitle = "아직 채널이 없어요",
-                emptyDescription = "나만의 채널을 만들고 레시피를 공유해보세요.",
-                showCreateButton = true
-            )
-        }
+        sectionHeader("내 채널")
+        sectionContent(myChannels, navController, "내가 만든 채널이 없습니다.", "직접 만든 채널은 여기에 표시됩니다.")
+        sectionSpacer()
 
-        // 4. 추천 채널
+        sectionHeader("추천 채널")
+        sectionContent(recommendedChannels, navController, "추천 채널이 없습니다.", "지금은 추천할 채널이 없습니다.")
+
         item {
-            Section(
-                title = "추천 채널",
-                icon = Icons.Default.AutoAwesome,
-                channels = recommendedChannels,
-                navController = navController,
-                emptyTitle = "추천 채널을 찾고 있어요",
-                emptyDescription = "곧 멋진 채널들을 추천해드릴게요."
-            )
+            Spacer(modifier = Modifier.height(100.dp)) // 하단 패딩
         }
     }
 }
 
-
-
-@Composable
-private fun GalleryHeader(title: String, description: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 20.dp)
-    ) {
+private fun LazyListScope.sectionHeader(title: String) {
+    item {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            style = MaterialTheme.typography.titleLarge, // 섹션 제목 스타일 개선
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp) // 수직 패딩 추가
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     }
 }
 
-@Composable
-private fun Section(
-    title: String,
-    icon: ImageVector,
+@OptIn(ExperimentalAnimationApi::class)
+private fun LazyListScope.sectionContent(
     channels: List<Channel>,
     navController: NavHostController,
     emptyTitle: String,
-    emptyDescription: String,
-    showCreateButton: Boolean = false
+    emptyDesc: String
 ) {
-    Column(modifier = Modifier.padding(vertical = 12.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            TextButton(onClick = { /* 더보기 */ }) {
-                Text("더보기")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (channels.isNotEmpty()) {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(channels, key = { "channel_${it.name}" }) { channel ->
-                    ThemedChannelCard(
-                        channel = channel,
-                        onClick = { navController.navigate("channelView/${channel.name}") }
-                    )
-                }
-            }
-        } else {
-            ThemedEmptyCard(
-                title = emptyTitle,
-                description = emptyDescription,
-                showCreateButton = showCreateButton
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemedChannelCard(channel: Channel, onClick: () -> Unit) {
-    val cardWidth = 160.dp
-
-
-    val themeColors = listOf(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.secondary,
-        MaterialTheme.colorScheme.tertiary,
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-        MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
-        MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)
-    )
-
-    // 이제 remember 안에서는 계산만 수행합니다.
-    val backgroundColor = remember(channel.name) {
-        themeColors[channel.name.hashCode().absoluteValue % themeColors.size]
-    }
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier.width(cardWidth),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            val channelInitial = channel.name.firstOrNull()?.toString()?.uppercase() ?: "?"
-
-            Surface(
-                shape = CircleShape,
-                color = backgroundColor, // remember로 계산된 색상 사용
-                modifier = Modifier.size(72.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = channelInitial,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = channel.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+    item {
+        // AnimatedContent를 사용하여 채널 목록과 빈 상태 카드 간의 전환 애니메이션 적용
+        AnimatedContent(
+            targetState = channels.isNotEmpty(),
+            transitionSpec = {
+                // 새로운 콘텐츠가 들어올 때 아래에서 위로 슬라이드하며 페이드인
+                (slideInVertically { height -> height } + fadeIn()).togetherWith(
+                    // 이전 콘텐츠가 나갈 때 위에서 아래로 슬라이드하며 페이드아웃
+                    slideOutVertically { height -> height } + fadeOut()
+                ).using(
+                    SizeTransform(clip = false) // 크기 변화 애니메이션을 위해 clip 해제
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${(100..9999).random()}명 구독중",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            },
+            label = "channelListTransition"
+        ) { hasChannels ->
+            if (hasChannels) {
+                HorizontalChannelList(channels, navController)
+            } else {
+                ModernEmptyChannelCard(title = emptyTitle, description = emptyDesc) // 개선된 빈 카드 사용
             }
         }
     }
 }
 
+
+private fun LazyListScope.sectionSpacer() {
+    item {
+        Spacer(modifier = Modifier.height(32.dp)) // 섹션 사이의 간격 조정
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ThemedEmptyCard(title: String, description: String, showCreateButton: Boolean) {
-    Surface(
+fun HorizontalChannelList(
+    items: List<Channel>,
+    navController: NavHostController
+) {
+    val tag = "ChannelNavigation"
+    val filteredItems = items.filter { it.name.isNotBlank() }
+
+    // LazyListState를 사용하여 스크롤 위치에 따른 애니메이션 제어 가능 (선택 사항)
+    val listState = rememberLazyListState()
+
+    LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        state = listState // LazyListState 적용
+    ) {
+        items(filteredItems , key = { it.name }) { channel ->
+            // animateItemPlacement()를 사용하여 항목 등장 및 이동 애니메이션 적용
+            ChannelCard(
+                channel = channel,
+                onClick = {
+                    Log.d(tag, "Navigating to channel: ${channel.name}")
+                    navController.navigate("channelView/${channel.name}")
+                },
+                modifier = Modifier.animateItemPlacement(tween(durationMillis = 300)) // 애니메이션 시간 조정 가능
+            )
+        }
+    }
+
+    LaunchedEffect(items) {
+        Log.d(tag, "Loaded ${items.size} channels")
+    }
+}
+
+@Composable
+fun ModernEmptyChannelCard( // 함수명 변경 (디자인 개선을 위해)
+    title: String,
+    description: String
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp), // 수직 패딩 조정
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), // 테마 색상 활용
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp), // 미니멀한 그림자
+        shape = RoundedCornerShape(12.dp) // 모서리 둥글기 조정
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 32.dp, horizontal = 24.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp), // 내부 패딩 조정
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp) // 내부 요소 간격 조정
         ) {
             Icon(
-                Icons.Default.HourglassEmpty,
+                imageVector = Icons.Default.Info, // 아이콘 유지
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(32.dp)
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f), // 아이콘 색상 조정
+                modifier = Modifier.size(48.dp) // 아이콘 크기 조정
             )
-            Spacer(modifier = Modifier.height(4.dp))
+
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleMedium, // 제목 스타일 조정
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center // 텍스트 중앙 정렬
             )
+
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                style = MaterialTheme.typography.bodyMedium, // 설명 스타일 조정
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), // 부드러운 색상
+                textAlign = TextAlign.Center, // 텍스트 중앙 정렬
+                modifier = Modifier.padding(top = 4.dp)
             )
-            if (showCreateButton) {
-                Spacer(modifier = Modifier.height(16.dp))
-                FilledTonalButton(onClick = { /* 채널 만들기 */ }) {
-                    Icon(Icons.Default.Add, contentDescription = "만들기", modifier = Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(modifier = Modifier.size(ButtonDefaults.IconSpacing))
-                    Text("내 채널 만들기")
-                }
-            }
         }
     }
 }
