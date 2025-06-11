@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.HomeChannelDatil
 
+import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -10,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
@@ -29,6 +31,7 @@ class RecipeCookingActivity : ComponentActivity() {
             finish()
             return
         }
+
 
         setContent {
             // 1) NavController 생성
@@ -108,24 +111,37 @@ class RecipeCookingActivity : ComponentActivity() {
                 composable(
                     route = "edit/{recipeId}/{channelName}",
                     arguments = listOf(
-                        navArgument("recipeId") { type = NavType.StringType },
+                        navArgument("recipeId")    { type = NavType.StringType },
                         navArgument("channelName") { type = NavType.StringType }
                     )
                 ) { backStackEntry ->
-                    val id = backStackEntry.arguments?.getString("recipeId") ?: ""
+                    val id          = backStackEntry.arguments?.getString("recipeId")    ?: ""
                     val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
 
-                    // 바로 EditRecipeScreen으로 이동
+                    // 현재 Activity 레퍼런스
+                    val activity = (LocalContext.current as? Activity)
+
                     EditRecipeScreen(
-                        recipeId = id,
-                        channelName = channelName,
-                        onSuccess = {
-                            // 수정 완료 후 다시 RecipeCookingScreen으로 돌아가려면 popBackStack
+                        recipeId        = id,
+                        channelName     = channelName,
+                        onModifySuccess = {
+                            // 수정 완료 시에는 그냥 뒤로
                             navController.popBackStack()
+                        },
+                        onDeleteSuccess = {
+                            setResult(Activity.RESULT_OK)
+                            // 삭제 완료 시에는 이 Activity 자체를 종료해서 Home으로 돌아감
+                            activity?.finish()
                         }
                     )
                 }
+
             }
         }
+    }
+    override fun onBackPressed() {
+        // 채널 화면으로 돌아갈 때 항상 RESULT_OK를 전달
+        setResult(Activity.RESULT_OK)
+        super.onBackPressed()
     }
 }

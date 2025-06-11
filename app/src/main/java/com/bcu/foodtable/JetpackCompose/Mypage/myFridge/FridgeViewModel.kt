@@ -1,6 +1,7 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -76,4 +77,8 @@ class FridgeViewModel : ViewModel() {
             it.key == normalized
         }?.value ?: listOf("추천 레시피 없음")
     }
+}
+
+object GlobalTray {
+    val items = mutableStateListOf<Ingredient>()
 }

@@ -79,12 +79,7 @@ dependencies {
 
     //카카오톡
     implementation("com.kakao.sdk:v2-all:2.21.4") // 전체 모듈 설치, 2.11.0 버전부터 지원
-    implementation(libs.v2.user) // 카카오 로그인 API 모듈
-    implementation(libs.v2.share) // 카카오톡 공유 API 모듈
-    implementation(libs.v2.talk) // 카카오톡 채널, 카카오톡 소셜, 카카오톡 메시지 API 모듈
-    implementation(libs.v2.friend) // 피커 API 모듈
-    implementation(libs.v2.navi) // 카카오내비 API 모듈
-    implementation(libs.v2.cert) // 카카오톡 인증 서비스 API 모듈
+    implementation("com.kakao.maps.open:android:2.12.8") // 카카오 로그인 API 모듈
 
 // App Check
     implementation("com.google.firebase:firebase-appcheck-ktx")
@@ -111,6 +106,7 @@ dependencies {
 
     // Compose
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.1")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")

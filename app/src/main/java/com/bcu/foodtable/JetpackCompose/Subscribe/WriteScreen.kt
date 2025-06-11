@@ -119,11 +119,11 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
     }
 
     // “01시 01분 01초” 형태로 포맷
-    fun getFormattedTime(): String {
+    fun getFormattedTime() : String {
         val h = hour.text.padStart(2, '0')
         val m = minute.text.padStart(2, '0')
         val s = second.text.padStart(2, '0')
-        return "${h}시 ${m}분 ${s}초"
+        return "$h:$m:$s"
     }
 
     Column(
@@ -575,6 +575,20 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
                 }
 
                 isUploading = true
+
+                val orderString = recipeSteps.mapIndexed { idx, step ->
+                    // 1) "(제목) 설명" 부분
+                    val main = "(${step.title}) ${step.description}"
+                    // 2) 타이머/메서드가 있으면 추가
+                    val timer = if (!step.method.isNullOrBlank() && !step.time.isNullOrBlank())
+                        " (${step.method},${step.time})"
+                    else
+                        ""
+                    // 3) 앞에 ○순번. 을 붙여서
+                    "○${idx + 1}.$main$timer"
+                }.joinToString(" ")  // 사이사이에 공백 하나만 넣어도 되고, 붙여도 되고 취향대로
+
+
                 FireStoreHelper.uploadImage(
                     imageUri = selectedImageUri!!,
                     imageName = UUID.randomUUID().toString(),
@@ -586,8 +600,7 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
                             imageResId = imageUrl,
                             clicked = 0,
                             date = Timestamp.now(),
-                            order = "○" + recipeSteps.mapIndexed { idx, s -> "${idx + 1}. ${s.title}" }
-                                .joinToString("○"),
+                            order = orderString,
                             id = "",
                             authorId = "",    // 실제 사용자는 로그인된 유저 ID로 설정
                             authorName = "",  // 실제 사용자는 사용자명으로 설정

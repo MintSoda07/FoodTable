@@ -1,5 +1,6 @@
 package com.bcu.foodtable.ui.home
 
+
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -140,6 +141,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
+import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
 import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
@@ -1245,9 +1249,29 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(
+                route = "chat/{uid}",
+                arguments = listOf(
+                    navArgument("uid") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val targetUid = backStackEntry.arguments?.getString("uid") ?: return@composable
+                DetailedChatScreen(
+                    navController = navController,
+                    targetUid = targetUid
+                )
+            }
             composable("challenge") {
                 val challengeViewModel: ChallengeViewModel = viewModel()
                 ChallengeScreen(viewModel = challengeViewModel)
+            }
+            // 3) 맛집도 탭 — RestaurantV2MapScreen
+            composable("matzip") { backStackEntry ->
+                val matzipViewModel: MatzipViewModel = viewModel(backStackEntry)
+                RestaurantV2MapScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    viewModel = matzipViewModel
+                )
             }
             composable(Screen.Home.route) {
                 Box(
@@ -1314,16 +1338,24 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     navArgument("channelName") { type = NavType.StringType }
                 )
             ) { backStackEntry ->
-                val recipeId = backStackEntry.arguments?.getString("recipeId") ?: ""
+                val recipeId    = backStackEntry.arguments?.getString("recipeId") ?: ""
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
 
-                // EditRecipeScreen을 호출, 수정 완료 시 onSuccess 콜백으로 뒤로 이동
-                // FoodTableTheme 으로 래핑
                 FoodTableTheme {
                     EditRecipeScreen(
-                        recipeId = recipeId,
-                        channelName = channelName,
-                        onSuccess = { navController.popBackStack() }
+                        recipeId        = recipeId,
+                        channelName     = channelName,
+                        onModifySuccess = {
+                            // 수정 완료 → 이전 화면으로
+                            navController.popBackStack()
+                        },
+                        onDeleteSuccess = {
+                            // 삭제 완료 → 홈 화면으로
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Home.route) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
             }
