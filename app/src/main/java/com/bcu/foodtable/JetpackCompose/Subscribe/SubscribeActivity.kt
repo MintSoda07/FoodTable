@@ -99,7 +99,7 @@ fun SubscribeScreenWithNavigation(
                 )
             }
             composable(Screen.MyPage.route) {
-                ProfileMainScreen(paddingValues = paddingValues)
+                ProfileMainScreen(paddingValues = paddingValues, navController = navController)
             }
             composable(Screen.Social.route) {
                 LaunchedEffect(Unit) {

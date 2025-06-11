@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
+import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import java.net.URLEncoder
 
 @Composable
@@ -25,6 +26,7 @@ fun FuturisticDialog(
     ingredients: List<Ingredient>,
     recipes: List<String>,
     navController: NavController,
+    aiViewModel: AiHelperViewModel,
     onDismiss: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
@@ -118,10 +120,9 @@ fun FuturisticDialog(
                 // AI 추천 버튼: NavController로 AiRecipeScreen 이동
                 Button(
                     onClick = {
-                        recipes.firstOrNull()?.let { recipeName ->
-                            val encoded = URLEncoder.encode(recipeName, "UTF-8")
-                            navController.navigate("ai_recipe?name=$encoded")
-                        }
+                        val selected = ingredients.map { it.name }.joinToString(", ")
+                        aiViewModel.onInputChange(selected)
+                        aiViewModel.sendMessage()
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),

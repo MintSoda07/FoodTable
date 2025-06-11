@@ -22,15 +22,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.health.HealthConnectActivity
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileMainScreen(
     paddingValues: PaddingValues,
+    navController: NavController,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -217,7 +220,7 @@ fun ProfileMainScreen(
                             }
 
                             Button(
-                                onClick = { viewModel.navigateToHealth(context) },
+                                onClick = {  viewModel.navigateToHealth(navController) },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = colorScheme.tertiary,

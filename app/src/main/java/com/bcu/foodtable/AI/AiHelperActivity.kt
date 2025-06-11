@@ -81,6 +81,15 @@ class AiHelperActivity : AppCompatActivity() {
 
         var finalIngredientList : List<String>
         var finalRecipeList : List<String>
+
+        val autoStart = intent.getBooleanExtra("auto_start", false)
+        val passedIngredients = intent.getStringArrayExtra("ingredient_list")?.toList() ?: emptyList()
+
+        if (autoStart && passedIngredients.isNotEmpty()) {
+            userInputBox.setText(passedIngredients.joinToString(","))
+            submitBtn.performClick()
+        }
+
         // 만약 저장된 GPT_ApiKey가 없다면
 
         // Ai 불러오기

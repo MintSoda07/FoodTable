@@ -141,6 +141,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectViewModel
 import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AiRecipeScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeScreen
@@ -1265,6 +1267,18 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     targetUid = uid
                 )
             }
+            composable(
+                route = "health/{uid}",
+                arguments = listOf(navArgument("uid") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val uid = backStackEntry.arguments?.getString("uid") ?: return@composable
+                val healthConnectViewModel: HealthConnectViewModel = viewModel()
+                val homeViewModel: HomeViewModel = viewModel()
+                HealthConnectScreen(
+                    viewModel = healthConnectViewModel,
+                    homeViewModel = homeViewModel
+                )
+            }
 
             composable(
                 route = "chat/{uid}",
@@ -1412,7 +1426,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 MyRecipeStorageScreen()
             }
             composable(Screen.MyPage.route) {
-                ProfileMainScreen(paddingValues = paddingValues)
+                ProfileMainScreen(paddingValues = paddingValues, navController = navController)
             }
         }
     }
