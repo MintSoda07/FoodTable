@@ -1,6 +1,5 @@
 package com.bcu.foodtable.JetpackCompose.Social
 
-import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -8,41 +7,49 @@ import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.bcu.foodtable.useful.UserManager
+import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.MetadataChanges
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 
+// 메시지 데이터 클래스
+@kotlinx.serialization.Serializable
 data class ChatMessage(
+    val id: String = "",
     val senderUid: String = "",
     val text: String? = null,
     val imageUrl: String? = null,
     val amount: Int? = null,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val claimed: Boolean = false,
+    val read: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,46 +63,6 @@ fun DetailedChatScreen(
     val storage = FirebaseStorage.getInstance().reference
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val colors = lightColorScheme(
-        primary = Color(0xFFE25532),
-        onPrimary = Color.White,
-
-        primaryContainer = Color(0xFFFFE2D6),
-        onPrimaryContainer = Color(0xFF5C2B1B),
-
-        secondary = Color(0xFFFFF4ED),
-        onSecondary = Color(0xFF4B3C35),
-
-        secondaryContainer = Color(0xFFFDE1D5),
-        onSecondaryContainer = Color(0xFF5D4037),
-
-        tertiary = Color(0xFFB9806D),
-        onTertiary = Color.White,
-
-        tertiaryContainer = Color(0xFFF3E0DC),
-        onTertiaryContainer = Color(0xFF4E342E),
-
-        background = Color(0xFFFFFBF8),
-        onBackground = Color(0xFF3A2C28),
-
-        surface = Color.White,
-        onSurface = Color(0xFF2E2E2E),
-
-        surfaceVariant = Color(0xFFFBE7DF),
-        onSurfaceVariant = Color(0xFF5F5F5F),
-
-        outline = Color(0xFFDDC7BD),
-        outlineVariant = Color(0xFFF0E0D8),
-
-        inverseSurface = Color(0xFF3A2C28),
-        inverseOnSurface = Color.White,
-        inversePrimary = Color(0xFFFF8F6B),
-
-        error = Color(0xFFD32F2F),
-        onError = Color.White,
-        errorContainer = Color(0xFFFDECEA),
-        onErrorContainer = Color(0xFF8B0000)
-    )
 
     // 친구 이름 로드
     var friendName by remember { mutableStateOf(targetUid) }
@@ -109,7 +76,7 @@ fun DetailedChatScreen(
     val messages = remember { mutableStateListOf<ChatMessage>() }
     var loading by remember { mutableStateOf(true) }
 
-    // 송금 다이얼로그 상태
+    // 송금 다이얼로그
     var showTransferDialog by remember { mutableStateOf(false) }
     var transferAmount by rememberSaveable { mutableStateOf("") }
 
@@ -121,8 +88,7 @@ fun DetailedChatScreen(
                 try {
                     ref.putFile(it).await()
                     val url = ref.downloadUrl.await().toString()
-                    sendMessage(
-                        db, currentUid, targetUid,
+                    sendMessage(db, currentUid, targetUid,
                         ChatMessage(senderUid = currentUid, imageUrl = url)
                     )
                 } catch (e: Exception) {
@@ -132,20 +98,36 @@ fun DetailedChatScreen(
         }
     }
 
-    // 실시간 메시지 구독
+    // 실시간 메시지 구독 & 읽음 표시 자동 업데이트
     DisposableEffect(targetUid) {
         val sub = db.collection("user").document(currentUid)
             .collection("chats").document(targetUid)
             .collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
-            .addSnapshotListener { snap, _ ->
-                snap?.let {
-                    messages.clear()
-                    it.documents.forEach { doc ->
-                        doc.toObject(ChatMessage::class.java)?.let(messages::add)
+            .addSnapshotListener(MetadataChanges.INCLUDE) { snap, _ ->
+                snap?.documentChanges?.forEach { dc ->
+                    val doc = dc.document
+                    val msg = doc.toObject(ChatMessage::class.java).copy(id = doc.id)
+                    when (dc.type) {
+                        DocumentChange.Type.ADDED -> messages.add(msg)
+                        DocumentChange.Type.MODIFIED -> {
+                            val idx = messages.indexOfFirst { it.id == msg.id }
+                            if (idx != -1) messages[idx] = msg
+                        }
+                        else -> {}
                     }
-                    loading = false
                 }
+                // 수신 메시지 읽음 처리
+                snap?.documents
+                    ?.filter { it.getString("senderUid") != currentUid && it.getBoolean("read") != true }
+                    ?.forEach { doc ->
+                        doc.reference.update("read", true)
+                        db.collection("user").document(doc.getString("senderUid")!!)
+                            .collection("chats").document(currentUid)
+                            .collection("messages").document(doc.id)
+                            .update("read", true)
+                    }
+                loading = false
             }
         onDispose { sub.remove() }
     }
@@ -165,13 +147,13 @@ fun DetailedChatScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .background(colors.surface)
+                    .background(MaterialTheme.colorScheme.surface)
                     .padding(horizontal = 8.dp)
-                    .offset(y = (-10).dp), // 입력창을 위로 10dp
+                    .offset(y = (-10).dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { showTransferDialog = true }) {
-                    Icon(Icons.Default.AttachMoney, contentDescription = "송금", tint = colors.primary)
+                    Icon(Icons.Default.AttachMoney, contentDescription = "송금", tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = { pickImageLauncher.launch("image/*") }) {
                     Icon(Icons.Default.Image, contentDescription = "이미지 선택", tint = Color.Gray)
@@ -192,35 +174,29 @@ fun DetailedChatScreen(
                 )
                 IconButton(onClick = {
                     val txt = input.text.trim()
-                    if (txt.isNotBlank()) {
+                    if (txt.isNotEmpty()) {
+                        val msg = ChatMessage(senderUid = currentUid, text = txt)
                         scope.launch {
-                            sendMessage(
-                                db, currentUid, targetUid,
-                                ChatMessage(senderUid = currentUid, text = txt)
-                            )
-                            input = TextFieldValue("")
+                            sendMessage(db, currentUid, targetUid, msg)
                         }
+                        input = TextFieldValue("")
                     }
                 }) {
-                    Icon(Icons.Default.Send, contentDescription = "전송", tint = colors.primary)
+                    Icon(Icons.Default.Send, contentDescription = "전송", tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            if (loading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = colors.primary)
+            when {
+                loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
-            } else if (messages.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                messages.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("아직 대화가 없습니다.", color = Color.Gray)
                 }
-            } else {
-                LazyColumn(
-                    Modifier
-                        .fillMaxSize()
-                        .padding(bottom = 60.dp),
+                else -> LazyColumn(
+                    Modifier.fillMaxSize().padding(bottom = 60.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(messages) { msg ->
@@ -233,25 +209,29 @@ fun DetailedChatScreen(
                                 .padding(horizontal = 8.dp),
                             horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
                         ) {
-                            Column(
-                                horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
-                            ) {
-                                Text(
-                                    text = if (isMe) "나" else friendName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.Gray
-                                )
+                            Column(horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (isMe) "나" else friendName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.Gray
+                                    )
+                                    if (isMe) {
+                                        Icon(
+                                            imageVector = if (msg.read) Icons.Default.DoneAll else Icons.Default.Done,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp).padding(start = 4.dp),
+                                            tint = if (msg.read) Color.Blue else Color.Gray
+                                        )
+                                    }
+                                }
                                 msg.text?.let {
                                     Surface(
-                                        color = if (isMe) colors.primary else colors.secondaryContainer,
+                                        color = if (isMe) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
                                         shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier.padding(4.dp)
                                     ) {
-                                        Text(
-                                            it,
-                                            Modifier.padding(8.dp),
-                                            color = if (isMe) Color.White else colors.onSecondaryContainer
-                                        )
+                                        Text(it, Modifier.padding(8.dp), color = if (isMe) Color.White else MaterialTheme.colorScheme.onSecondaryContainer)
                                     }
                                 }
                                 msg.imageUrl?.let { url ->
@@ -265,36 +245,18 @@ fun DetailedChatScreen(
                                 }
                                 msg.amount?.let { amt ->
                                     Surface(
-                                        color = if (isMe) colors.primaryContainer else colors.tertiaryContainer,
+                                        color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.tertiaryContainer,
                                         shape = RoundedCornerShape(8.dp),
                                         modifier = Modifier.padding(4.dp)
                                     ) {
-                                        Row(
-                                            Modifier.padding(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(Icons.Default.AttachMoney, null, tint = colors.onPrimary)
+                                        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.AttachMoney, null, tint = MaterialTheme.colorScheme.onPrimary)
                                             Spacer(Modifier.width(4.dp))
-                                            Text("$amt 포인트", color = colors.onPrimary)
+                                            Text("$amt 포인트", color = MaterialTheme.colorScheme.onPrimary)
                                         }
                                     }
-                                    if (!isMe) {
-                                        TextButton(onClick = {
-                                            scope.launch {
-                                                db.collection("user").document(msg.senderUid)
-                                                    .update("point", FieldValue.increment(-amt.toLong())).await()
-                                                db.collection("user").document(currentUid)
-                                                    .update("point", FieldValue.increment(amt.toLong())).await()
-                                                sendMessage(
-                                                    db, currentUid, targetUid,
-                                                    ChatMessage(
-                                                        senderUid = currentUid,
-                                                        text = "✔️ $amt 포인트 수령",
-                                                        timestamp = System.currentTimeMillis()
-                                                    )
-                                                )
-                                            }
-                                        }) {
+                                    if (!isMe && !msg.claimed) {
+                                        TextButton(onClick = { claimPoint(db, scope, context, currentUid, targetUid, msg) }) {
                                             Text("수령")
                                         }
                                     }
@@ -317,8 +279,8 @@ fun DetailedChatScreen(
     if (showTransferDialog) {
         AlertDialog(
             onDismissRequest = { showTransferDialog = false },
-            title            = { Text("포인트 송금") },
-            text             = {
+            title = { Text("포인트 송금") },
+            text = {
                 OutlinedTextField(
                     value = transferAmount,
                     onValueChange = { transferAmount = it.filter(Char::isDigit) },
@@ -327,38 +289,68 @@ fun DetailedChatScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             },
-            confirmButton    = {
+            confirmButton = {
                 TextButton(onClick = {
                     val amt = transferAmount.toIntOrNull() ?: 0
                     if (amt > 0) {
                         showTransferDialog = false
                         scope.launch {
-                            sendMessage(
-                                db, currentUid, targetUid,
+                            sendMessage(db, currentUid, targetUid,
                                 ChatMessage(senderUid = currentUid, amount = amt)
                             )
                         }
                     }
-                }) {
-                    Text("전송")
-                }
+                }) { Text("전송") }
             },
-            dismissButton    = {
-                TextButton(onClick = { showTransferDialog = false }) {
-                    Text("취소")
-                }
+            dismissButton = {
+                TextButton(onClick = { showTransferDialog = false }) { Text("취소") }
             }
         )
     }
 }
 
-private suspend fun sendMessage(
+// 포인트 수령 처리 함수
+fun claimPoint(
+    db: FirebaseFirestore,
+    scope: CoroutineScope,
+    context: android.content.Context,
+    currentUid: String,
+    targetUid: String,
+    msg: ChatMessage
+) {
+    val senderRef   = db.collection("user").document(msg.senderUid)
+    val receiverRef = db.collection("user").document(currentUid)
+    val chatRefA    = db.collection("user").document(currentUid)
+        .collection("chats").document(targetUid)
+        .collection("messages").document(msg.id)
+    val chatRefB    = db.collection("user").document(targetUid)
+        .collection("chats").document(currentUid)
+        .collection("messages").document(msg.id)
+
+    db.runTransaction { tx ->
+        val snapshot = tx.get(chatRefA)
+        val already = snapshot.getBoolean("claimed") ?: false
+        if (!already && (msg.amount ?: 0) > 0) {
+            tx.update(chatRefA, "claimed", true)
+            tx.update(chatRefB, "claimed", true)
+            tx.update(senderRef,   "point", FieldValue.increment(-(msg.amount!!).toLong()))
+            tx.update(receiverRef, "point", FieldValue.increment((msg.amount).toLong()))
+        }
+    }.addOnSuccessListener {
+        // 성공 시 UI는 snapshot listener가 처리
+    }.addOnFailureListener {
+        Toast.makeText(context, "수령 실패: ${it.message}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+// 메시지 전송 함수
+suspend fun sendMessage(
     db: FirebaseFirestore,
     fromUid: String,
     toUid: String,
     message: ChatMessage
 ) {
-    val senderRef = db.collection("user").document(fromUid)
+    val senderRef   = db.collection("user").document(fromUid)
         .collection("chats").document(toUid)
         .collection("messages")
     val receiverRef = db.collection("user").document(toUid)
