@@ -102,7 +102,7 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.EmojiEvents, "랭킹") { ScreenStub("랭킹 탭") },
             WheelItem(Icons.Default.MilitaryTech, "챌린지") { ChallengeTab() },
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
-            WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab() },
+            //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
             WheelItem(Icons.Default.Map, "맛집도")   {
                 // 이제 여기서는 단순히 지도를 렌더링만
                 RestaurantV2MapScreen(modifier = Modifier.fillMaxSize())
