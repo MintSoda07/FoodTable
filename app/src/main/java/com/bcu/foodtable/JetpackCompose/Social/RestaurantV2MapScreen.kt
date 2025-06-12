@@ -76,7 +76,7 @@ fun RestaurantV2MapScreen(
                                 // 카메라 이동+줌
                                 viewModel.restaurants.firstOrNull()?.let { rest ->
                                     val pos = LatLng.from(rest.latitude, rest.longitude)
-                                    Log.d(TAG, "▶ moveCamera to ${rest.name}")
+                                    Log.d(TAG, "▶ moveCamera to ${rest.name} (lat=${pos.latitude}, lng=${pos.longitude})")
                                     kakaoMap.moveCamera(
                                         CameraUpdateFactory.newCenterPosition(pos),
                                         CameraAnimation.from(500, true, true)
@@ -96,9 +96,14 @@ fun RestaurantV2MapScreen(
                                         .setRank(idx.toLong())
                                     layer?.addLabel(opts)
                                 }
+
+
+
                             }
+
                         }
                     )
+
                 }
                 Lifecycle.Event.ON_START -> {
                     Log.d(TAG, "▶ ON_START → mapView.resume()")
