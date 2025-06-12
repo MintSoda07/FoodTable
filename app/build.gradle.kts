@@ -128,6 +128,7 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation(libs.androidx.compose.material)
     implementation(libs.androidx.tv.material)
+    implementation(libs.play.services.location)
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.material:material-icons-extended")
 
@@ -144,4 +145,7 @@ dependencies {
 
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // 현재 위치
+    implementation("com.google.accompanist:accompanist-permissions:0.37.3")
+    implementation ("com.google.android.gms:play-services-location:21.0.1")
 }
