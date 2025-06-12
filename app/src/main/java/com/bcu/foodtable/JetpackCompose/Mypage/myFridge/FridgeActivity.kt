@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
+import AiRecipeScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -44,7 +45,9 @@ fun FridgeApp() {
             composable("ai_recipe/{recipeJson}") { backStackEntry ->
                 val json = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
                 val recipe = Gson().fromJson(json, RecipeItem::class.java)
-                AiRecipeScreen(recipe = recipe)
+                AiRecipeScreen(recipe = recipe, navController = navController) {
+                    // 저장 시 동작 정의
+                }
             }
             composable("recipe_cook/{recipeJson}") { backStackEntry ->
                 val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable

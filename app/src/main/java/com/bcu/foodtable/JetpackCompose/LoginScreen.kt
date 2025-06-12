@@ -1,3 +1,6 @@
+import android.content.pm.PackageManager
+import android.util.Base64
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
+import java.security.MessageDigest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +56,8 @@ fun LoginScreenImproved(
     onGoogleLoginClick: () -> Unit,
     onKakaoLoginClick: () -> Unit
 ) {
+
+
     val primaryColor = Color(0xFFE76F51)
     val backgroundColorStart = Color(0xFFFFF7F0)
     val backgroundColorEnd = Color(0xFFFFF1E6)
@@ -69,6 +75,8 @@ fun LoginScreenImproved(
         composition = composition,
         iterations = LottieConstants.IterateForever
     )
+
+    PrintKakaoKeyHash()
 
     Box(
         modifier = Modifier
@@ -308,4 +316,33 @@ fun LoginScreenImproved(
 
 
     }
+
 }
+
+@Composable
+fun PrintKakaoKeyHash() {
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        try {
+            val info = context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+            val signatures = info.signingInfo?.apkContentsSigners
+            if (signatures != null) {
+                val md = MessageDigest.getInstance("SHA")
+                for (signature in signatures) {
+                    md.update(signature.toByteArray())
+                    val keyHash = Base64.encodeToString(md.digest(), Base64.NO_WRAP)
+                    Log.d("KeyHash", "카카오 해시 키: $keyHash")
+                }
+            } else {
+                Log.e("KeyHash", "signingInfo is null")
+            }
+        } catch (e: Exception) {
+            Log.e("KeyHash", "Unable to get key hash", e)
+        }
+    }
+}
+

@@ -23,14 +23,22 @@ android {
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("release-key.keystore")
+            storePassword = "ftrelease1515"          // 직접 입력한 keystore 비밀번호
+            keyAlias = "foodtable_release_key" // keytool에 입력한 alias
+            keyPassword = "ftrelease1515"           // 키 비밀번호 (같은 경우 그대로 입력)
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
-            )
+            ) // 누들 순한맛 분모자토핑 // 밥 순한맛 x2
         }
     }
 
@@ -127,6 +135,7 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation(libs.androidx.compose.material)
     implementation(libs.androidx.tv.material)
+    implementation(libs.play.services.location)
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.material:material-icons-extended")
 
@@ -143,4 +152,7 @@ dependencies {
 
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // 현재 위치
+    implementation("com.google.accompanist:accompanist-permissions:0.37.3")
+    implementation ("com.google.android.gms:play-services-location:21.0.1")
 }

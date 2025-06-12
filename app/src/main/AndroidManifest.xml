@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.bcu.foodtable">
     <!-- 인터넷 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- 진동 권한 -->
@@ -19,6 +20,9 @@
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
     <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
 
+    <!-- 내위치 불러오기 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- 녹음 권한-->
 <!--    <queries>-->
@@ -199,10 +203,6 @@
             android:name=".ui.ChallengeActivity"
             android:exported="false"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
-        <activity
-            android:name=".ui.ChallengeDetailActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
         <activity
             android:name=".ui.ChallengeHistoryActivity"
             android:exported="false"
