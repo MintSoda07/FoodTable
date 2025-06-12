@@ -50,6 +50,7 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.ChallengeScreenContent
+import com.bcu.foodtable.ui.rank.RankScreenImproved
 import com.bcu.foodtable.useful.Comment
 import com.bcu.foodtable.useful.CommunityPost
 import com.bcu.foodtable.useful.UserManager
@@ -99,8 +100,9 @@ fun SocialScreen(navController: NavHostController) {
                 )
             },
             WheelItem(Icons.Default.RestaurantMenu, "오늘밥") { MiniGameTab(navController) },
-            WheelItem(Icons.Default.EmojiEvents, "랭킹") { ScreenStub("랭킹 탭") },
+
             WheelItem(Icons.Default.MilitaryTech, "챌린지") { ChallengeTab() },
+            WheelItem(Icons.Default.EmojiEvents, "랭킹") { RankTab(navController) },
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
             //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
             WheelItem(Icons.Default.Map, "맛집도")   {
@@ -930,5 +932,14 @@ fun ChallengeTab() {
             onProgressUpdate = { id, value -> viewModel.updateProgress(id, value) },
             onStartChallenge = { id -> viewModel.startChallenge(id) }
         )
+    }
+}
+
+@Composable
+fun RankTab(navController: NavController) {
+    // 탭 상단에 타이틀이나 다른 구성 요소가 있다면 여기에 추가
+    Column(Modifier.fillMaxSize()) {
+        // 하위 Composable 삽입
+        RankScreenImproved(navController)
     }
 }

@@ -155,6 +155,7 @@ import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Social.UserProfileScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
 import com.bcu.foodtable.ui.ChallengeScreen
+import com.bcu.foodtable.ui.rank.RankScreenImproved
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
 import com.bcu.foodtable.ui.home.AiChatBox as AiChatBox1
 
@@ -1263,6 +1264,11 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(
+                route ="ranklist"
+            ){
+                RankScreenImproved(navController)
+            }
             composable(
                 route = "profile/{uid}",
                 arguments = listOf(navArgument("uid") {
