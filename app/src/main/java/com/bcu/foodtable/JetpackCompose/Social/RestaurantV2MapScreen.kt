@@ -10,9 +10,13 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +35,8 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.kakao.vectormap.KakaoMapSdk
 import com.kakao.vectormap.MapLifeCycleCallback
 import com.kakao.vectormap.KakaoMapReadyCallback
@@ -82,6 +88,14 @@ private fun MapWithTracking(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
+    val customDesc = remember { mutableStateMapOf<String, String>() }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var showDescDialog by remember { mutableStateOf(false) }
+    var newPos by remember { mutableStateOf<LatLng?>(null) }
+    var inputDesc by remember { mutableStateOf("") }
+    var currentDesc by remember { mutableStateOf("") }
+
     // MapView
     val mapView = remember {
         MapView(context).apply {
@@ -107,12 +121,71 @@ private fun MapWithTracking(
                             override fun onMapError(e: Exception?) { Log.e(TAG, "MapError", e) }
                         },
                         object : KakaoMapReadyCallback() {
-                            override fun onMapReady(kakaoMap: KakaoMap) {
-                                // 지도 즉시 resume
+                            override fun onMapReady(mapInstance: KakaoMap) {
+                                // ③ 지도 준비 직후
                                 mapView.resume()
+                                kakaoMap = mapInstance
+                                val layer = mapInstance.labelManager?.layer
 
+
+                                // ④ (가) Firestore에서 기존 마커 불러오기
+                                FirebaseFirestore.getInstance()
+                                    .collection("custom_markers")
+                                    .get()
+                                    .addOnSuccessListener { snap ->
+                                        snap.documents.forEach { doc ->
+                                            val id   = doc.id
+                                            val lat  = doc.getDouble("lat") ?: return@forEach
+                                            val lng  = doc.getDouble("lng") ?: return@forEach
+                                            val desc = doc.getString("desc") ?: ""
+                                            val pos  = LatLng.from(lat, lng)
+
+                                            // 1) 원본 Bitmap 로드
+                                            val srcBmp = BitmapFactory.decodeResource(
+                                                context.resources,
+                                                R.drawable.user_loc_small
+                                            )
+                                            // 2) 원하는 크기(dp) → px로 변환
+                                            val targetDp = 24f  // 예: 32dp 크기
+                                            val targetPx = TypedValue.applyDimension(
+                                                TypedValue.COMPLEX_UNIT_DIP,
+                                                targetDp,
+                                                context.resources.displayMetrics
+                                            ).toInt()
+                                            // 3) Bitmap 스케일
+                                            val scaledBmp = Bitmap.createScaledBitmap(srcBmp, targetPx, targetPx, true)
+                                            // 4) LabelStyle 생성
+                                            val style = LabelStyle.from(scaledBmp)
+                                            // ────────────────────────
+                                            // Label 추가
+                                            val opts = LabelOptions.from("cust_$id", pos)
+                                                .setStyles(style)
+                                                .setRank(10L)
+                                            layer?.addLabel(opts)
+                                            customDesc["cust_$id"] = desc
+                                        }
+                                    }
+
+                                // ④ (나) 지도 터치로 새 마커 추가
+                                mapInstance.setOnMapClickListener { _, position, _, _ ->
+                                    newPos = position
+                                    showAddDialog = true
+                                }
+
+                                // ④ (다) 라벨 클릭 시 설명 보기
+                                mapInstance.setOnLabelClickListener { _, layer, label ->
+                                    // 1) 클릭된 Label의 ID 얻기
+                                    val labelId = label.getLabelId()
+                                    // 2) Description이 있으면 대화상자 띄우기
+                                    customDesc[labelId]?.let { text ->
+                                        currentDesc = text
+                                        showDescDialog = true
+                                    }
+                                    // 3) 이벤트 소비했음을 알리기 위해 Boolean 반환
+                                    true
+                                }
                                 // 1) POI 추가
-                                val layer = kakaoMap.labelManager?.layer
+
                                 Log.d(TAG, "layer null? ${layer == null}")
                                 viewModel.restaurants.forEachIndexed { idx, rest ->
                                     val p = LatLng.from(rest.latitude, rest.longitude)
@@ -164,15 +237,16 @@ private fun MapWithTracking(
 
 
                                         if (trackingEnabled) {
-                                            try {
-                                                kakaoMap.moveCamera(
-                                                    CameraUpdateFactory.newCenterPosition(pos),
-                                                    CameraAnimation.from(500, true, true)
-                                                )
-                                            } catch (e: RuntimeException) {
-                                                Log.e(TAG, "moveCamera 실패, 무시합니다", e)
+                                            kakaoMap?.let { map ->
+                                                try {
+                                                    map.moveCamera(
+                                                        CameraUpdateFactory.newCenterPosition(pos),
+                                                        CameraAnimation.from(500, true, true)
+                                                    )
+                                                } catch (e: RuntimeException) {
+                                                    Log.e(TAG, "moveCamera 실패, 무시합니다", e)
+                                                }
                                             }
-                                            // 이후에는 카메라 고정
                                             trackingEnabled = false
                                         }
                                     }
@@ -208,4 +282,93 @@ private fun MapWithTracking(
     }
 
     AndroidView(factory = { mapView }, modifier = modifier)
+    // ⑥ “맛집 설명 입력” 다이얼로그
+    if (showAddDialog && newPos != null) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false; inputDesc = "" },
+            title = { Text("맛집 설명 추가") },
+            text = {
+                Column {
+                    Text("설명을 입력하세요:")
+                    TextField(
+                        value = inputDesc,
+                        onValueChange = { inputDesc = it },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // 1) Firestore 도큐먼트 ID 준비
+                    val docRef = FirebaseFirestore.getInstance()
+                        .collection("custom_markers")
+                        .document()
+                    val id = docRef.id
+                    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@TextButton
+
+                    // 2) 새로운 위치(newPos!!)와 context, layer 가져오기
+                    val pos = newPos!!
+                    val layer = kakaoMap?.labelManager?.layer
+
+                    // 3) 런타임에 Bitmap 스케일링
+                    val srcBmp = BitmapFactory.decodeResource(
+                        context.resources,
+                        R.drawable.user_loc_small
+                    )
+                    // 원하는 dp 크기
+                    val targetDp = 24f
+                    val targetPx = TypedValue.applyDimension(
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        targetDp,
+                        context.resources.displayMetrics
+                    ).toInt()
+                    val scaledBmp = Bitmap.createScaledBitmap(srcBmp, targetPx, targetPx, true)
+                    val style = LabelStyle.from(scaledBmp)
+
+                    // 4) 마커 추가
+                    layer
+                        ?.addLabel(
+                            LabelOptions.from("cust_$id", pos)
+                                .setStyles(style)
+                                .setRank(10L)
+                        )
+
+                    // 5) 현재 사용자 이름 가져오기
+                    val user = FirebaseAuth.getInstance().currentUser
+
+
+                    // 5) 로컬 State에 저장
+                    customDesc["cust_$id"] = inputDesc
+
+                    // 6) Firestore에 저장
+                    docRef.set(mapOf(
+                        "lat"  to pos.latitude,
+                        "lng"  to pos.longitude,
+                        "desc" to inputDesc,
+                        "user" to mapOf( "uid" to uid)
+                    ))
+
+                    // 7) 다이얼로그 닫기
+                    showAddDialog = false
+                    inputDesc = ""
+                }) {
+                    Text("추가")
+                }
+            }
+        )
+    }
+
+    // ⑦ “설명 보기” 다이얼로그
+    if (showDescDialog) {
+        AlertDialog(
+            onDismissRequest = { showDescDialog = false },
+            title = { Text("맛집 설명") },
+            text = { Text(currentDesc) },
+            confirmButton = {
+                TextButton(onClick = { showDescDialog = false }) {
+                    Text("확인")
+                }
+            }
+        )
+    }
 }
