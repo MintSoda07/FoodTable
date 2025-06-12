@@ -1,6 +1,7 @@
 package com.bcu.foodtable.ui.home
 
 
+import AiRecipeScreen
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -147,7 +148,6 @@ import androidx.navigation.navArgument
 import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectViewModel
 import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
-import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AiRecipeScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
@@ -1421,8 +1421,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val recipeItem = recipes.firstOrNull { it.name == recipeName }
                     ?: RecipeItem(name=recipeName, description="", ingredients=emptyList(), order="")
                 AiRecipeScreen(
-                    recipe        = recipeItem,
-                    navController = navController
+                    recipe      = recipeItem,
+                    navController = navController,
+                    onSaveToChannel = { /* 저장 로직 */ }
                 )
             }
 
