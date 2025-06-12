@@ -103,7 +103,14 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
-
+    // CameraX 라이브러리 (카메라 제어 기능)
+    val cameraxVersion = "1.3.4" // 최신 안정화 버전
+    implementation("androidx.camera:camera-core:${cameraxVersion}")
+    implementation("androidx.camera:camera-camera2:${cameraxVersion}")
+    implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
+    implementation("androidx.camera:camera-view:${cameraxVersion}")
+    //ML Kit 바코드 스캐닝 라이브러리
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
     // Compose
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.1")
