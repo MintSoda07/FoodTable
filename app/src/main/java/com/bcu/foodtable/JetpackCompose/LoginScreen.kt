@@ -1,3 +1,6 @@
+import android.content.pm.PackageManager
+import android.util.Base64
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
+import java.security.MessageDigest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,6 +56,8 @@ fun LoginScreenImproved(
     onGoogleLoginClick: () -> Unit,
     onKakaoLoginClick: () -> Unit
 ) {
+
+
     val primaryColor = Color(0xFFE76F51)
     val backgroundColorStart = Color(0xFFFFF7F0)
     val backgroundColorEnd = Color(0xFFFFF1E6)

@@ -56,7 +56,7 @@ fun RestaurantV2MapScreen(
                 Lifecycle.Event.ON_CREATE -> {
                     Log.d(TAG, "▶ ON_CREATE → init & start")
                     // (a) API 키 가져오고 초기화
-                    val key = "aa"
+                    val key = "b0402134c35d48a50145988a7727b74b"
                     KakaoMapSdk.init(context, key)
                     // (b) 지도 시작
                     mapView.start(
