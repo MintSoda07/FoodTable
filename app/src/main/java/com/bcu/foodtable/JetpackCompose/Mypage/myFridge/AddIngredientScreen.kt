@@ -148,33 +148,44 @@ fun AddIngredientScreen(
             )
 
             // 유통기한 선택
-            OutlinedTextField(
-                value = expireDate,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("유통기한") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { datePickerDialog.show() },
-                leadingIcon = {
-                    Icon(Icons.Default.CalendarToday, contentDescription = "유통기한")
-                },
-                trailingIcon = {
-                    // 클릭 가능한 영역임을 알려주는 시각적 힌트
-                    Box(
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer)
-                            .padding(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "날짜 선택",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = expireDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("유통기한") },
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    leadingIcon = {
+                        Icon(Icons.Default.CalendarToday, contentDescription = "유통기한")
+                    },
+                    trailingIcon = {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                .padding(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "날짜 선택",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
-                }
-            )
+                )
+                // 투명 클릭 레이어
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(Color.Transparent)
+                        .clickable { datePickerDialog.show() }
+                )
+            }
+
         }
     }
 }

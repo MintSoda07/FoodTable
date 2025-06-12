@@ -26,7 +26,7 @@ class FridgeViewModel : ViewModel() {
                 val items = snapshot.documents.mapNotNull { doc ->
                     val item = doc.toObject(Ingredient::class.java)
                     // 문서 ID를 item에 추가로 저장하려면 여기에 처리 (예: item.id = doc.id)
-                    item
+                    item?.copy(docId = doc.id)
                 }
                 ingredientList = items
             }
@@ -77,6 +77,8 @@ class FridgeViewModel : ViewModel() {
             it.key == normalized
         }?.value ?: listOf("추천 레시피 없음")
     }
+
+
 }
 
 object GlobalTray {

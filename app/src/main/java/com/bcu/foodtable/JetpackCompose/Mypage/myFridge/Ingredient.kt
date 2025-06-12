@@ -2,6 +2,7 @@ package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 
 data class Ingredient(
+    val docId: String = "",
     val id: String = "",
     val name: String = "",
     val quantity: Int = 1,

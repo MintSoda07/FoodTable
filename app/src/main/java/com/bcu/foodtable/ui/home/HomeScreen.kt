@@ -3,8 +3,10 @@ package com.bcu.foodtable.ui.home
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -140,8 +142,14 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectViewModel
 import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AiRecipeScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Social.UserProfileScreen
@@ -1162,6 +1170,7 @@ fun AppTopBar(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel) {
@@ -1174,8 +1183,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val loadFailed by viewModel.loadFailed.collectAsState()
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
-
     val navController = rememberNavController()
+
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
     val screens = listOf(
         Screen.Home, Screen.Subscribe, Screen.Social, Screen.RecipeStorage, Screen.MyPage
     )
@@ -1235,10 +1246,12 @@ fun HomeScreen(viewModel: HomeViewModel) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                showBottomSheet = true
-            }) {
-                Icon(Icons.Filled.Chat, contentDescription = "Open AI Chat")
+            if (currentRoute != "chat/{uid}") {
+                FloatingActionButton(onClick = {
+                    showBottomSheet = true
+                }) {
+                    Icon(Icons.Filled.Chat, contentDescription = "Open AI Chat")
+         }
             }
         },
         modifier = Modifier.pointerInput(Unit) {
@@ -1262,6 +1275,18 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     targetUid = uid
                 )
             }
+            composable(
+                route = "health/{uid}",
+                arguments = listOf(navArgument("uid") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val uid = backStackEntry.arguments?.getString("uid") ?: return@composable
+                val healthConnectViewModel: HealthConnectViewModel = viewModel()
+                val homeViewModel: HomeViewModel = viewModel()
+                HealthConnectScreen(
+                    viewModel = healthConnectViewModel,
+                    homeViewModel = homeViewModel
+                )
+            }
 
             composable(
                 route = "chat/{uid}",
@@ -1272,7 +1297,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val targetUid = backStackEntry.arguments?.getString("uid") ?: return@composable
                 DetailedChatScreen(
                     navController = navController,
-                    targetUid = targetUid
+                    targetUid = targetUid,
+                    homeViewModel = viewModel
+
                 )
             }
             composable("challenge") {
@@ -1373,6 +1400,31 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     )
                 }
             }
+            // FridgeScreen
+            composable("fridge") {
+                val fridgeViewModel: FridgeViewModel = viewModel()
+                FridgeScreen(
+                    viewModel     = fridgeViewModel,
+                    navController = navController    // 전역 컨트롤러
+                )
+            }
+
+            // AI 추천 레시피 화면
+            composable(
+                route = "ai_recipe?name={name}",
+                arguments = listOf(navArgument("name") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                })
+            ) { backStackEntry ->
+                val recipeName = backStackEntry.arguments?.getString("name") ?: ""
+                val recipeItem = recipes.firstOrNull { it.name == recipeName }
+                    ?: RecipeItem(name=recipeName, description="", ingredients=emptyList(), order="")
+                AiRecipeScreen(
+                    recipe        = recipeItem,
+                    navController = navController
+                )
+            }
 
             composable(Screen.Subscribe.route) {
                 SubscribeScreen(viewModel = subscribeViewModel, navController = navController)
@@ -1384,7 +1436,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 MyRecipeStorageScreen()
             }
             composable(Screen.MyPage.route) {
-                ProfileMainScreen(paddingValues = paddingValues)
+                ProfileMainScreen(paddingValues = paddingValues, navController = navController)
             }
         }
     }

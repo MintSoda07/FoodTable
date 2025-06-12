@@ -1,6 +1,8 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
+import android.net.Uri
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -26,13 +28,25 @@ import androidx.compose.ui.graphics.drawscope.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
+import com.bcu.foodtable.ai.OpenAIClient
+import com.bcu.foodtable.useful.RecipeItem
+import com.bcu.foodtable.useful.UserManager
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
+import com.google.gson.Gson
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlin.math.*
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -55,6 +69,16 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     val outsideFridge = remember { mutableStateListOf<Ingredient>() }
     val showDialog = remember { mutableStateOf<Ingredient?>(null) }
 
+    val aiViewModel: AiHelperViewModel = viewModel(
+        factory = object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return AiHelperViewModel(OpenAIClient()) as T
+            }
+        }
+    )
+    val aiState by aiViewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val gson = remember { Gson() }
 
     // 파티클 효과를 위한 상태
     var showColdEffect by remember { mutableStateOf(false) }
@@ -463,7 +487,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
         // AI 추천 버튼
         AnimatedVisibility(
-            visible = isOpen && (fridgeMap[selectedSection]?.isNotEmpty() == true),
+            visible = isOpen && GlobalTray.items.isNotEmpty(),
             enter = fadeIn() + slideInVertically(),
             exit = fadeOut() + slideOutVertically(),
             modifier = Modifier
@@ -472,10 +496,8 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
         ) {
             ExtendedFloatingActionButton(
                 onClick = {
-                    // AI 추천 기능 - 현재 섹션의 랜덤 재료 선택
-                    fridgeMap[selectedSection]?.randomOrNull()?.let { ingredient ->
-                        showDialog.value = ingredient
-                    }
+                    // 다이얼로그 열기만 함
+                    showDialog.value = Ingredient(id = "", name = "AI Trigger", quantity = 1)
                 },
                 containerColor = Color(0xFF4CAF50),
                 contentColor = Color.White,
@@ -497,7 +519,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
 
         // 하단 트레이 (꺼낸 재료)
         AnimatedVisibility(
-            visible = outsideFridge.isNotEmpty(),
+            visible = isOpen && GlobalTray.items.isNotEmpty(),
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
@@ -533,9 +555,74 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     showDialog.value?.let { selectedIngredient ->
         FuturisticDialog(
             ingredients = GlobalTray.items,
-            recipes = viewModel.findRecipesByIngredient(selectedIngredient.name),
+            recipes = emptyList(),
+            navController = navController,
+            aiViewModel = aiViewModel,
             onDismiss = { showDialog.value = null }
         )
+    }
+    // Ai추천 전환
+    LaunchedEffect(aiState.resultText) {
+        if (aiState.resultText.isNotBlank()) {
+            Log.d("AI_RAW", aiState.resultText)
+
+            val recipeName = Regex("""◆(.*?)◆""")
+                .find(aiState.resultText)
+                ?.groupValues?.getOrNull(1)
+                ?: "AI 추천 요리"
+
+            val ingredients = Regex("""◆.*?◆\((.*?)\)""")
+                .find(aiState.resultText)
+                ?.groupValues?.getOrNull(1)
+                ?.split(",")?.map { it.trim() }
+                ?: emptyList()
+
+            val stepRegex = Regex(
+                """^[\u0020\u00A0\u3000]*[○\u25CB\u2460]?\s*\d+\..*""",
+                RegexOption.MULTILINE
+            )
+            val matches = stepRegex.findAll(aiState.resultText).toList()
+            val order = matches.map { it.value.trim() }.joinToString(" ")
+
+            if (order.isBlank()) {
+                Toast.makeText(context, "AI가 조리 단계를 반환하지 않았어요", Toast.LENGTH_LONG).show()
+                return@LaunchedEffect
+            }
+
+            val recipe = RecipeItem(
+                id = UUID.randomUUID().toString(),
+                name = recipeName,
+                description = "AI가 추천한 요리입니다.",
+                imageResId = "",
+                ingredients = ingredients,
+                order = order,
+                tags = listOf("AI추천"),
+                C_categories = listOf("AI")
+            )
+            // [1] DB에서 꺼낸 재료 삭제
+            val userId = UserManager.getUser()?.uid ?: ""
+            val db = Firebase.firestore
+            val batch = db.batch()
+
+            GlobalTray.items.forEach { ingredient ->
+                val docRef = db.collection("user")
+                    .document(userId)
+                    .collection("fridge")
+                    .document(ingredient.docId) // 반드시 Firestore 문서명!
+                batch.delete(docRef)
+            }
+
+
+            batch.commit()
+                .addOnSuccessListener { Log.d("AI", " DB 재료 삭제 완료!") }
+                .addOnFailureListener { e -> Log.e("AI", " DB 재료 삭제 실패: $e") }
+
+            val encoded = Uri.encode(Gson().toJson(recipe))
+            Log.d("AI_NAV", "🔁 페이지 전환: recipe=${recipe.name}")
+            navController.navigate("ai_recipe/$encoded")
+            GlobalTray.items.clear()
+            aiViewModel.hideWarning()
+        }
     }
 }
 
@@ -677,21 +764,58 @@ fun SmartTray(
     items: List<Ingredient>,
     onItemReturn: (Ingredient) -> Unit
 ) {
-    Card(
-        modifier = Modifier
+    val trayHeightCollapsed = 90.dp
+    val trayHeightExpanded = 260.dp
+
+    val trayHeightCollapsedPx = with(LocalDensity.current) { trayHeightCollapsed.toPx() }
+    val trayHeightExpandedPx = with(LocalDensity.current) { trayHeightExpanded.toPx() }
+
+    var offsetY by remember { mutableStateOf(0f) }
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val trayHeightPx = trayHeightExpandedPx - trayHeightCollapsedPx
+    val animatedOffsetY by animateFloatAsState(
+        targetValue = if (isExpanded) 0f else trayHeightPx,
+        animationSpec = spring()
+    )
+
+    Box(
+        Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            .height(trayHeightExpanded)
+            .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
+            .background(Color.White, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, dragAmount ->
+                        offsetY += dragAmount
+                        offsetY = offsetY.coerceIn(0f, trayHeightPx)
+                    },
+                    onDragEnd = {
+                        isExpanded = offsetY < trayHeightPx / 2
+                        offsetY = 0f
+                    }
+                )
+            }
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
+            // 드래그 핸들
+            Box(
+                Modifier
+                    .size(width = 36.dp, height = 6.dp)
+                    .background(Color.LightGray, RoundedCornerShape(3.dp))
+                    .align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(Modifier.height(6.dp))
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -710,7 +834,6 @@ fun SmartTray(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-
                 Card(
                     shape = CircleShape,
                     colors = CardDefaults.cardColors(
@@ -726,21 +849,19 @@ fun SmartTray(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // 재료 칩을 LazyRow로 수평 슬라이드
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                // itemsCount 대신 items(items = , key = ) 사용
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(
                     items = items,
-                    key = { ing -> ing.id }     // ← 여기서 고유 key 지정
+                    key = { it.id }
                 ) { ingredient ->
                     FloatingIngredientChip(
                         ingredient = ingredient,
                         onReturn = {
-                            Log.d("FridgeDebug", "Returning ${ingredient.name}")
                             onItemReturn(ingredient)
                             GlobalTray.items.remove(ingredient)
                         }
@@ -750,6 +871,7 @@ fun SmartTray(
         }
     }
 }
+
 
 @Composable
 fun FloatingIngredientChip(

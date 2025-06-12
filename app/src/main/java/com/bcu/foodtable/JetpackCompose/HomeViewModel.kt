@@ -384,4 +384,6 @@ private suspend fun fetchRecipes(): List<RecipeItem> = kotlinx.coroutines.corout
         recommendationUpdateTimer?.cancel()
         Log.d("HomeViewModel", "🧹 HomeViewModel 정리 완료")
     }
+    fun getRecipeByName(name: String): RecipeItem? =
+        recipes.value.firstOrNull { it.name == name }
 }

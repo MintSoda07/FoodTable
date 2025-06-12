@@ -72,34 +72,10 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
         viewModel.fetchWeeklySteps()
     }
 
-    Scaffold(
-        topBar = {
-            HomeTopBar(
-                user = user,
-                isScrolled = false
 
-            )
-        },
-        bottomBar = {
-            AppBottomNavigationBar(
-                screens = screens,
-                selectedTab = selectedTab,
-                onTabSelected = { newTab ->
-                    when (newTab) {
-                        0 -> (context as? androidx.activity.ComponentActivity)?.finish()
-                        1 -> context.startActivity(Intent(context, SubscribeActivity::class.java))
-                        2 -> context.startActivity(Intent(context, AiMainActivity::class.java))
-                        3 -> context.startActivity(Intent(context, RecipeStorageActivity::class.java))
-                        4 -> selectedTab = newTab
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .padding(horizontal = 50.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -181,6 +157,6 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
 
             Spacer(modifier = Modifier.height(48.dp))
         }
-    }
+
 
 }

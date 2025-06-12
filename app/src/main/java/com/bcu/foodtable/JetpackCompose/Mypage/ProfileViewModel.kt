@@ -5,9 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
+import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity
 import com.bcu.foodtable.PuchasePage
-import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity
 
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity
 import com.bcu.foodtable.useful.User
@@ -110,8 +110,9 @@ class ProfileViewModel : ViewModel() {
         context.startActivity(Intent(context, ChannelCreationActivity::class.java))
     }
     // 건강 확인으로 이동하는 함수...
-    fun navigateToHealth(context: Context) {
-        context.startActivity(Intent(context, HealthConnectActivity::class.java))
+    fun navigateToHealth(navController: NavController) {
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        navController.navigate("health/$uid")
     }
     // 나의 냉장고로 이동하는 함수...
     fun navigateToFridge(context: Context) {

@@ -3,30 +3,33 @@ package com.bcu.foodtable.JetpackCompose.Social
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -34,386 +37,430 @@ import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
 import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.useful.UserManager
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+// ─── 테마 정의 ────────────────────────────────────────────────────────────
+private val FriendsColorScheme = lightColorScheme(
+    primary = Color(0xFFE25532),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFFE2D6),
+    secondary = Color(0xFF4CAF50),
+    background = Color(0xFFFFFBF8),
+    surface = Color.White,
+    surfaceVariant = Color(0xFFFBE7DF),
+    outline = Color(0xFFDDC7BD),
+    onSurfaceVariant = Color(0xFF4E342E)
+)
+
+@Composable
+private fun FriendsTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = FriendsColorScheme,
+        shapes = Shapes(medium = RoundedCornerShape(16.dp), large = RoundedCornerShape(20.dp)),
+        typography = Typography(),
+        content = content
+    )
+}
+// ────────────────────────────────────────────────────────────────────────────
+
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FriendsTab(
     navController: NavHostController
 ) {
-    val context    = LocalContext.current
-    val clipboard  = LocalClipboardManager.current
-    val colors     = lightColorScheme(
-        primary = Color(0xFFE25532),
-        onPrimary = Color.White,
-
-        primaryContainer = Color(0xFFFFE2D6),
-        onPrimaryContainer = Color(0xFF5C2B1B),
-
-        secondary = Color(0xFFFFF4ED),
-        onSecondary = Color(0xFF4B3C35),
-
-        secondaryContainer = Color(0xFFFDE1D5),
-        onSecondaryContainer = Color(0xFF5D4037),
-
-        tertiary = Color(0xFFB9806D),
-        onTertiary = Color.White,
-
-        tertiaryContainer = Color(0xFFF3E0DC),
-        onTertiaryContainer = Color(0xFF4E342E),
-
-        background = Color(0xFFFFFBF8),
-        onBackground = Color(0xFF3A2C28),
-
-        surface = Color.White,
-        onSurface = Color(0xFF2E2E2E),
-
-        surfaceVariant = Color(0xFFFBE7DF),
-        onSurfaceVariant = Color(0xFF5F5F5F),
-
-        outline = Color(0xFFDDC7BD),
-        outlineVariant = Color(0xFFF0E0D8),
-
-        inverseSurface = Color(0xFF3A2C28),
-        inverseOnSurface = Color.White,
-        inversePrimary = Color(0xFFFF8F6B),
-
-        error = Color(0xFFD32F2F),
-        onError = Color.White,
-        errorContainer = Color(0xFFFDECEA),
-        onErrorContainer = Color(0xFF8B0000)
-    )
+    val context = LocalContext.current
     val currentUid = UserManager.getUser()!!.uid
-    val db         = FirebaseFirestore.getInstance()
-    val scope      = rememberCoroutineScope()
+    val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
 
-    // 실시간 친구/요청 목록
-    val friends   = remember { mutableStateListOf<User>() }
-    val requests  = remember { mutableStateListOf<User>() }
+    // State
+    val friends = remember { mutableStateListOf<User>() }
+    val requests = remember { mutableStateListOf<User>() }
     var isLoading by remember { mutableStateOf(true) }
+    var selectedTab by remember { mutableStateOf(0) } // 0: 친구, 1: 검색, 2: 요청
+    var showAddDialog by remember { mutableStateOf(false) }
 
-    // 검색 상태
-    var nameQuery     by rememberSaveable { mutableStateOf("") }
-    val searchResults = remember { mutableStateListOf<User>() }
-    var isSearching   by remember { mutableStateOf(false) }
-
-    // 다이얼로그 상태
-    var showAddDialog     by remember { mutableStateOf(false) }
-    var addUidText        by rememberSaveable { mutableStateOf("") }
-    var isAdding          by remember { mutableStateOf(false) }
-    var showRequestsModal by remember { mutableStateOf(false) }
-
-    // Snapshot listeners for real-time updates
+    // Real-time listeners
     DisposableEffect(currentUid) {
-        val fSub = db.collection("user")
-            .document(currentUid)
-            .collection("friends")
-            .addSnapshotListener { snap, _ ->
-                snap?.documents?.let { docs ->
-                    friends.clear()
-                    docs.forEach { doc ->
-                        db.collection("user").document(doc.id)
-                            .get()
-                            .addOnSuccessListener { u ->
-                                u.toObject(User::class.java)
-                                    ?.let { friends.add(it.copy(uid = doc.id)) }
-                            }
+        val listeners = mutableListOf<ListenerRegistration>()
+
+        // 친구 목록 리스너
+        listeners.add(
+            db.collection("user").document(currentUid).collection("friends")
+                .addSnapshotListener { snap, e ->
+                    if (e != null) return@addSnapshotListener
+                    scope.launch {
+                        val friendUids = snap?.documents?.map { it.id } ?: emptyList()
+                        val friendUsers = friendUids.mapNotNull { uid ->
+                            try {
+                                db.collection("user").document(uid).get().await().toObject(User::class.java)?.copy(uid = uid)
+                            } catch (e: Exception) { null }
+                        }
+                        friends.clear()
+                        friends.addAll(friendUsers)
+                        isLoading = false
                     }
                 }
-                isLoading = false
-            }
-        val rSub = db.collection("user")
-            .document(currentUid)
-            .collection("friendRequests")
-            .addSnapshotListener { snap, _ ->
-                snap?.documents?.let { docs ->
-                    requests.clear()
-                    docs.forEach { doc ->
-                        db.collection("user").document(doc.id)
-                            .get()
-                            .addOnSuccessListener { u ->
-                                u.toObject(User::class.java)
-                                    ?.let { requests.add(it.copy(uid = doc.id)) }
-                            }
+        )
+
+        // 친구 요청 리스너
+        listeners.add(
+            db.collection("user").document(currentUid).collection("friendRequests")
+                .addSnapshotListener { snap, e ->
+                    if (e != null) return@addSnapshotListener
+                    scope.launch {
+                        val requestUids = snap?.documents?.map { it.id } ?: emptyList()
+                        val requestUsers = requestUids.mapNotNull { uid ->
+                            try {
+                                db.collection("user").document(uid).get().await().toObject(User::class.java)?.copy(uid = uid)
+                            } catch (e: Exception) { null }
+                        }
+                        requests.clear()
+                        requests.addAll(requestUsers)
                     }
                 }
-            }
-        onDispose {
-            fSub.remove()
-            rSub.remove()
-        }
+        )
+        onDispose { listeners.forEach { it.remove() } }
     }
 
-    // 이름 검색 (prefix)
-    LaunchedEffect(nameQuery) {
-        if (nameQuery.isBlank()) {
-            searchResults.clear()
-            isSearching = false
-        } else {
-            isSearching = true
-            searchResults.clear()
-            db.collection("user")
-                .orderBy("name")
-                .startAt(nameQuery)
-                .endAt("$nameQuery\uf8ff")
-                .get()
-                .addOnSuccessListener { snap ->
-                    snap.documents.forEach { doc ->
-                        doc.toObject(User::class.java)
-                            ?.let { searchResults.add(it.copy(uid = doc.id)) }
-                    }
-                    isSearching = false
-                }
-                .addOnFailureListener {
-                    Toast.makeText(context, "검색 실패: ${it.message}", Toast.LENGTH_SHORT).show()
-                    isSearching = false
-                }
-        }
-    }
-
-    Box(Modifier.fillMaxSize().background(colors.background)) {
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            // 상단: 내 UID + 복사/공유/요청 알림
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("내 UID: $currentUid", style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.weight(1f))
-                IconButton({
-                    clipboard.setText(AnnotatedString(currentUid))
-                    Toast.makeText(context, "내 UID 복사됨", Toast.LENGTH_SHORT).show()
-                }) {
-                    Icon(Icons.Default.ContentCopy, contentDescription = null, tint = colors.primary)
-                }
-                IconButton({
-                    Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).apply {
-                        putExtra("sms_body", "내 UID: $currentUid")
-                        context.startActivity(this)
-                    }
-                }) {
-                    Icon(Icons.Default.Share, contentDescription = null, tint = colors.primary)
-                }
-                BadgedBox(badge = {
-                    if (requests.isNotEmpty()) Badge { Text(requests.size.toString()) }
-                }) {
-                    IconButton({ showRequestsModal = true }) {
-                        Icon(Icons.Default.MailOutline, contentDescription = "요청 보기", tint = colors.primary)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // 검색 바 + 친구 요청 버튼
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = nameQuery,
-                    onValueChange = { nameQuery = it },
-                    label = { Text("이름으로 검색") },
-                    modifier = Modifier.weight(1f)
+    FriendsTheme {
+        Scaffold(
+            topBar = {
+                HomeTopAppBar(
+                    requestCount = requests.size,
+                    onMyUidClick = { showAddDialog = true },
+                    onTabSelected = { selectedTab = it }
                 )
-                Spacer(Modifier.width(8.dp))
-                IconButton({ showAddDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "UID로 친구 요청", tint = colors.primary)
+            },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) { padding ->
+            AnimatedContent(
+                targetState = selectedTab,
+                modifier = Modifier.padding(padding),
+                transitionSpec = {
+                    slideInHorizontally { width -> if (targetState > initialState) width else -width } togetherWith
+                            slideOutHorizontally { width -> if (targetState > initialState) -width else width }
+                }, label = ""
+            ) { tabIndex ->
+                when (tabIndex) {
+                    0 -> FriendListScreen(navController, friends, isLoading)
+                    1 -> FriendSearchScreen(navController)
+                    2 -> FriendRequestScreen(requests)
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            if (showAddDialog) {
+                AddFriendByUidDialog(
+                    myUid = currentUid,
+                    onDismiss = { showAddDialog = false },
+                    onConfirm = { uid ->
+                        scope.launch {
+                            // 로직은 Dialog 내부에서 처리
+                        }
+                    }
+                )
+            }
+        }
+    }
+}
 
-            // 친구 목록 or 검색 결과
-            Box(Modifier.fillMaxSize()) {
-                when {
-                    isLoading -> {
-                        Dialog(onDismissRequest = {}) {
-                            Box(
-                                Modifier
-                                    .size(180.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val comp by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.profile))
-                                val prog by animateLottieCompositionAsState(comp, iterations = LottieConstants.IterateForever)
-                                LottieAnimation(comp, prog, modifier = Modifier.fillMaxSize())
-                            }
+
+// ─── 화면별 Composable ───────────────────────────────────────────────────
+
+@Composable
+fun FriendListScreen(navController: NavHostController, friends: List<User>, isLoading: Boolean) {
+    if (isLoading) {
+        LoadingState()
+    } else if (friends.isEmpty()) {
+        EmptyState(message = "아직 친구가 없어요.\n친구를 추가하고 소통해보세요!", icon = Icons.Default.SentimentVeryDissatisfied)
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(friends, key = { it.uid }) { user ->
+                FriendCard(user = user, onChatClick = { navController.navigate("chat/${user.uid}") })
+            }
+        }
+    }
+}
+
+@Composable
+fun FriendSearchScreen(navController: NavHostController) {
+    val context = LocalContext.current
+    val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
+    val currentUid = UserManager.getUser()!!.uid
+
+    var nameQuery by rememberSaveable { mutableStateOf("") }
+    val searchResults = remember { mutableStateListOf<User>() }
+    var isSearching by remember { mutableStateOf(false) }
+
+    LaunchedEffect(nameQuery) {
+        if (nameQuery.length >= 2) {
+            isSearching = true
+            try {
+                val result = db.collection("user").orderBy("name")
+                    .startAt(nameQuery).endAt("$nameQuery\uf8ff").get().await()
+                searchResults.clear()
+                result.documents.mapNotNullTo(searchResults) { doc ->
+                    if (doc.id != currentUid) doc.toObject(User::class.java)?.copy(uid = doc.id) else null
+                }
+            } finally { isSearching = false }
+        } else {
+            searchResults.clear()
+        }
+    }
+
+    Column(Modifier.padding(16.dp)) {
+        OutlinedTextField(
+            value = nameQuery,
+            onValueChange = { nameQuery = it },
+            label = { Text("2글자 이상으로 친구 이름 검색") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(16.dp))
+        if (isSearching) {
+            SearchingState()
+        } else if (nameQuery.length >= 2 && searchResults.isEmpty()) {
+            EmptyState(message = "검색 결과가 없습니다.", icon = Icons.Default.SearchOff)
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(searchResults, key = { it.uid }) { user ->
+                    FriendCard(user = user, isFriend = false, onRequestClick = {
+                        scope.launch {
+                            db.collection("user").document(user.uid).collection("friendRequests")
+                                .document(currentUid).set(mapOf("timestamp" to FieldValue.serverTimestamp())).await()
+                            Toast.makeText(context, "${user.name}님에게 친구 요청을 보냈습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                    })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FriendRequestScreen(requests: List<User>) {
+    val context = LocalContext.current
+    val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
+    val currentUid = UserManager.getUser()!!.uid
+
+    if (requests.isEmpty()) {
+        EmptyState(message = "받은 친구 요청이 없습니다.", icon = Icons.Default.NotificationsOff)
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(requests, key = { it.uid }) { user ->
+                RequestCard(
+                    user = user,
+                    onAccept = {
+                        scope.launch {
+                            val batch = db.batch()
+                            batch.set(db.collection("user").document(currentUid).collection("friends").document(user.uid), emptyMap<String, Any>())
+                            batch.set(db.collection("user").document(user.uid).collection("friends").document(currentUid), emptyMap<String, Any>())
+                            batch.delete(db.collection("user").document(currentUid).collection("friendRequests").document(user.uid))
+                            batch.commit().await()
+                            Toast.makeText(context, "${user.name}님과 친구가 되었습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onDecline = {
+                        scope.launch {
+                            db.collection("user").document(currentUid).collection("friendRequests").document(user.uid).delete().await()
+                            Toast.makeText(context, "${user.name}님의 요청을 거절했습니다.", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    isSearching -> {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = colors.primary)
-                        }
-                    }
-                    else -> {
-                        val listToShow = if (nameQuery.isBlank()) friends else searchResults
-                        if (listToShow.isEmpty()) {
-                            val msg = if (nameQuery.isBlank()) "친구가 없습니다 😥" else "검색 결과가 없습니다 🙁"
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(msg, style = MaterialTheme.typography.bodyLarge, color = colors.onBackground)
+                )
+            }
+        }
+    }
+}
+
+
+// ─── UI 컴포넌트 ──────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeTopAppBar(requestCount: Int, onMyUidClick: () -> Unit, onTabSelected: (Int) -> Unit) {
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val titles = listOf("친구", "검색", "받은 요청")
+
+    Column(Modifier.background(MaterialTheme.colorScheme.surface)) {
+        CenterAlignedTopAppBar(
+            title = { Text("친구", fontWeight = FontWeight.Bold) },
+            actions = {
+                IconButton(onClick = onMyUidClick) {
+                    Icon(Icons.Default.Add, contentDescription = "UID로 친구 추가")
+                }
+            },
+            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+        )
+        PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
+            titles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTabIndex == index,
+                    onClick = {
+                        selectedTabIndex = index
+                        onTabSelected(index)
+                    },
+                    text = {
+                        if (index == 2 && requestCount > 0) {
+                            BadgedBox(badge = { Badge { Text("$requestCount") } }) {
+                                Text(title)
                             }
                         } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(listToShow, key = { it.uid }) { user ->
-                                    Card(
-                                        shape  = RoundedCornerShape(12.dp),
-                                        colors = CardDefaults.cardColors(containerColor = colors.surfaceVariant),
-                                        elevation = CardDefaults.cardElevation(4.dp),
-                                        modifier  = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { navController.navigate("profile/${user.uid}") }
-                                    ) {
-                                        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            AsyncImage(
-                                                model = ImageRequest.Builder(context)
-                                                    .data(user.image.ifBlank { null })
-                                                    .placeholder(R.drawable.baseline_restaurant_menu_24)
-                                                    .build(),
-                                                contentDescription = null,
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .clip(CircleShape)
-                                                    .background(colors.primaryContainer)
-                                            )
-                                            Spacer(Modifier.width(12.dp))
-                                            Column(Modifier.weight(1f)) {
-                                                Text(user.name, style = MaterialTheme.typography.titleMedium)
-                                            }
-                                            if (nameQuery.isBlank()) {
-                                                TextButton(onClick = { navController.navigate("chat/${user.uid}") }) {
-                                                    Text("채팅하기")
-                                                }
-                                            } else {
-                                                TextButton(onClick = {
-                                                    scope.launch {
-                                                        db.collection("user")
-                                                            .document(user.uid)
-                                                            .collection("friendRequests")
-                                                            .document(currentUid)
-                                                            .set(emptyMap<String,Any>())
-                                                            .await()
-                                                        Toast.makeText(context, "친구 요청 보냄", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }) {
-                                                    Text("요청")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            Text(title)
                         }
                     }
-                }
+                )
             }
         }
     }
+}
 
-    // 친구 요청 수락/거절 모달
-    if (showRequestsModal) {
-        AlertDialog(
-            onDismissRequest = { showRequestsModal = false },
-            title            = { Text("친구 요청") },
-            text             = {
-                Column {
-                    requests.forEach { user ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(user.name, Modifier.weight(1f))
-                            Row {
-                                TextButton(onClick = {
-                                    scope.launch {
-                                        // 수락: 양쪽 friends에 추가, 요청 삭제
-                                        db.collection("user").document(currentUid)
-                                            .collection("friends").document(user.uid)
-                                            .set(emptyMap<String,Any>())
-                                            .await()
-                                        db.collection("user").document(user.uid)
-                                            .collection("friends").document(currentUid)
-                                            .set(emptyMap<String,Any>())
-                                            .await()
-                                        db.collection("user").document(currentUid)
-                                            .collection("friendRequests").document(user.uid)
-                                            .delete()
-                                            .await()
-                                        friends.add(user)
-                                        requests.remove(user)
-                                    }
-                                }) { Text("수락") }
-                                TextButton(onClick = {
-                                    scope.launch {
-                                        db.collection("user").document(currentUid)
-                                            .collection("friendRequests").document(user.uid)
-                                            .delete()
-                                            .await()
-                                        requests.remove(user)
-                                    }
-                                }) { Text("거절") }
-                            }
-                        }
-                    }
-                    if (requests.isEmpty()) {
-                        Text("처리할 요청이 없습니다.", style = MaterialTheme.typography.bodySmall)
-                    }
+@Composable
+fun FriendCard(user: User, isFriend: Boolean = true, onChatClick: () -> Unit = {}, onRequestClick: () -> Unit = {}) {
+    val context = LocalContext.current
+    val cardBrush = Brush.horizontalGradient(
+        colors = listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+    )
+    ElevatedCard(shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().background(cardBrush).padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(user.image.ifBlank { R.drawable.ic_profile_placeholder }).crossfade(true).build(),
+                contentDescription = "${user.name}의 프로필 사진",
+                modifier = Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
+            )
+            Spacer(Modifier.width(16.dp))
+            Text(user.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (isFriend) {
+                IconButton(onClick = onChatClick, colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                    Icon(Icons.Default.Chat, contentDescription = "채팅하기", tint = Color.White)
                 }
-            },
-            confirmButton    = {
-                TextButton(onClick = { showRequestsModal = false }) { Text("닫기") }
+            } else {
+                Button(onClick = onRequestClick) { Text("요청") }
             }
-        )
+        }
     }
+}
 
-    // UID 요청 다이얼로그
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title            = { Text("UID로 친구 요청") },
-            text             = {
+@Composable
+fun RequestCard(user: User, onAccept: () -> Unit, onDecline: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current).data(user.image.ifBlank { R.drawable.ic_profile_placeholder }).build(),
+                contentDescription = null,
+                modifier = Modifier.size(40.dp).clip(CircleShape)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(user.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Row {
+                TextButton(onClick = onAccept) { Text("수락") }
+                TextButton(onClick = onDecline, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("거절") }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun AddFriendByUidDialog(myUid: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    val context = LocalContext.current
+    val db = FirebaseFirestore.getInstance()
+    var addUidText by rememberSaveable { mutableStateOf("") }
+    var isAdding by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.PersonAdd, null) },
+        title = { Text("친구 추가") },
+        text = {
+            Column {
+                Text("내 UID: $myUid", style = MaterialTheme.typography.bodySmall)
+                IconButton(onClick = {
+                    clipboard.setText(AnnotatedString(myUid))
+                    Toast.makeText(context, "내 UID가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                }) { Icon(Icons.Default.ContentCopy, "내 UID 복사") }
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
-                    value         = addUidText,
+                    value = addUidText,
                     onValueChange = { addUidText = it },
-                    label         = { Text("UID 입력") },
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth()
+                    label = { Text("친구의 UID를 입력하세요") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
-            },
-            confirmButton    = {
-                TextButton(onClick = {
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
                     scope.launch {
                         isAdding = true
                         try {
-                            val snap = db.collection("user").document(addUidText).get().await()
-                            if (snap.exists()) {
-                                db.collection("user").document(addUidText)
-                                    .collection("friendRequests")
-                                    .document(currentUid)
-                                    .set(mapOf("timestamp" to System.currentTimeMillis()))
-                                    .await()
-                                Toast.makeText(context, "친구 요청 보냄", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "존재하지 않는 UID", Toast.LENGTH_SHORT).show()
+                            if (addUidText == myUid) {
+                                Toast.makeText(context, "자기 자신에게는 요청할 수 없습니다.", Toast.LENGTH_SHORT).show()
+                                return@launch
                             }
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "요청 실패: ${e.message}", Toast.LENGTH_SHORT).show()
-                        } finally {
-                            isAdding = false
-                            showAddDialog = false
-                        }
+                            if (db.collection("user").document(addUidText).get().await().exists()) {
+                                db.collection("user").document(addUidText).collection("friendRequests")
+                                    .document(myUid).set(mapOf("timestamp" to FieldValue.serverTimestamp())).await()
+                                Toast.makeText(context, "친구 요청을 보냈습니다.", Toast.LENGTH_SHORT).show()
+                                onDismiss()
+                            } else {
+                                Toast.makeText(context, "존재하지 않는 UID 입니다.", Toast.LENGTH_SHORT).show()
+                            }
+                        } finally { isAdding = false }
                     }
-                }) {
-                    if (isAdding) CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = colors.primary
-                    ) else Text("요청")
-                }
-            },
-            dismissButton    = {
-                TextButton(onClick = { showAddDialog = false }) { Text("취소") }
+                },
+                enabled = addUidText.isNotBlank() && !isAdding
+            ) {
+                if (isAdding) CircularProgressIndicator(Modifier.size(ButtonDefaults.IconSize), color = Color.White, strokeWidth = 2.dp)
+                else Text("요청 보내기")
             }
-        )
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
+    )
+}
+
+@Composable
+fun LoadingState() {
+    Box(Modifier.fillMaxSize().padding(64.dp), contentAlignment = Alignment.Center) {
+        val comp by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.profile))
+        LottieAnimation(comp, modifier = Modifier.size(150.dp), iterations = LottieConstants.IterateForever)
+        Text("친구 목록을 불러오는 중...", modifier = Modifier.align(Alignment.BottomCenter), color = Color.Gray)
+    }
+}
+
+@Composable
+fun SearchingState() {
+    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun EmptyState(message: String, icon: ImageVector) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(64.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.LightGray)
+        Spacer(Modifier.height(16.dp))
+        Text(message, color = Color.Gray, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
     }
 }
