@@ -939,12 +939,6 @@ fun ChallengeTab() {
 fun RankTab(navController: NavController) {
     // 탭 상단에 타이틀이나 다른 구성 요소가 있다면 여기에 추가
     Column(Modifier.fillMaxSize()) {
-        Text(
-            text = "🏆 유저 랭킹 TOP 50",
-            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(16.dp)
-        )
-
         // 하위 Composable 삽입
         RankScreenImproved(navController)
     }
