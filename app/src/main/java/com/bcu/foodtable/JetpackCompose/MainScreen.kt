@@ -23,10 +23,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
+import android.content.pm.PackageManager
+import android.util.Base64
+import android.util.Log
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
+import java.security.MessageDigest
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.math.roundToInt
 
 private val WarmLightColorScheme = lightColorScheme(
@@ -40,6 +45,7 @@ private val WarmLightColorScheme = lightColorScheme(
     onSurface = Color(0xFF3A3A3A),
     outline = Color(0xFFE0E0E0)
 )
+@OptIn(ExperimentalEncodingApi::class)
 @Composable
 fun MainLoginScreen(
     onLoginClick: () -> Unit = {},
@@ -51,6 +57,7 @@ fun MainLoginScreen(
     val offsetX = remember { Animatable(-600f) }
     var showSubtitle by remember { mutableStateOf(false) }
     var triedAutoLogin by remember { mutableStateOf(false) }
+    // 🔐 KeyHash 추출은 side-effect이므로 LaunchedEffect 사용
 
     // 자동 로그인 체크 및 실행
     LaunchedEffect(Unit) {

@@ -23,14 +23,22 @@ android {
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("release-key.keystore")
+            storePassword = "ftrelease1515"          // 직접 입력한 keystore 비밀번호
+            keyAlias = "foodtable_release_key" // keytool에 입력한 alias
+            keyPassword = "ftrelease1515"           // 키 비밀번호 (같은 경우 그대로 입력)
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
-            )
+            ) // 누들 순한맛 분모자토핑 // 밥 순한맛 x2
         }
     }
 
