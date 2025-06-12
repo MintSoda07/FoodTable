@@ -231,6 +231,20 @@ class HomeViewModel(
             }
         }
     }
+    fun markRecipeAsPurchased(recipeId: String) {
+        val currentList = _recipes.value.toMutableList()
+        val index = currentList.indexOfFirst { it.id == recipeId }
+
+        if (index != -1) {
+            // 해당 레시피의 isPurchased 상태만 true로 변경한 새 객체를 만듭니다.
+            val updatedRecipe = currentList[index].copy(isPurchased = true)
+            // 리스트에서 해당 아이템을 교체합니다.
+            currentList[index] = updatedRecipe
+            // StateFlow에 새로운 리스트를 전달하여 UI 갱신을 유도합니다.
+            _recipes.value = currentList
+            Log.d("HomeViewModel", "UI State Updated: Recipe $recipeId marked as purchased.")
+        }
+    }
 
     /**
      * 🚀 전체 시스템 초기화 및 데이터 로딩
@@ -313,47 +327,47 @@ class HomeViewModel(
 //            emptyList()
 //        }
 //    }
-private suspend fun fetchRecipes(): List<RecipeItem> = kotlinx.coroutines.coroutineScope {
-    try {
-        Log.d("HomeViewModel", "🚀 Firestore에서 recipe 컬렉션 조회 시작")
 
-        val snapshot = db.collection("recipe").get().await()
-        Log.d("HomeViewModel", "📥 recipe 문서 수: ${snapshot.documents.size}")
-
-        val recipeList = snapshot.documents.mapIndexed { index, document ->
-            async {
-                try {
-                    val recipe = document.toObject(RecipeItem::class.java)
-                    Log.d("HomeViewModel", "✅ [$index] 레시피 파싱 성공: ${recipe?.name ?: "null"}")
-
-                    if (recipe != null) {
-                        if (recipe.id.isBlank()) {
-                            recipe.copy(id = document.id)
-                        } else {
-                            recipe
-                        }
-                    } else {
-                        Log.w("HomeViewModel", "⚠️ [$index] toObject 결과 null: ${document.id}")
-                        null
-                    }
-                } catch (e: Exception) {
-                    Log.e("HomeViewModel", "❌ [$index] 개별 레시피 로드 실패: ${document.id}", e)
-                    null
+    private suspend fun fetchRecipes(): List<RecipeItem> = kotlinx.coroutines.coroutineScope {
+        try {
+            val uid = FirebaseAuth.getInstance().currentUser?.uid
+            // 로그아웃 상태 등 uid가 없으면 빈 리스트 반환
+            if (uid == null) {
+                Log.w("HomeViewModel", "User not logged in. Cannot fetch purchased status.")
+                // uid 없이 그냥 레시피 목록만 반환할 수도 있습니다.
+                val recipeSnapshot = db.collection("recipe").get().await()
+                return@coroutineScope recipeSnapshot.documents.mapNotNull { doc ->
+                    doc.toObject(RecipeItem::class.java)?.copy(id = doc.id)
                 }
             }
-        }.awaitAll().filterNotNull()
 
-        Log.d("HomeViewModel", "✅ 총 레시피 수: ${recipeList.size}")
-        recipeList
+            // 1. 모든 레시피를 가져옵니다.
+            val recipeSnapshot = db.collection("recipe").get().await()
+            val recipeList = recipeSnapshot.documents.mapNotNull { doc ->
+                doc.toObject(RecipeItem::class.java)?.copy(id = doc.id)
+            }
 
-    } catch (e: Exception) {
-        Log.e("HomeViewModel", "❌ 레시피 컬렉션 전체 조회 실패", e)
-        emptyList()
-    }.also {
-        Log.d("HomeViewModel", "🎯 fetchRecipes 완료. 결과 레시피 수: ${it.size}")
+            // 2. 사용자가 구매한 레시피 ID 목록을 가져옵니다.
+            val purchasedSnapshot = db.collection("user").document(uid).collection("purchased").get().await()
+            val purchasedIds = purchasedSnapshot.documents.map { it.id }.toSet()
+            Log.d("HomeViewModel", "Fetched ${purchasedIds.size} purchased recipe IDs.")
+
+
+            // 3. 두 목록을 비교하여 각 레시피의 isPurchased 상태를 설정합니다.
+            recipeList.forEach { recipe ->
+                if (purchasedIds.contains(recipe.id)) {
+                    recipe.isPurchased = true
+                }
+            }
+
+            Log.d("HomeViewModel", "Successfully fetched and processed recipes with purchase status.")
+            recipeList
+
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "레시피 컬렉션 또는 구매내역 조회 실패", e)
+            emptyList()
+        }
     }
-}
-
 
     fun loadUserInfo() {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return

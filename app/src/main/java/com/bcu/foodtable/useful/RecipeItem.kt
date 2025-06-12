@@ -59,8 +59,10 @@ data class RecipeItem(
     @PropertyName("likedUsers")
     var likedUsers: List<String> = listOf(),
 
-    @PropertyName("likedUsers")
+    @PropertyName("cost")
     var cost: Int = 0,
+    @PropertyName("isPurchased")
+    var isPurchased: Boolean = false,
 
     @PropertyName("cookingDuration")
     var duration: Int = 0,

@@ -263,7 +263,7 @@ fun InfoTag(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRecipeCard 그대로 사용
+fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRecipe 그대로 사용
     recipe: RecipeItem,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -277,7 +277,7 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
     // 원래 디자인의 그라데이션 색상 (GlassCategoryChip용)
     val primaryGradientStart = Color(0xFF6B63FF)
     val primaryGradientEnd = Color(0xFFFF6B9D)
-
+    val isPurchased = recipe.isPurchased
     // --- 상태 관리 (기존 ModernRecipeCardResponsive과 동일) ---
     var isExpanded by remember { mutableStateOf(false) }
     val expansionProgress by animateFloatAsState(
@@ -286,19 +286,7 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
         label = "expansionProgress"
     )
     var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) }
-    val uid = remember { UserManager.getUser()!!.uid }
-    var isPurchased by remember { mutableStateOf(false) }
-
-    LaunchedEffect(recipe.id, uid) {
-        Firebase.firestore
-            .collection("user")
-            .document(uid)
-            .collection("purchased")
-            .document(recipe.id)
-            .get()
-            .addOnSuccessListener { doc -> isPurchased = doc.exists() }
-            .addOnFailureListener { println("Error fetching purchase status: $it") }
-    }
+   
 
     val difficultyLevel = when (recipe.tags.find { it.startsWith("난이도:") }?.substringAfter("난이도:")) {
         "쉬움" -> 1; "보통" -> 2; "어려움" -> 3; else -> 1
@@ -2339,6 +2327,7 @@ private fun HomeContent(
                                                     .set(mapOf("purchased" to true))
                                                     .addOnSuccessListener {
                                                         Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
+                                                        homeViewModel.markRecipeAsPurchased(selectedRecipe!!.id)
                                                         val intent = Intent(context, RecipeCookingActivity::class.java)
                                                         intent.putExtra("recipe_id", selectedRecipe!!.id)
                                                         context.startActivity(intent)
