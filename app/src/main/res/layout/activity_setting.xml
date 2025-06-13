@@ -17,16 +17,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <LinearLayout
-            android:id="@+id/topToolbar"
-            android:layout_width="wrap_content"
-            android:layout_height="50dp"
-            android:background="@color/material_dynamic_neutral60"
-            android:elevation="5dp"
-            android:orientation="horizontal"
-            android:translationZ="1dp"
-            android:visibility="invisible" />
-
         <TextView
             android:id="@+id/placeholder_name"
             android:layout_width="wrap_content"
