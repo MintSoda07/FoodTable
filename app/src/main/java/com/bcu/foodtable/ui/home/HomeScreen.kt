@@ -28,6 +28,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -57,6 +58,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -99,7 +101,6 @@ import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.NoFood
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewModelScope
 import java.util.Calendar
@@ -135,7 +136,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.draw.alpha
@@ -159,8 +159,53 @@ import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.ui.rank.RankScreenImproved
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
 import com.bcu.foodtable.ui.home.AiChatBox as AiChatBox1
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.composed
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import androidx.compose.animation.core.FastOutSlowInEasing
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
+
+/**
+ * 텍스트에 타이핑 효과를 적용하는 Composable.
+ * @param text 표시할 전체 텍스트.
+ * @param typingDelay 글자 사이의 지연 시간 (밀리초).
+ */
+@Composable
+fun TypingAnimatedText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
+    color: Color = Color.Unspecified,
+    fontWeight: FontWeight? = null,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+    typingDelay: Long = 75L
+) {
+    var displayedText by remember(text) { mutableStateOf("") }
+
+    LaunchedEffect(key1 = text) {
+        displayedText = "" // 텍스트가 변경되면 초기화
+        text.forEachIndexed { index, _ ->
+            // 한 글자씩 추가
+            displayedText = text.substring(0, index + 1)
+            delay(typingDelay)
+        }
+    }
+
+    Text(
+        text = displayedText,
+        modifier = modifier,
+        style = style,
+        color = color,
+        fontWeight = fontWeight,
+        maxLines = maxLines,
+        overflow = overflow,
+    )
+}
 
 /**
  * 하단 내비게이션 바의 각 화면을 정의하는 Sealed Class.
@@ -323,11 +368,19 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
             .background(MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)) // 카드의 기본 배경은 테마 유지
             .clickable(onClick = onCardClick)
     ) {
-        AsyncImage( /* ... 기존 코드와 동일 ... */
+        AsyncImage(
             model = recipe.imageResId,
             contentDescription = "${recipe.name} 이미지",
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    // 카드가 확장될 때 이미지에 시차 효과(Parallax Effect)를 주기 위해 약간 확대하고 이동시킵니다.
+                    val scale = 1f + (expansionProgress * 0.1f)
+                    scaleX = scale
+                    scaleY = scale
+                    translationY = expansionProgress * -20.dp.toPx()
+                },
             placeholder = painterResource(id = R.drawable.ic_placeholder_dish),
             error = painterResource(id = R.drawable.ic_placeholder_dish_error)
         )
@@ -659,7 +712,8 @@ fun RecipeMetaInfoItem( // 함수 이름은 ModernRecipeCard에서 호출하는 
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), // 라벨 폰트 크기 조정
-                color = Color.White.copy(alpha = 0.6f) // 라벨 텍스트 색상 및 투명도 조정
+                color = Color.White.copy(alpha = 0.6f), // 라벨 텍스트 색상 및 투명도 조정
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
     }
@@ -731,7 +785,8 @@ fun RecipeDifficultyIndicator( // 함수 이름은 ModernRecipeCard에서 호출
                     else -> "난이도"
                 },
                 style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp), // 폰트 크기 조정
-                color = Color.White.copy(alpha = 0.7f) // 텍스트 색상
+                color = Color.White.copy(alpha = 0.7f), // 텍스트 색상
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
     }
@@ -1105,7 +1160,7 @@ fun HomeTopBar(
                         .padding(end = 8.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
+                    TypingAnimatedText(
                         text = greetingTitle, // ex: "안녕하세요, 홍길동 님!"
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -1882,10 +1937,38 @@ fun MenuRecommendationCard(
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var rotation by remember { mutableStateOf(0f) }
+    // State to hold the currently displayed content on the card.
+    var cardContent by remember { mutableStateOf(Triple(title, menuName, description)) }
+
+    val animatedRotation by animateFloatAsState(
+        targetValue = rotation,
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "flipRotation"
+    )
+
+    // When the real data (menuName) changes, trigger the flip animation.
+    LaunchedEffect(menuName) {
+        // Only flip if the content is actually different.
+        if (cardContent.second != menuName) {
+            rotation += 180f
+            // Wait for the card to be edge-on (halfway through animation).
+            delay(300) // This should be half of the tween's duration.
+            // Swap the content to the new data.
+            cardContent = Triple(title, menuName, description)
+        }
+    }
+
+    val isCardFlipped = (animatedRotation % 360) > 90f && (animatedRotation % 360) < 270f
+
     Card(
         modifier = modifier
             .width(160.dp)
             .height(120.dp)
+            .graphicsLayer {
+                this.rotationY = animatedRotation
+                cameraDistance = 8 * density
+            }
             .clickable { onCardClick() },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -1893,17 +1976,27 @@ fun MenuRecommendationCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(16.dp)
+                .graphicsLayer {
+                    // When the card is flipped, we need to un-flip the content
+                    // so it doesn't appear mirrored.
+                    if (isCardFlipped) {
+                        rotationY = 180f
+                    }
+                },
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Display the content from our state holder.
+            val (displayTitle, displayMenuName, displayDescription) = cardContent
+
             Text(
-                text = title,
+                text = displayTitle,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
 
             Text(
-                text = menuName,
+                text = displayMenuName,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -1911,7 +2004,7 @@ fun MenuRecommendationCard(
             )
 
             Text(
-                text = description,
+                text = displayDescription,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
@@ -2260,7 +2353,7 @@ private fun HomeContent(
                     recipe.name.contains(searchQuery.text, ignoreCase = true) ||
                     recipe.description.contains(searchQuery.text, ignoreCase = true)
 
-            // 2) 요리 종류 매칭 (기존대로, C_categories 리스트 중 ‘요리 종류’가 포함돼 있으면 OK)
+            // 2) 요리 종류 매칭 (기존대로, C_categories 리스트 중 '요리 종류'가 포함돼 있으면 OK)
             val matchesCuisine = selectedCuisine == null ||
                     recipe.C_categories.getOrNull(0) == selectedCuisine
 
@@ -2551,15 +2644,26 @@ fun DetailFilterChipsSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            options.forEach { option ->
-                CategoryChip(
-                    category = option,
-                    selected = selectedOption == option,
-                    onSelected = {
-                        // 같은 옵션 재클릭 시 선택 해제, 다른 옵션 클릭 시 변경
-                        onOptionSelected(if (selectedOption == option) null else option)
-                    }
-                )
+            options.forEachIndexed { index, option ->
+                var isVisible by remember { mutableStateOf(false) }
+
+                LaunchedEffect(key1 = Unit) {
+                    isVisible = true
+                }
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = fadeIn(animationSpec = tween(durationMillis = 300, delayMillis = index * 50)) +
+                            scaleIn(initialScale = 0.8f, animationSpec = tween(durationMillis = 300, delayMillis = index * 50))
+                ) {
+                    CategoryChip(
+                        category = option,
+                        selected = selectedOption == option,
+                        onSelected = {
+                            // 같은 옵션 재클릭 시 선택 해제, 다른 옵션 클릭 시 변경
+                            onOptionSelected(if (selectedOption == option) null else option)
+                        }
+                    )
+                }
             }
         }
     }
@@ -2567,25 +2671,90 @@ fun DetailFilterChipsSection(
 
 // --- MyRecipeStorageScreen 방식의 로딩/에러 상태 컴포넌트들 ---
 
+private fun Modifier.shimmerBackground(shape: Shape = RoundedCornerShape(4.dp)): Modifier = composed {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val translateAnim = transition.animateFloat(
+        initialValue = -200f,
+        targetValue = 1800f, // 화면 너비를 커버할 수 있는 충분히 큰 값
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmer-translate"
+    )
+
+    val shimmerColors = listOf(
+        MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.6f),
+        MaterialTheme.colorScheme.surfaceColorAtElevation(5.dp).copy(alpha = 0.2f),
+        MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp).copy(alpha = 0.6f),
+    )
+
+    background(
+        brush = Brush.linearGradient(
+            colors = shimmerColors,
+            start = Offset(translateAnim.value - 1000f, 0f),
+            end = Offset(translateAnim.value, 0f)
+        ),
+        shape = shape
+    )
+}
+
+
+@Composable
+fun ShimmerRecipeCardPlaceholder(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(230.dp)
+            .shimmerBackground(RoundedCornerShape(24.dp))
+    )
+}
+
 @Composable
 fun LoadingState(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(all = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        userScrollEnabled = false
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(48.dp),
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(24.dp))
-        Text(
-            "레시피를 불러오는 중입니다...",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        // AI 추천 섹션 플레이스홀더
+        item {
+            Column {
+                Spacer(modifier = Modifier
+                    .height(24.dp)
+                    .width(180.dp)
+                    .shimmerBackground())
+                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier
+                    .height(16.dp)
+                    .width(220.dp)
+                    .shimmerBackground())
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    repeat(2) {
+                        Spacer(modifier = Modifier.size(width = 160.dp, height = 120.dp).shimmerBackground(RoundedCornerShape(16.dp)))
+                    }
+                }
+            }
+        }
+
+        // 검색 및 필터 플레이스홀더
+        item {
+            Spacer(modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .shimmerBackground(RoundedCornerShape(28.dp)))
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(3) {
+                    Spacer(modifier = Modifier.size(width = 100.dp, height = 40.dp).shimmerBackground(RoundedCornerShape(20.dp)))
+                }
+            }
+        }
+        items(3) {
+            ShimmerRecipeCardPlaceholder()
+        }
     }
 }
 
