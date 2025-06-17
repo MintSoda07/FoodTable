@@ -287,13 +287,23 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
         label = "expansionProgress"
     )
     var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) }
-   
 
-    val difficultyLevel = when (recipe.tags.find { it.startsWith("난이도:") }?.substringAfter("난이도:")) {
-        "쉬움" -> 1; "보통" -> 2; "어려움" -> 3; else -> 1
+
+
+    // 1) duration 필드를 분 단위 문자열로
+    val prepTime = "${recipe.duration}분"
+
+    // 2) estimatedCalories 필드를 바로 사용
+    val estimatedCaloriesText = recipe.estimatedCalories ?: "N/A"
+
+    // 3) 난이도는 c_categories 리스트의 두 번째 항목(index 1)에서 파싱
+    val difficultyCategory = recipe.C_categories.getOrNull(1) ?: "보통"
+    val difficultyLevel = when (difficultyCategory) {
+        "쉬움"   -> 1
+        "보통"   -> 2
+        "어려움" -> 3
+        else     -> 2
     }
-    val prepTime = recipe.tags.find { it.startsWith("소요시간:") }?.substringAfter("소요시간:") ?: "30분"
-
     val collapsedHeight = 230.dp
     val expandedHeight = 460.dp
     val animatedCardHeight by animateDpAsState(
@@ -470,28 +480,28 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
 
+                    // 상세 섹션 안에서 RecipeMetaInfoItem 호출부만 수정
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // RecipeMetaInfoItem 호출, 내부에서 원래 디자인 사용하도록 수정됨
                         RecipeMetaInfoItem(
-                            icon = Icons.Filled.Timer, value = prepTime, label = "소요시간",
-                            modifier = Modifier.weight(1f)
-                            // contentColor, containerColor 파라미터는 RecipeMetaInfoItem 내부에서 원래 디자인 색상 사용
-                        )
-                        RecipeMetaInfoItem(
-                            icon = Icons.Filled.LocalFireDepartment, value = "${recipe.estimatedCalories ?: "N/A"}", label = "칼로리",
+                            icon = Icons.Filled.Timer,
+                            value = prepTime,
+                            label = "소요시간",
                             modifier = Modifier.weight(1f)
                         )
-                        // RecipeDifficultyIndicator 호출, 내부에서 원래 디자인 사용하도록 수정됨
+                        RecipeMetaInfoItem(
+                            icon = Icons.Filled.LocalFireDepartment,
+                            value = estimatedCaloriesText,
+                            label = "칼로리",
+                            modifier = Modifier.weight(1f)
+                        )
                         RecipeDifficultyIndicator(
                             level = difficultyLevel,
                             modifier = Modifier.weight(1f)
-                            // activeColor, inactiveColor, textColor 파라미터는 RecipeDifficultyIndicator 내부에서 원래 디자인 색상 사용
                         )
                     }
-
                     Spacer(modifier = Modifier.weight(1f))
 
                     // RecipePurchaseButton 호출, 내부에서 원래 디자인 사용하도록 수정됨
@@ -1559,9 +1569,12 @@ fun CategoryChipsSection(
     onSelectedCategoryChange: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 난이도 옵션 목록 ( 소요시간에 난이도 값 뺴려고 추가)
+    val difficultyList = listOf("쉬움", "보통", "어려움")
     val uniqueCategories = remember(recipes) {
-        recipes.flatMap { it.C_categories }
-            .filter { it.isNotBlank() } // 비어있지 않은 카테고리만 필터링
+        recipes
+            .mapNotNull { it.C_categories.getOrNull(0) }   // 0번 인덱스만
+            .filter { it !in difficultyList }              // 난이도값은 제외
             .distinct()
             .sorted()
     }
@@ -1622,7 +1635,13 @@ fun CategoryChipsSection(
                     CategoryChip(
                         category = category,
                         selected = selectedCategory == category,
-                        onSelected = { onSelectedCategoryChange(category) }
+                        onSelected = {
+                            // 같은 옵션 재클릭 시 선택 해제, 다른 옵션 클릭 시 변경
+                            onSelectedCategoryChange(
+                                if (selectedCategory == category) null
+                                else category
+                            )
+                        }
                     )
                 }
             }
@@ -2114,6 +2133,26 @@ private fun HomeContent(
     }
     val difficultyOptions = listOf("쉬움", "보통", "어려움")
     val prepTimeOptions = listOf("15분 이내", "30분 이내", "1시간 이내", "1시간 이상")
+    //데이터베이스 불러오기
+    val db = FirebaseFirestore.getInstance()
+    val uid = UserManager.getUser()?.uid
+
+
+    // 1) 로컬에 구매한 레시피 ID 모아두는 상태
+    var purchasedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // 2) 화면 뜰 때 한 번만 snapshotListener 걸어서 실시간 업데이트
+    LaunchedEffect(uid) {
+        if (uid == null) return@LaunchedEffect
+        db.collection("user")
+            .document(uid)
+            .collection("purchased")
+            .addSnapshotListener { snap, err ->
+                if (snap != null) {
+                    purchasedIds = snap.documents.map { it.id }.toSet()
+                }
+            }
+    }
 
     LazyColumn(
         state = listState,
@@ -2165,11 +2204,13 @@ private fun HomeContent(
                 enter = expandVertically(),
                 exit = shrinkVertically()
             ) {
-                DetailFilterChipsSection(
-                    title = "요리 종류",
-                    options = uniqueCuisines,
-                    selectedOption = selectedCuisine,
-                    onOptionSelected = { selectedCuisine = it }
+                // CategoryChipsSection 은 uniqueCategories 내부에서
+                            // 0번 인덱스 요리종류만 꺼내도록 이미 구현되어 있습니다.
+                CategoryChipsSection(
+                    recipes = recipes,
+                    selectedCategory = selectedCuisine,
+                    onSelectedCategoryChange = { selectedCuisine = it },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -2211,30 +2252,36 @@ private fun HomeContent(
 
         // 8. 필터링된 레시피 목록 또는 "결과 없음" 메시지
         val filteredRecipes = recipes.filter { recipe ->
+            // 1) 검색어 매칭 (기존 코드 그대로)
             val matchesSearch = searchQuery.text.isEmpty() ||
                     recipe.name.contains(searchQuery.text, ignoreCase = true) ||
                     recipe.description.contains(searchQuery.text, ignoreCase = true)
 
-            val matchesCuisine = selectedCuisine == null || recipe.C_categories.contains(selectedCuisine)
+            // 2) 요리 종류 매칭 (기존대로, C_categories 리스트 중 ‘요리 종류’가 포함돼 있으면 OK)
+            val matchesCuisine = selectedCuisine == null ||
+                    recipe.C_categories.getOrNull(0) == selectedCuisine
 
+
+            // 3) 난이도 매칭
+            //    — C_categories 리스트의 1번 인덱스에 "쉬움"/"보통"/"어려움"이 들어 있다고 가정
+            val difficultyFromData = recipe.C_categories.getOrNull(1)
             val matchesDifficulty = selectedDifficulty == null ||
-                    recipe.tags.any { it.equals("난이도:${selectedDifficulty}", ignoreCase = true) }
+                    difficultyFromData == selectedDifficulty
 
-            val matchesPrepTime = selectedPrepTime == null ||
-                    recipe.tags.any { tag ->
-                        if (!tag.startsWith("소요시간:")) return@any false // "소요시간:"으로 시작하지 않으면 이 태그는 무시
-                        val recipeMinutes = parsePrepTimeTagToMinutes(tag) ?: return@any false // 분으로 변환 실패 시 이 태그는 무시
+            // 4) 소요시간 매칭
+            //    — duration 필드가 Int(분)으로 들어 있다고 가정
+            val d = recipe.duration
+            val matchesPrepTime = selectedPrepTime == null || when (selectedPrepTime) {
+                "15분 이내"  -> d <= 15
+                "30분 이내"  -> d <= 30
+                "1시간 이내" -> d <= 60
+                "1시간 이상" -> d > 60
+                else         -> true
+            }
 
-                        when (selectedPrepTime) {
-                            "15분 이내" -> recipeMinutes <= 15
-                            "30분 이내" -> recipeMinutes <= 30
-                            "1시간 이내" -> recipeMinutes <= 60
-                            "1시간 이상" -> recipeMinutes > 60 // 60분 초과
-                            else -> true // 선택된 소요 시간 필터가 없거나 매칭되지 않으면 통과 (이 경우는 selectedPrepTime == null일 때 이미 처리됨)
-                        }
-                    }
             matchesSearch && matchesCuisine && matchesDifficulty && matchesPrepTime
         }
+
 
         if (filteredRecipes.isEmpty()) {
             item {
@@ -2259,8 +2306,10 @@ private fun HomeContent(
                 key = { recipe -> recipe.id.ifBlank { recipe.name + recipe.hashCode() } }, // 고유 키 보장
             ) { recipe ->
 
-                var isVisible by remember { mutableStateOf(false) }
-
+                var isVisible by remember { mutableStateOf(false)
+                }
+                // 화면 전용으로 구매여부 계산
+                val isPurchasedFlag = purchasedIds.contains(recipe.id)
                 LaunchedEffect(key1 = recipe.id) {
                     isVisible = true
                 }
@@ -2284,7 +2333,7 @@ private fun HomeContent(
                     var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
 
                     ModernRecipeCard(
-                        recipe = recipe,
+                        recipe = recipe.copy(isPurchased = isPurchasedFlag),
                         onCardClick  = {
                             scope.launch {
                                 val uid = UserManager.getUser()!!.uid
