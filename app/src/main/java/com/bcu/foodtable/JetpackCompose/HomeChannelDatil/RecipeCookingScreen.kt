@@ -111,8 +111,24 @@ fun RecipeCookingScreen(
 
     // ViewModel 상태 관찰
     val isLoadingAiEval by aiViewModel.isLoading.collectAsState()
-    val aiEvaluationResultText by aiViewModel.evaluationApiResult.collectAsState()
+
     val aiEvalToastMessage by aiViewModel.toastMessage.collectAsState()
+    // 1) ViewModel 인스턴스 얻기
+    val calorieVm: RecipeCalorieViewModel = viewModel()
+
+    // 2) 레시피 ID가 바뀔 때마다(처음 진입 포함) 칼로리 로드/추정 요청
+    LaunchedEffect(recipe.id, recipe.ingredients, recipe.order) {
+        calorieVm.loadOrEstimateCalories(recipe)
+    }
+    //  화면을 벗어나면 캐시를 클리어해 두면, 다시 들어올 때도 무조건 AI 호출됨
+    DisposableEffect(recipe.id) {
+        onDispose {
+            calorieVm.clearCache(recipe.id)
+        }
+    }
+    // 3) ViewModel이 제공하는 Map에서 이 레시피의 칼로리 가져오기
+    val estimatedCal = calorieVm.caloriesMap[recipe.id]
+
 
     LaunchedEffect(aiEvalToastMessage) {
         aiEvalToastMessage?.let {
@@ -434,11 +450,11 @@ fun RecipeCookingScreen(
                                     .padding(16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                recipe.estimatedCalories?.let {
+                                estimatedCal?.let {
                                     InfoChip(
                                         text = it,
                                         icon = "🔥",
-                                        backgroundColor = Color(0xFFE25532).copy(alpha = 0.9f) // primary 색상
+                                        backgroundColor = Color(0xFFE25532).copy(alpha = 0.9f)
                                     )
                                 }
                                 InfoChip(
