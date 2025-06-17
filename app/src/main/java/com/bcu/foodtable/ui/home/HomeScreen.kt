@@ -145,6 +145,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.navArgument
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCalorieViewModel
 import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectViewModel
 import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
@@ -311,6 +312,7 @@ fun InfoTag(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
 @Composable
 fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRecipe 그대로 사용
     recipe: RecipeItem,
+    estimatedCal: String?,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -546,7 +548,7 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
                         )
                         RecipeMetaInfoItem(
                             icon = Icons.Filled.LocalFireDepartment,
-                            value = estimatedCaloriesText,
+                            value = estimatedCal ?: "N/A",
                             label = "칼로리",
                             modifier = Modifier.weight(1f)
                         )
@@ -2230,7 +2232,8 @@ private fun HomeContent(
     val db = FirebaseFirestore.getInstance()
     val uid = UserManager.getUser()?.uid
 
-
+    // 예상 칼로리 불러오기
+    val calorieVm: RecipeCalorieViewModel = viewModel()
     // 1) 로컬에 구매한 레시피 ID 모아두는 상태
     var purchasedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
@@ -2422,11 +2425,18 @@ private fun HomeContent(
                     val scope = rememberCoroutineScope()
                     val db = FirebaseFirestore.getInstance()
 
+                    // recipe.id, recipe.ingredients, recipe.order 가 바뀔 때마다 재추정
+                    LaunchedEffect(recipe.id, recipe.ingredients, recipe.order) {
+                        calorieVm.loadOrEstimateCalories(recipe)
+                    }
+
                     var showPurchaseDialog by remember { mutableStateOf(false) }
                     var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+                    val estimatedCal = calorieVm.caloriesMap[recipe.id]
 
                     ModernRecipeCard(
                         recipe = recipe.copy(isPurchased = isPurchasedFlag),
+                        estimatedCal = estimatedCal,
                         onCardClick  = {
                             scope.launch {
                                 val uid = UserManager.getUser()!!.uid
