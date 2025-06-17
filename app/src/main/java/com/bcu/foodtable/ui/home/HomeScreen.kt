@@ -164,6 +164,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.FastOutSlowInEasing
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -1934,10 +1935,38 @@ fun MenuRecommendationCard(
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var rotation by remember { mutableStateOf(0f) }
+    // State to hold the currently displayed content on the card.
+    var cardContent by remember { mutableStateOf(Triple(title, menuName, description)) }
+
+    val animatedRotation by animateFloatAsState(
+        targetValue = rotation,
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+        label = "flipRotation"
+    )
+
+    // When the real data (menuName) changes, trigger the flip animation.
+    LaunchedEffect(menuName) {
+        // Only flip if the content is actually different.
+        if (cardContent.second != menuName) {
+            rotation += 180f
+            // Wait for the card to be edge-on (halfway through animation).
+            delay(300) // This should be half of the tween's duration.
+            // Swap the content to the new data.
+            cardContent = Triple(title, menuName, description)
+        }
+    }
+
+    val isCardFlipped = (animatedRotation % 360) > 90f && (animatedRotation % 360) < 270f
+
     Card(
         modifier = modifier
             .width(160.dp)
             .height(120.dp)
+            .graphicsLayer {
+                this.rotationY = animatedRotation
+                cameraDistance = 8 * density
+            }
             .clickable { onCardClick() },
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -1945,17 +1974,27 @@ fun MenuRecommendationCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(16.dp)
+                .graphicsLayer {
+                    // When the card is flipped, we need to un-flip the content
+                    // so it doesn't appear mirrored.
+                    if (isCardFlipped) {
+                        rotationY = 180f
+                    }
+                },
             verticalArrangement = Arrangement.SpaceBetween
         ) {
+            // Display the content from our state holder.
+            val (displayTitle, displayMenuName, displayDescription) = cardContent
+
             Text(
-                text = title,
+                text = displayTitle,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
             )
 
             Text(
-                text = menuName,
+                text = displayMenuName,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -1963,7 +2002,7 @@ fun MenuRecommendationCard(
             )
 
             Text(
-                text = description,
+                text = displayDescription,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
