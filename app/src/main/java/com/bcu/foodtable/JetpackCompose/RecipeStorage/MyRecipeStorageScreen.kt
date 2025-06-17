@@ -94,15 +94,38 @@ fun MyRecipeStorageScreen(
         homeViewModel.loadUserInfo()
     }
 
-    val groupedItemsMap = remember(galleryItems) { galleryItems.filter { it.groupId.isNotBlank() }.groupBy { it.groupId } }
-    val displayList = remember(galleryItems, groupedItemsMap, explodingGroup) {
-        val groupRepresentativeItems = groupedItemsMap.mapNotNull { (_, items) -> items.minByOrNull { it.creationTimestamp ?: 0L } }
-        val nonGroupedItems = galleryItems.filter { it.groupId.isBlank() }
-        val list = (groupRepresentativeItems + nonGroupedItems).sortedByDescending { it.creationTimestamp ?: 0L }
-        explodingGroup?.let { explodingItems ->
-            list.filterNot { item -> explodingItems.any { it.recipeId == item.recipeId } }
-        } ?: list
+    // 화면에 보여줄 리스트 생성
+    val groupedItemsMap = remember(galleryItems) {
+        galleryItems
+            .filter { it.groupId.isNotBlank() }
+            .groupBy { it.groupId }
     }
+
+    val displayList = remember(galleryItems, groupedItemsMap, explodingGroup) {
+        // 1) 그룹 대표 아이템: 각 그룹에서 가장 오래된(혹은 원하는 기준) 아이템
+        val groupReps = groupedItemsMap.values.mapNotNull { items ->
+            items.minByOrNull { it.creationTimestamp ?: 0L }
+        }
+        // 2) 그룹이 없는 순수 개별 아이템
+        val nonGrouped = galleryItems.filter { it.groupId.isBlank() }
+
+        // 3) 각각 생성시간 내림차순 정렬
+        val sortedGroupReps = groupReps.sortedByDescending { it.creationTimestamp ?: 0L }
+        val sortedNonGrouped = nonGrouped.sortedByDescending { it.creationTimestamp ?: 0L }
+
+        // 4) 그룹 → 개별 순으로 합치기
+        var combined = sortedGroupReps + sortedNonGrouped
+
+        // 5) 폭발 애니메이션 중인 그룹 아이템은 일단 제외
+        explodingGroup?.let { exploding ->
+            combined = combined.filterNot { item ->
+                exploding.any { it.recipeId == item.recipeId }
+            }
+        }
+
+        combined
+    }
+
 
     val processDrop = remember(viewModel, displayList, recipeCardBoundsMap, groupedItemsMap) {
         { sourceItem: GalleryItem, finalDropPosition: Offset ->

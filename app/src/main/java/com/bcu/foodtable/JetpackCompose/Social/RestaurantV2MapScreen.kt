@@ -404,7 +404,7 @@ private fun MapWithTracking(
                                 mapInstance.setOnMapClickListener { _, position, _, _ ->
                                     newPos = position
                                     showAddDialog = true
-                                    true   // 클릭 이벤트 소비
+                                    false  // 클릭 이벤트 소비
                                 }
 
 
@@ -567,19 +567,26 @@ private fun MapWithTracking(
 
             },
             confirmButton = {
+                //필수 입력 값 검사
+                val allFilled =
+                    inputName.isNotBlank() &&
+                            inputDesc.isNotBlank() &&
+                            inputPriceRange.isNotBlank() &&
+                            inputHours.isNotBlank()
+
                 TextButton(onClick = {
-                    // 1) Firestore 도큐먼트 ID 준비
+                    //  Firestore 도큐먼트 ID 준비
                     val docRef = FirebaseFirestore.getInstance()
                         .collection("custom_markers")
                         .document()
                     val id = docRef.id
                     val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return@TextButton
 
-                    // 2) 새로운 위치(newPos!!)와 context, layer 가져오기
+                    // 2새로운 위치(newPos!!)와 context, layer 가져오기
                     val pos = newPos!!
                     val layer = kakaoMap?.labelManager?.layer
 
-                    // 3) 런타임에 Bitmap 스케일링
+                    //  런타임에 Bitmap 스케일링
                     val srcBmp = BitmapFactory.decodeResource(
                         context.resources,
                         R.drawable.user_loc_small
@@ -594,7 +601,7 @@ private fun MapWithTracking(
                     val scaledBmp = Bitmap.createScaledBitmap(srcBmp, targetPx, targetPx, true)
                     val style = LabelStyle.from(scaledBmp)
 
-                    // 4) 마커 추가
+                    //  마커 추가
                     layer
                         ?.addLabel(
                             LabelOptions.from("cust_$id", pos)
@@ -602,12 +609,13 @@ private fun MapWithTracking(
                                 .setRank(10L)
                         )
 
-                    // 5) 현재 사용자 이름 가져오기
+                    //  현재 사용자 이름 가져오기
                     val user = FirebaseAuth.getInstance().currentUser
 
 
-                    // 5) 로컬 State에 저장
+                    //  로컬 State에 저장
                     customDesc["cust_$id"] = inputDesc
+
 
                     // ① 태그 리스트 분리
                     val tagsList = inputTags
@@ -627,23 +635,40 @@ private fun MapWithTracking(
                         "rating"      to inputRating.toDouble(),
                         "user"        to mapOf("uid" to uid, "name" to (FirebaseAuth.getInstance().currentUser?.displayName ?: "익명"))
                     ))
-
-                    // 7) 다이얼로그 닫기
+                    // 새 MarkerData 를 곧바로 메모리 맵에도 추가
+                      customMarkers["cust_$id"] = MarkerData(
+                            name       = inputName,
+                            desc       = inputDesc,
+                            tags       = tagsList,
+                            priceRange = inputPriceRange,
+                            hours      = inputHours,
+                            rating     = inputRating.toDouble(),
+                            userName   = FirebaseAuth.getInstance().currentUser?.displayName ?: "익명",
+                            lat        = pos.latitude,
+                            lng        = pos.longitude
+                      )
+                    // 다이얼로그 닫기
                     showAddDialog = false
                     inputDesc = ""
-                }) {
+                    inputName = ""
+                    inputTags = ""
+                    inputPriceRange = ""
+                    inputHours = ""
+                    inputRating = 3f
+                },
+                        enabled = allFilled
+                ) {
                     Text("추가")
                 }
             }
         )
     }
 
-    // ⑦ “설명 보기” 다이얼로그
+
     // ⑦ “설명 보기” 다이얼로그
     if (showDescDialog && currentMarkerId != null) {
         customMarkers[currentMarkerId!!]?.let { md ->
-            if (showDescDialog && currentMarkerId != null) {
-                customMarkers[currentMarkerId!!]?.let { md ->
+
                     AlertDialog(
                         onDismissRequest = { showDescDialog = false },
                         title = {
@@ -731,19 +756,21 @@ private fun MapWithTracking(
                             }
                         },
                         confirmButton = {
-                            TextButton(onClick = { showDescDialog = false }) {
+                            TextButton(onClick = {
+                                showDescDialog = false
+                                currentMarkerId = null }) {
                                 Text("확인")
                             }
                         }
                     )
                 }
-            }
+
 
         }
     }
 
 
-}
+
 // Float 소수 자리 포맷 헬퍼
 private fun Float.format(digits: Int) = "%.${digits}f".format(this)
 
