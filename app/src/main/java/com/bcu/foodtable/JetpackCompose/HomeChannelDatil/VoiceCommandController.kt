@@ -13,6 +13,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -178,29 +179,42 @@ class VoiceCommandController(
 
         // —— 1) 타이머 우선 처리 ——
 
-        // “일시정지” 또는 “정지” 또는 “멈춰” 또는 “멈춰줘” 또는 “중지” 또는 “휴식” → 타이머 일시정지
-        if (timer != null && (
-                    "일시정지" in local ||
-                            "정지" in local ||
-                            "멈춰" in local ||
-                            "멈춰줘" in local ||
-                            "중지" in local ||
-                            "휴식" in local
-                    )) {
+        // 1) 일시정지 분기
+        if (timer != null && listOf("일시정지","정지","멈춰","멈춰줘","중지","휴식").any { it in local }) {
+            // ★ 인식만 잠깐 멈추기
+            speechRecognizer?.stopListening()
+
+            // 실제 일시정지
             timer.pause()
+
+            // 안내 후 다시 듣기 재개
+            tts.setOnUtteranceProgressListener(object: UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onError(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    Handler(Looper.getMainLooper()).post {
+                        if (keepListening) startListening()
+                    }
+                }
+            })
+            // ★ Utterance ID는 고유하게
             tts.speak("타이머를 일시정지합니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_pause")
             return
         }
-        // “재시작” 또는 “다시시작” 또는 “계속” 또는 “이어” 또는 “이어줘” 또는 “다시 해줘” → 타이머 재개
-        if (timer != null && (
-                    "재시작" in local ||
-                            "다시시작" in local ||
-                            "계속" in local ||
-                            "이어" in local ||
-                            "이어줘" in local ||
-                            "다시 해줘" in local
-                    )) {
+
+            // 2) 재시작 분기
+        if (timer != null && listOf("재시작","다시시작","계속","이어","이어줘","다시 해줘").any { it in local }) {
+            speechRecognizer?.stopListening()
             timer.resume()
+            tts.setOnUtteranceProgressListener(object: UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onError(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    Handler(Looper.getMainLooper()).post {
+                        if (keepListening) startListening()
+                    }
+                }
+            })
             tts.speak("타이머를 재개합니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_resume")
             return
         }
@@ -216,10 +230,31 @@ class VoiceCommandController(
                             "돌려줘" in local ||
                             "때려줘" in local
                     )) {
+            // 1) 현재 듣기만 멈춥니다
+            speechRecognizer?.stopListening()
+
             timer.start {
                 // tts.speak("타이머가 종료되었습니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_finish")
             }
-            tts.speak("타이머를 시작합니다.", TextToSpeech.QUEUE_FLUSH, null, "timer_start")
+            tts.setOnUtteranceProgressListener(object: UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onError(utteranceId: String?) {}
+                override fun onDone(utteranceId: String?) {
+                    Handler(Looper.getMainLooper()).post {
+                        if (keepListening) {
+                            startListening()
+                        }
+                    }
+                }
+            })
+
+            // 4) 안내 멘트 (Utterance ID를 동일하게 설정)
+            tts.speak(
+                "타이머를 시작합니다.",
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "timer_start"
+            )
             return
         }
         val keyword = when {

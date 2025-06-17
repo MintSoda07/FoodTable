@@ -19,9 +19,9 @@ class RecipeCalorieViewModel(
     private val _caloriesMap = mutableStateMapOf<String, String?>()
     val caloriesMap: Map<String, String?> = _caloriesMap
 
-    // OpenAIClient 인스턴스 + API 키 설정
-    private val openAI: OpenAIClient = OpenAIClient().apply {
-        ApiKeyManager.getGptApi()?.let { apiKeyInfo = it }
+    // 1) ApiKeyManager에서 키를 못 가져오면 openAI는 null
+    private val openAI: OpenAIClient? = ApiKeyManager.getGptApi()?.let { apiKey ->
+        OpenAIClient().apply { this.apiKeyInfo = apiKey }
     }
     /** 화면을 떠날 때나 강제로 캐시를 비우고 싶으면 호출 */
     fun clearCache(recipeId: String) {
@@ -66,7 +66,8 @@ class RecipeCalorieViewModel(
             이 레시피의 예상 칼로리를 숫자+단위만 알려주세요. 예: "350 kcal"
         """.trimIndent()
 
-        openAI.sendMessage(
+        // 2) 안전호출로 sendMessage 실행
+        openAI?.sendMessage(
             prompt   = prompt,
             role     = "칼로리 추정 AI",
             onSuccess = { resp ->
@@ -79,6 +80,9 @@ class RecipeCalorieViewModel(
             onError = {
                 _caloriesMap[recipe.id] = "0 kcal"
             }
-        )
+        ) ?: run {
+            // openAI가 null 이면 여기로
+            _caloriesMap[recipe.id] = "0 kcal"
+        }
     }
 }

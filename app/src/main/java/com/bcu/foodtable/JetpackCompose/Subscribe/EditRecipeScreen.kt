@@ -600,7 +600,7 @@ fun EditRecipeScreen(
                             firestore.collection("recipe").document(recipeId).delete()
                                 .addOnSuccessListener {
                                     Toast.makeText(context, "레시피가 삭제되었습니다.", Toast.LENGTH_SHORT).show()
-                                    onModifySuccess()
+                                    onDeleteSuccess()
                                 }
                                 .addOnFailureListener { e ->
                                     Toast.makeText(context, "삭제 실패: ${e.localizedMessage}", Toast.LENGTH_LONG).show()

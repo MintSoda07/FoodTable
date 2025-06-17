@@ -65,7 +65,7 @@ fun ChannelViewPageScreen(
     val userId  = remember { UserManager.getUser()?.uid.orEmpty() }
 
     // 탭 상태
-    var selectedTab by remember { mutableStateOf("Recipes") }
+    var selectedTab by remember { mutableStateOf("레시피") }
 
     // ViewModel 로부터 상태 수집
     val channel         by viewModel.channel.collectAsState()
@@ -104,8 +104,11 @@ fun ChannelViewPageScreen(
         else -> {
             // 레시피 목록을 미리 계산 (LazyColumn 바깥에서 remember 호출)
             val displayList = remember(recipes, selectedTab) {
-                if (selectedTab == "Recipes") recipes
-                else recipes.filter { it.likedUsers?.contains(userId) == true }
+                if (selectedTab == "레시피") {
+                    recipes
+                } else /* selectedTab == "좋아요" */ {
+                    recipes.filter { it.likedUsers?.contains(userId) == true }
+                }
             }
 
             Scaffold(
