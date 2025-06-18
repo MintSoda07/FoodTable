@@ -333,9 +333,6 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
         animationSpec = spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMediumLow),
         label = "expansionProgress"
     )
-    var isFavoriteState by remember { mutableStateOf(recipe.likes > 0) }
-
-
 
     // 1) duration 필드를 분 단위 문자열로
     val prepTime = "${recipe.duration}분"
@@ -429,32 +426,7 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
             }
         }
 
-        Box( /* ... 좋아요 버튼, 기존 코드와 동일 (테마 색상 일부 사용 유지) ... */
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(
-                    // 좋아요 버튼 배경은 가독성을 위해 테마 색상 유지 또는 약간의 투명도 조절
-                    if (isFavoriteState) MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-                    else Color.Black.copy(alpha = 0.2f) // 원래 디자인과 유사하게 어두운 투명 배경
-                )
-                .clickable { isFavoriteState = !isFavoriteState },
-            contentAlignment = Alignment.Center
-        ) {
-            val favoriteIconScale by animateFloatAsState(
-                targetValue = if (isFavoriteState) 1.1f else 1f,
-                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                label = "favoriteIconScale"
-            )
-            Icon(
-                imageVector = if (isFavoriteState) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = "Favorite",
-                tint = Color.White.copy(alpha = if(isFavoriteState) 1f else 0.8f), // 아이콘 색상 흰색 계열
-                modifier = Modifier.size(20.dp).scale(favoriteIconScale)
-            )
-        }
+        // 좋아요 버튼 섹션이 제거되었습니다.
 
         Box( /* ... 확장/축소 핸들, 기존 코드와 동일 ... */
             modifier = Modifier
@@ -580,8 +552,8 @@ fun ModernRecipeCard( // 함수 이름은 사용자의 파일에 있는 ModernRe
                     .align(Alignment.BottomEnd)
                     .padding(end = 16.dp, bottom = 16.dp)
                     .background(
-                        brush = Brush.horizontalGradient( // 이 부분은 테마 색상 유지 또는 원래 디자인의 특정 색상으로 변경 가능
-                            colors = listOf(primaryGradientStart, primaryGradientEnd.copy(alpha = 0.8f)) // 예시: 원래 카드에 있던 그라디언트 사용
+                        brush = Brush.horizontalGradient( // 이 부분은 테마 색상 유지 또는 원래 카드에 있던 그라디언트 사용
+                            colors = listOf(primaryGradientStart, primaryGradientEnd.copy(alpha = 0.8f))
                         ),
                         shape = RoundedCornerShape(12.dp)
                     )
