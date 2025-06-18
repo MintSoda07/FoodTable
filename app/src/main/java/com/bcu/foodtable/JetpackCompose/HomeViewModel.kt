@@ -28,6 +28,7 @@ class HomeViewModel(
     private val aiService: AIRecommendationService? = null,
     private val timeManager: TimeBasedRecommendationManager? = null
 ) : ViewModel() {
+    private val auth = FirebaseAuth.getInstance()
 
     private val _recipes = MutableStateFlow<List<RecipeItem>>(emptyList())
     val recipes: StateFlow<List<RecipeItem>> = _recipes
@@ -79,6 +80,13 @@ class HomeViewModel(
                     ?: emptyList()
                 _recipes.value = list
             }
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            db.collection("user").document(uid)
+                .addSnapshotListener { snap, _ ->
+                    snap?.toObject(User::class.java)?.let { _user.value = it }
+                }
+        }
     }
 
 
