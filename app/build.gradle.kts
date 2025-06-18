@@ -77,6 +77,10 @@ dependencies {
 
     // 3) Firebase Functions (BoM에 포함되지 않으므로 별도 선언)
     implementation("com.google.firebase:firebase-functions-ktx:20.3.1")
+    
+    // 통계
+    implementation("com.github.tehras:charts:0.2.4-alpha")
+    
     // 기타 유틸
     implementation(libs.glide)
     implementation(libs.gson)

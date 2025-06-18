@@ -154,6 +154,7 @@ import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Social.UserProfileScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
+import com.bcu.foodtable.JetpackCompose.Subscribe.ChannelManagementScreen
 import com.bcu.foodtable.ui.ChallengeScreen
 import com.bcu.foodtable.ui.rank.RankScreenImproved
 import com.bcu.foodtable.viewmodel.ChallengeViewModel
@@ -1262,6 +1263,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable(
+                route = "channel_management/{channelName}",
+                arguments = listOf(navArgument("channelName") { defaultValue = "DefaultChannel" })
+            ) { backStackEntry ->
+                val channelName = backStackEntry.arguments?.getString("channelName") ?: "DefaultChannel"
+                ChannelManagementScreen(channelName)
+            }
             composable(
                 route ="ranklist"
             ){

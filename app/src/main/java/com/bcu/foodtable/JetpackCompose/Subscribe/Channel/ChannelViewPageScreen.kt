@@ -2,6 +2,7 @@ package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -142,9 +143,10 @@ fun ChannelViewPageScreen(
                     if (userId == channel!!.owner) {
                         item {
                             OwnerActionSection(
-                                isOwner        = true,
-                                onCreateRecipe = { navController.navigate("write/${channel!!.name}") },
-                                onEditChannel  = { navController.navigate("editChannel/${channel!!.name}") },
+                                isOwner        = (userId == channel!!.owner),
+                                channelName    = channel!!.name,
+                                navController  = navController,
+                                onCreateRecipe = { navController.navigate("write/${Uri.encode(channel!!.name)}") },
                                 modifier       = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 4.dp)
@@ -360,30 +362,35 @@ fun ProfileSection(
 @Composable
 fun OwnerActionSection(
     isOwner: Boolean,
+    channelName: String,
+    navController: NavHostController,
     onCreateRecipe: () -> Unit,
-    onEditChannel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (!isOwner) return
+
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier              = modifier
+        modifier = modifier
     ) {
         OutlinedButton(
             onClick = onCreateRecipe,
-            border  = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-            shape   = RoundedCornerShape(20.dp),
-            modifier= Modifier.weight(1f)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.weight(1f)
         ) {
             Icon(Icons.Default.Add, contentDescription = null)
             Spacer(Modifier.width(4.dp))
             Text("레시피 생성")
         }
         OutlinedButton(
-            onClick = onEditChannel,
-            border  = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
-            shape   = RoundedCornerShape(20.dp),
-            modifier= Modifier.weight(1f)
+            onClick = {
+                // channelName을 넘겨서 채널 관리 화면으로 이동
+                navController.navigate("channel_management/${Uri.encode(channelName)}")
+            },
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.weight(1f)
         ) {
             Icon(Icons.Default.Edit, contentDescription = null)
             Spacer(Modifier.width(4.dp))
@@ -391,6 +398,7 @@ fun OwnerActionSection(
         }
     }
 }
+
 
 @Composable
 fun TabSection(
