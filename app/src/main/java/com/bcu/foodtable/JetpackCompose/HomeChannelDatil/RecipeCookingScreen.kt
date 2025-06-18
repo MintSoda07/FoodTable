@@ -139,11 +139,23 @@ fun RecipeCookingScreen(
 
     var userImageUriForAiEval by remember { mutableStateOf<Uri?>(null) }
 
+    // TTS 초기화
     val tts = remember {
-        TextToSpeech(context, null).apply {
+        TextToSpeech(context) {
+            it == TextToSpeech.SUCCESS
+        }.apply {
             language = Locale.KOREAN
         }
     }
+
+    // 화면이 사라질 때 TTS 정리
+    DisposableEffect(tts) {
+        onDispose {
+            tts.stop()
+            tts.shutdown()
+        }
+    }
+
     var userImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val pickImageLauncherForAiEval = rememberLauncherForActivityResult(
