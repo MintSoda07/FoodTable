@@ -38,7 +38,6 @@ fun AddIngredientScreen(
     navController: NavController,
     section: String
 ) {
-    // --- 기존 로직은 그대로 유지합니다 ---
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var expireDate by remember { mutableStateOf("") }
@@ -59,7 +58,6 @@ fun AddIngredientScreen(
         )
     }
 
-    // --- 여기부터 UI 디자인을 업그레이드합니다 ---
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -70,37 +68,48 @@ fun AddIngredientScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onErrorContainer
                 )
             )
         },
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // 하단 저장 버튼
-            Button(
-                onClick = {
-                    val quantityInt = quantity.toIntOrNull()
-                    if (name.isNotBlank() && quantityInt != null && quantityInt > 0 && expireDate.isNotBlank()) {
-                        val item = Ingredient(
-                            id = UUID.randomUUID().toString(),
-                            name = name,
-                            quantity = quantity.toInt(),
-                            expireDate = expireDate,
-                            section = section
-                        )
-                        viewModel.addIngredient(item, section) {
-                            navController.popBackStack()
-                        }
-                    } else {
-                        Toast.makeText(context, "모든 정보를 올바르게 입력해주세요.", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 64.dp)
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.surface
             ) {
-                Text("저장하기", style = MaterialTheme.typography.titleMedium)
+                Button(
+                    onClick = {
+                        val quantityInt = quantity.toIntOrNull()
+                        if (name.isNotBlank() && quantityInt != null && quantityInt > 0 && expireDate.isNotBlank()) {
+                            val item = Ingredient(
+                                id = UUID.randomUUID().toString(),
+                                name = name,
+                                quantity = quantity.toInt(),
+                                expireDate = expireDate,
+                                section = section
+                            )
+                            viewModel.addIngredient(item, section) {
+                                navController.popBackStack()
+                            }
+                        } else {
+                            Toast.makeText(context, "모든 정보를 올바르게 입력해주세요.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 20.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("저장하기", style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
     ) { paddingValues ->
@@ -108,84 +117,85 @@ fun AddIngredientScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Spacer(Modifier.height(16.dp))
             Text(
                 text = "어떤 재료를 추가할까요?",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
             Text(
-                text = "냉장고의 '$section' 섹션에 추가됩니다.",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "'$section' 섹션에 새로운 재료를 등록합니다.",
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(Modifier.height(16.dp))
 
-            // 재료명 입력
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("재료명") },
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.RestaurantMenu, contentDescription = "재료명")
-                },
-                singleLine = true
-            )
-
-            // 수량 입력
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { if (it.all(Char::isDigit)) quantity = it },
-                label = { Text("수량") },
-                keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.Numbers, contentDescription = "수량")
-                },
-                singleLine = true
-            )
-
-            // 유통기한 선택
-
-            Box(
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                OutlinedTextField(
-                    value = expireDate,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("유통기한") },
-                    modifier = Modifier
-                        .fillMaxWidth(),
-                    leadingIcon = {
-                        Icon(Icons.Default.CalendarToday, contentDescription = "유통기한")
-                    },
-                    trailingIcon = {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("재료명") },
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.RestaurantMenu, contentDescription = null) },
+                        singleLine = true,
+                        colors = outlinedTextFieldColors()
+                    )
+
+                    OutlinedTextField(
+                        value = quantity,
+                        onValueChange = { if (it.all(Char::isDigit)) quantity = it },
+                        label = { Text("수량") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                        leadingIcon = { Icon(Icons.Default.Numbers, contentDescription = null) },
+                        singleLine = true,
+                        colors = outlinedTextFieldColors()
+                    )
+
+                    Box {
+                        OutlinedTextField(
+                            value = expireDate,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("유통기한") },
+                            modifier = Modifier.fillMaxWidth(),
+                            leadingIcon = { Icon(Icons.Default.CalendarToday, contentDescription = null) },
+                            trailingIcon = { Icon(Icons.Default.Edit, contentDescription = "날짜 선택") },
+                            colors = outlinedTextFieldColors()
+                        )
                         Box(
                             modifier = Modifier
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                                .padding(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                contentDescription = "날짜 선택",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
+                                .matchParentSize()
+                                .clickable { datePickerDialog.show() }
+                        )
                     }
-                )
-                // 투명 클릭 레이어
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(Color.Transparent)
-                        .clickable { datePickerDialog.show() }
-                )
+                }
             }
-
         }
     }
 }
+
+@Composable
+private fun outlinedTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.error,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+    focusedLabelColor = MaterialTheme.colorScheme.error,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedLeadingIconColor = MaterialTheme.colorScheme.error,
+    unfocusedLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    cursorColor = MaterialTheme.colorScheme.error
+)
