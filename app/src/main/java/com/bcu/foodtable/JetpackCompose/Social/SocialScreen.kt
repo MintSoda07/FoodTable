@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +96,7 @@ fun SocialScreen(navController: NavHostController) {
         listOf(
             WheelItem(Icons.Default.Forum, "커뮤니티") {
                 CommunityTab(
+                    navController = navController,
                     navToWrite = { navController.navigate("write") },
                     navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
                 )
@@ -427,6 +429,7 @@ private fun ScreenStub(name: String) {
 }
 @Composable
 fun CommunityTab(
+    navController: NavController,
     navToWrite: () -> Unit = {},
     navToDetail: (CommunityPost) -> Unit = {}
 ) {
@@ -435,7 +438,16 @@ fun CommunityTab(
     var sortOption by rememberSaveable { mutableStateOf("조회순") }
     var posts by remember { mutableStateOf<List<CommunityPost>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    LaunchedEffect(selectedTab, sortOption) {
+
+    val shouldRefresh = navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getLiveData<Boolean>("refresh_community")
+        ?.observeAsState()
+
+    LaunchedEffect(selectedTab, sortOption, shouldRefresh?.value) {
+        if (shouldRefresh?.value == true) {
+            navController.currentBackStackEntry?.savedStateHandle?.set("refresh_community", false)
+        }
         isLoading = true
         posts = loadPostsFromFirebase().filter { post ->
             when (selectedTab) {
@@ -645,7 +657,7 @@ fun WritePostScreen(
                                 isUploading = false
                                 if (success) {
                                     Toast.makeText(context, "게시글이 작성되었습니다!", Toast.LENGTH_SHORT).show()
-                                    onPostCreated()
+                                    navController.previousBackStackEntry?.savedStateHandle?.set("refresh_community", true)
                                     navController.popBackStack()
                                 } else {
                                     Toast.makeText(context, "업로드 실패. 다시 시도해주세요.", Toast.LENGTH_SHORT).show()
