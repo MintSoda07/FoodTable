@@ -46,11 +46,9 @@ fun ChallengeScreenContent(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val tabTitles = listOf("🌞 일일 챌린지", "📅 주간 챌린지")
-    val saltColor = when {
-        salt >= 500 -> Color(0xFFFFD700)
-        salt >= 100 -> Color(0xFFFFF176)
-        else -> Color.White
-    }
+    // 소금 텍스트 색상을 검은색으로 변경하여 가독성 확보
+    val saltColor = Color.Black
+
     val saltScale by animateFloatAsState(
         targetValue = if (salt >= 500) 1.2f else 1f,
         animationSpec = tween(durationMillis = 500),
@@ -88,7 +86,7 @@ fun ChallengeScreenContent(
                         .align(Alignment.End)
                         .padding(end = 16.dp, bottom = 8.dp)
                         .scale(saltScale),
-                    color = saltColor,
+                    color = saltColor, // 변경된 색상 적용
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold
                 )
