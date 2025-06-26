@@ -1,6 +1,7 @@
 package com.bcu.foodtable.JetpackCompose.Subscribe.Channel
 
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import coil.compose.AsyncImage
 import com.bcu.foodtable.useful.FireStoreHelper
 import com.bcu.foodtable.useful.RecipeItem
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import java.util.*
@@ -621,6 +623,26 @@ fun WriteScreen(channelName: String, onSuccess: () -> Unit) {
                         recipe.id = ref.id
                         ref.set(recipe).addOnSuccessListener {
                             Toast.makeText(context, "레시피 업로드 완료", Toast.LENGTH_SHORT).show()
+                            // ───── 추가 시작 ─────
+                            // 현재 로그인한 유저의 UID 를 가져와서
+                            FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+                                // users 컬렉션 → uid 도큐먼트 → purchased 서브컬렉션 → recipeId 문서
+                                FirebaseFirestore.getInstance()
+                                    .collection("user")
+                                    .document(uid)
+                                    .collection("purchased")
+                                    .document(ref.id)
+                                    .set(mapOf("purchased" to true))
+                                    .addOnSuccessListener {
+                                        Log.d("WriteScreen","Purchased flag set for recipe ${ref.id}")
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e("WriteScreen","Failed to set purchased flag", e)
+                                    }
+                            }
+                            // ───── 추가 끝 ─────
+
+                            // ───── 추가 끝 ─────
                             onSuccess()
                         }.addOnFailureListener {
                             Toast.makeText(context, "레시피 업로드 실패", Toast.LENGTH_SHORT).show()

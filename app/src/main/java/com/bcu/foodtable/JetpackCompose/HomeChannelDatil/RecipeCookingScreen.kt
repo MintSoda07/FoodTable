@@ -618,7 +618,20 @@ fun RecipeCookingScreen(
                 CookingStepCard(
                     index = index,
                     step = step,
-                    onNext = { goToNextStepWithoutTTS() },
+                    onNext = { goToNextStepWithoutTTS()
+
+                        // 1) 음성 모드(isListening)가 켜져 있을 때만 TTS 읽기
+                        if (isListening.value) {
+                            steps.getOrNull(currentIndex)?.let { nextStep ->
+                                tts.speak(
+                                    nextStep.text,
+                                    TextToSpeech.QUEUE_FLUSH,
+                                    null,
+                                    "manual_next"
+                                )
+                            }
+                        }
+                        },
                     onRepeat = { repeatStep() }
                 )
             }
@@ -690,6 +703,7 @@ fun RecipeCookingScreen(
                             }
                         } else {
                             voiceController.stop()
+                            tts.stop()
                             isListening.value = false
                         }
                     },

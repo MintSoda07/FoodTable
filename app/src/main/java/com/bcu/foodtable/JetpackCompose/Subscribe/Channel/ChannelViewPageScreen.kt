@@ -536,8 +536,12 @@ fun RecipeGridItem(
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.width(4.dp))
+
                 Text(
-                    text  = if (isPurchased) "구매됨" else "${recipe.cost}원",
+                    text = if (!isMine && isPurchased)  // ← 내 레시피가 아니고, 구매된 경우만
+                        "구매됨"
+                    else
+                        "${recipe.cost}원",        // 그 외에는 모두 가격 표시
                     style = MaterialTheme.typography.labelSmall
                 )
             }
