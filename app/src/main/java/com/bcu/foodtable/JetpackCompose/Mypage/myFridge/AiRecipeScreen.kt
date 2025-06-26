@@ -298,18 +298,10 @@ fun AiRecipeScreen(
                                     ),
                                     modifier = Modifier.padding(bottom = 12.dp)
                                 )
-                                steps.forEachIndexed { i, s ->
-                                    Row(
-                                        modifier = Modifier.padding(bottom = 8.dp),
-                                        verticalAlignment = Alignment.Top
-                                    ) {
-                                        Text(
-                                            text = "${i + 1}.",
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.padding(end = 8.dp)
-                                        )
+                                steps.forEach { s ->
+                                    Row(modifier = Modifier.padding(bottom = 8.dp)) {
+                                        // Text(text = "") 혹은 아예 이 줄 제거
+                                        Spacer(modifier = Modifier.width(0.dp))
                                         Text(
                                             text = s.trim(),
                                             style = MaterialTheme.typography.bodyLarge.copy(

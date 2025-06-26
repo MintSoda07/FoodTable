@@ -96,7 +96,7 @@ fun AddIngredientScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(start = 16.dp, end = 16.dp, bottom = 64.dp)
                     .height(52.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {

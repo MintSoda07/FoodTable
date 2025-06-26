@@ -557,7 +557,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp),
+                .padding(end = 40.dp, bottom = 50.dp),
             containerColor = Color(0xFF2196F3),
             contentColor = Color.White
         ) {
