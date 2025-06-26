@@ -1388,6 +1388,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
             composable("community") {
                 CommunityTab(
+                    navController = navController,
                     navToWrite = { navController.navigate("write") },
                     navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
                 )
