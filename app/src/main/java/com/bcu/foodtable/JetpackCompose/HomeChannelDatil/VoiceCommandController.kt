@@ -219,17 +219,13 @@ class VoiceCommandController(
             return
         }
         // “타이머” 또는 “시간” 또는 “재줘” 또는 “시작” 또는 “돌려” 또는 “켜줘” 또는 “틀어줘” 또는 “돌려줘” 또는 “때려줘” → 타이머 시작
-        if (timer != null && (
-                    "타이머" in local ||
-                            "시간" in local ||
-                            "재줘" in local ||
-                            "시작" in local ||
-                            "돌려" in local ||
-                            "켜줘" in local ||
-                            "틀어줘" in local ||
-                            "돌려줘" in local ||
-                            "때려줘" in local
-                    )) {
+
+        if (timer != null
+            && "타이머" in local
+
+            && listOf("시작","켜줘","틀어줘","돌려","재줘").any { it in local }
+            ) {
+            if (timer.isRunning) return
             // 1) 현재 듣기만 멈춥니다
             speechRecognizer?.stopListening()
 
@@ -279,8 +275,9 @@ class VoiceCommandController(
 
         if (keyword != null) {
             if (keyword == CommandType.STOP) {
-                // 음성 인식 즉시 중지
-                stop()
+                // ▶ stop() 제거: 내부에서 직접 멈추지 않습니다.
+                onCommand(CommandType.STOP)
+                return
             }
             onCommand(keyword)
             return

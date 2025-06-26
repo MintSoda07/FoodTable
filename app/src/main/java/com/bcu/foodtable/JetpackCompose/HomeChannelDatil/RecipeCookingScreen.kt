@@ -116,6 +116,7 @@ fun RecipeCookingScreen(
     // 1) ViewModel 인스턴스 얻기
     val calorieVm: RecipeCalorieViewModel = viewModel()
 
+
     // 2) 레시피 ID가 바뀔 때마다(처음 진입 포함) 칼로리 로드/추정 요청
     LaunchedEffect(recipe.id, recipe.ingredients, recipe.order) {
         calorieVm.loadOrEstimateCalories(recipe)
@@ -148,13 +149,7 @@ fun RecipeCookingScreen(
         }
     }
 
-    // 화면이 사라질 때 TTS 정리
-    DisposableEffect(tts) {
-        onDispose {
-            tts.stop()
-            tts.shutdown()
-        }
-    }
+
 
     var userImageUri by remember { mutableStateOf<Uri?>(null) }
 
@@ -252,7 +247,17 @@ fun RecipeCookingScreen(
     LaunchedEffect(currentIndex, steps) {
         voiceController.stepTimerState = steps.getOrNull(currentIndex)?.timerState
     }
-
+    LaunchedEffect(isFinished) {
+        if (isFinished) {
+            // TTS 멈추기
+            tts.stop()
+            // 음성 인식이 켜져 있으면 같이 중단
+            if (isListening.value) {
+                voiceController.stop()
+                isListening.value = false
+            }
+        }
+    }
 
     // onCommand 핸들러 등록
     LaunchedEffect(Unit) {
@@ -303,7 +308,11 @@ fun RecipeCookingScreen(
                 voiceController.stop()
                 isListening.value = false
             }
+            // (추가) TTS 정지 및 해제
+            tts.stop()
+            tts.shutdown()
         }
+
     }
 
 

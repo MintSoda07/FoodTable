@@ -14,8 +14,20 @@ class StepTimerState(durationMillis: Long) {
     private var isPaused = false
     private var job: Job? = null
 
+    // ← 추가: 외부에서 읽을 수 있는 읽기 전용 플래그
+    var isRunning by mutableStateOf(false)
+        private set
     fun start(onFinish: () -> Unit) {
+        // 이미 돌고 있으면 재시작하지 않음
+        if (isRunning) return
+
+        // 1) 플래그 세팅
+        isRunning = true
+
+        // 2) 이전 잡 취소
         job?.cancel()
+
+        // 3) 카운트다운 시작
         job = scope.launch {
             while (_remainingTime.value > 0) {
                 if (!isPaused) {
@@ -25,7 +37,10 @@ class StepTimerState(durationMillis: Long) {
                     delay(100L)
                 }
             }
+            // 4) 종료 플래그 해제 전에 콜백
             onFinish()
+            // 5) 플래그 해제
+            isRunning = false
         }
     }
 
