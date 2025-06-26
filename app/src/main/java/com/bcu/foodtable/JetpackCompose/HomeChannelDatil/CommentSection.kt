@@ -31,11 +31,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.bcu.foodtable.RecipeViewActivity
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 
+// 댓글 데이터 모델
+data class Comment(
+    val text: String = "",
+    val timestamp: Long = 0L,
+    val userId: String = "", // 사용자 ID 추가
+    val userName: String = "", // 사용자 이름 추가
+    val userProfileImage: String = "" // 사용자 프로필 사진 URL 추가
+)
 @Composable
 fun CommentSection(
     recipeId: String,
@@ -45,7 +52,7 @@ fun CommentSection(
     val db = FirebaseFirestore.getInstance()
 
     var commentText by remember { mutableStateOf("") }
-    var commentList by remember { mutableStateOf<List<RecipeViewActivity.Comment>>(emptyList()) }
+    var commentList by remember { mutableStateOf<List<Comment>>(emptyList()) }
 
     // 댓글 실시간 로딩
     LaunchedEffect(recipeId) {
@@ -56,7 +63,7 @@ fun CommentSection(
             .addSnapshotListener { snapshot, e ->
                 if (e == null && snapshot != null) {
                     commentList = snapshot.documents.mapNotNull {
-                        it.toObject(RecipeViewActivity.Comment::class.java)
+                        it.toObject(Comment::class.java)
                     }
                 }
             }
@@ -104,7 +111,7 @@ fun CommentSection(
                     onClick = {
                         val user = UserManager.getUser()
                         if (commentText.isNotBlank() && user != null) {
-                            val comment = RecipeViewActivity.Comment(
+                            val comment = Comment(
                                 text = commentText,
                                 timestamp = System.currentTimeMillis(),
                                 userId = user.uid,
@@ -138,7 +145,7 @@ fun CommentSection(
 }
 
 @Composable
-fun CommentItem(comment: RecipeViewActivity.Comment) {
+fun CommentItem(comment: Comment) {
     Card(
         modifier = Modifier
             .fillMaxWidth(),

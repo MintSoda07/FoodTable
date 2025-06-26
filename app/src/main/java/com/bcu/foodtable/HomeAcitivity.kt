@@ -1,14 +1,17 @@
 package com.bcu.foodtable
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 import com.bcu.foodtable.ui.home.FoodTableTheme
 import com.bcu.foodtable.ui.home.HomeScreen
 import com.bcu.foodtable.di.DependencyProvider
 
 class HomeActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

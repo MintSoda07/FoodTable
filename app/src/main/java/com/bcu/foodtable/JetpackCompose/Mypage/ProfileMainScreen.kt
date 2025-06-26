@@ -26,7 +26,6 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import com.bcu.foodtable.R
-import com.bcu.foodtable.ui.health.HealthConnectActivity
 import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)

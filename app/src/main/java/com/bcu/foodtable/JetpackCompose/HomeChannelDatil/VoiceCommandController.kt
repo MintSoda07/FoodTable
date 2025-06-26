@@ -20,9 +20,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.ApiKey
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.util.*
 
 class VoiceCommandController(

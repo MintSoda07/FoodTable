@@ -69,10 +69,10 @@ class HealthConnectViewModel : ViewModel() {
                 val startOfDay = LocalDateTime.of(now.toLocalDate(), LocalTime.MIDNIGHT)
                 val startTime = startOfDay.atZone(ZoneId.systemDefault()).toInstant()
                 val endTime = now.atZone(ZoneId.systemDefault()).toInstant()
-                val steps = 25000L
-//                val steps = client.readRecords(
-//                    ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startTime, endTime))
-//                ).records.sumOf { it.count }
+
+                val steps = client.readRecords(
+                    ReadRecordsRequest(StepsRecord::class, TimeRangeFilter.between(startTime, endTime))
+                ).records.sumOf { it.count }
 
                 val totalCalories = client.readRecords(
                     ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(startTime, endTime))
