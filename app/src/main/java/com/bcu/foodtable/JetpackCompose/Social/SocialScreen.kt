@@ -207,8 +207,13 @@ fun DynamicRadialWheel(
     if (items.isEmpty()) return
 
     val density = LocalDensity.current
-    val itemSizePx = with(density) { itemSize.toPx() }
-    val actualExpandedRadiusPx = with(density) { (expandedWheelDiameter / 2 - itemSize / 2).coerceAtLeast(itemSize + 8.dp).toPx() }
+    val itemContainerSize = itemSize + 24.dp // 아이콘과 라벨을 포함하는 전체 크기
+    val itemContainerSizePx = with(density) { itemContainerSize.toPx() }
+
+    // 아이템이 1.2배 스케일될 것을 대비하여 실제 확장 반경을 계산합니다.
+    val actualExpandedRadiusPx = with(density) {
+        (expandedWheelDiameter / 2 - (itemContainerSize * 1.2f / 2)).coerceAtLeast(itemContainerSize + 8.dp).toPx()
+    }
 
     val sliceAngle = 360f / items.size
     var expanded by remember { mutableStateOf(false) }
@@ -319,14 +324,14 @@ fun DynamicRadialWheel(
                     Column(
                         modifier = Modifier
                             .graphicsLayer {
-                                translationX = itemX - (itemSizePx / 2f)
-                                translationY = itemY - (itemSizePx / 2f)
+                                translationX = itemX - (itemContainerSizePx / 2f)
+                                translationY = itemY - (itemContainerSizePx / 2f)
                                 this.alpha = itemAlpha
                                 scaleX = itemScale
                                 scaleY = itemScale
                                 rotationZ = itemRotationZ
                             }
-                            .size(itemSize + 24.dp)
+                            .size(itemContainerSize)
                             .clickable(enabled = expanded) {
                                 if (!isDragging) {
                                     currentRotationAngle = (270f - sliceAngle * index).mod(360f)
