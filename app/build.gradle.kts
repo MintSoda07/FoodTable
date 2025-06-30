@@ -115,6 +115,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+    implementation(libs.play.services.mlkit.text.recognition.common)
     // CameraX 라이브러리 (카메라 제어 기능)
     val cameraxVersion = "1.3.4" // 최신 안정화 버전
     implementation("androidx.camera:camera-core:${cameraxVersion}")
@@ -159,4 +160,10 @@ dependencies {
     // 현재 위치
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
     implementation ("com.google.android.gms:play-services-location:21.0.1")
+
+    // 영수증 관련
+    implementation ("com.google.mlkit:text-recognition:16.0.1")
+    implementation ("com.google.mlkit:text-recognition-korean:16.0.1")
+    implementation ("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
+
 }
