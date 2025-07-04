@@ -126,46 +126,51 @@ fun AddIngredientScreen(
     // ② Document Scanner 클라이언트
     val documentScanner = GmsDocumentScanning.getClient(scannerOptions)
 
+
+    // ③ IntentSender 런처
     val docScanLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
-            val pageUri = scanResult
+            // ML Kit 대신 Clova OCR 호출로 대체
+            val pages = GmsDocumentScanningResult
+                .fromActivityResultIntent(result.data)
                 ?.pages
-                ?.firstOrNull()
-                ?.getImageUri()
+                .orEmpty()
 
-            pageUri?.let { uri ->
-                // 1) Uri → Bitmap
-                val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                // 2) Base64
-                val base64 = encodeImageToBase64(bitmap)
-                // 3) Clova OCR
+            val firstUri = pages.firstOrNull()?.getImageUri()
+            if (firstUri != null) {
+                // 이미지 → Base64 변환
+                val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, firstUri)
+                val base64Image = encodeImageToBase64(bitmap)
+
+                // Clova OCR 직접 호출
                 viewModel.sendToClovaOCR(
-                    base64Image = base64,
+                    base64Image = base64Image,
                     onSuccess = { extractedText ->
-                        // 4) AI로 재료+수량 추출
                         viewModel.extractIngredientsWithQuantityUsingAI(
                             ocrText = extractedText,
                             onResult = { aiIngredients ->
-                                scannedIngredients = aiIngredients
+                                if (aiIngredients.isEmpty()) {
+                                    Toast.makeText(context, "AI가 유효한 재료를 찾지 못했습니다.", Toast.LENGTH_LONG).show()
+                                } else {
+                                    scannedIngredients = aiIngredients
+                                }
                             },
-                            onError = { err ->
-                                Toast.makeText(context, "AI 오류: $err", Toast.LENGTH_LONG).show()
+                            onError = { errMsg ->
+                                Toast.makeText(context, "AI 호출 실패: $errMsg", Toast.LENGTH_LONG).show()
                             }
                         )
                     },
-                    onError = { err ->
-                        Toast.makeText(context, "Clova OCR 오류: $err", Toast.LENGTH_LONG).show()
+                    onError = { errorMsg ->
+                        Toast.makeText(context, "Clova OCR 실패: $errorMsg", Toast.LENGTH_LONG).show()
                     }
                 )
-            } ?: run {
+            } else {
                 Toast.makeText(context, "유효한 스캔 결과가 없습니다.", Toast.LENGTH_LONG).show()
             }
         }
     }
-
 
     // 갤러리에서도 OCR 할 거면 기존 galleryLauncher 유지
     val galleryLauncher = rememberLauncherForActivityResult(

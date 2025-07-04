@@ -29,6 +29,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.net.URLEncoder
 import java.util.UUID
 
 
@@ -186,9 +187,16 @@ $ocrText
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
-        val client = OkHttpClient()
+        // 1) 자동연동 패널에서 복사해 온 두 값
+        val invokeUrl = "https://2anj6lfuqb.apigw.ntruss.com/custom/v1/43752"
+        val signature = "deb068eed76ffce2572f356a69cb8fc8f2b0eda008f48d9d2cb0502c0f11bc45" // 반드시 콘솔에서 복사
+        val model = "general"
 
-        // 1) JSON 페이로드 구성
+        // 2) 절대로 URL 인코딩하지 않고, 그대로 연결
+        val url = "$invokeUrl/$signature/$model"
+        Log.d("ClovaOCR", "Final URL = $url")
+
+        // 3) V2 JSON 페이로드
         val json = JSONObject().apply {
             put("version", "V2")
             put("requestId", UUID.randomUUID().toString())
@@ -200,65 +208,34 @@ $ocrText
                     put("data", base64Image)
                 })
             })
-        }
-        Log.d("ClovaOCR", "페이로드 준비: ${json.toString().take(200)}...")
+        }.toString()
+        Log.d("ClovaOCR", "Payload = ${json.take(200)}...")
 
-        // 2) 요청 빌드
-        val url = "https://clovaocr-api-kr.ncloud.com/external/v1/43752/deb068eed76ffce2572f356a69cb8fc8f2b0eda008f48d9d2cb0502c0f11bc45"
-        val secret = "enNXc0d3SGh5ZEtQWHVPQUVwT2d2UFhHcXNJa3p0Z2E="
+        // 4) 요청 빌드 (헤더는 Content-Type: application/json 만)
         val request = Request.Builder()
             .url(url)
             .addHeader("Content-Type", "application/json")
-            .addHeader("X-OCR-SECRET", secret)
-            .post(RequestBody.create("application/json".toMediaType(), json.toString()))
+            .addHeader("X-OCR-SECRET", "QmVwZ3diYldwQlJZak9ObWdkVGdXWnF1dWt6VUJkYnQ=")  // <— 여기에 Base64 형식 Secret Key 입력
+            .post(RequestBody.create("application/json".toMediaType(), json))
             .build()
-        Log.d("ClovaOCR", "요청 생성: URL=$url, SECRET=${secret.takeLast(4).padStart(secret.length, '*')}")
 
-        // 3) 네트워크 호출
-        client.newCall(request).enqueue(object : Callback {
+        OkHttpClient().newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("ClovaOCR", "네트워크 호출 실패", e)
+                Log.e("ClovaOCR", "Network error", e)
                 Handler(Looper.getMainLooper()).post {
                     onError("네트워크 오류: ${e.message}")
                 }
             }
-
             override fun onResponse(call: Call, response: Response) {
-                Log.d("ClovaOCR", "응답 도착: code=${response.code}")
-                val body = response.body?.string()
-                Log.d("ClovaOCR", "응답 바디: ${body?.take(500)}")
-
-                if (!response.isSuccessful || body == null) {
-                    Log.e("ClovaOCR", "비정상 응답: code=${response.code}")
-                    Handler(Looper.getMainLooper()).post {
-                        onError("응답 실패: ${response.code}")
-                    }
-                    return
-                }
-
-                try {
-                    Log.d("ClovaOCR", "파싱 시작")
-                    val images = JSONObject(body).getJSONArray("images")
-                    val fields = images.getJSONObject(0).getJSONArray("fields")
-                    val lines = List(fields.length()) { i ->
-                        fields.getJSONObject(i).getString("inferText")
-                    }
-                    val text = lines.joinToString("\n")
-                    Log.d("ClovaOCR", "파싱 완료, 텍스트 길이=${text.length}")
-                    Handler(Looper.getMainLooper()).post {
-                        onSuccess(text)
-                    }
-                } catch (e: Exception) {
-                    Log.e("ClovaOCR", "파싱 중 오류", e)
-                    Handler(Looper.getMainLooper()).post {
-                        onError("파싱 오류: ${e.message}")
-                    }
+                val body = response.body?.string().orEmpty()
+                Log.d("ClovaOCR", "code=${response.code}, body=${body.take(200)}...")
+                Handler(Looper.getMainLooper()).post {
+                    if (response.isSuccessful) onSuccess(body)
+                    else onError("응답 실패 ${response.code}: $body")
                 }
             }
         })
     }
-
-
 
 
 
