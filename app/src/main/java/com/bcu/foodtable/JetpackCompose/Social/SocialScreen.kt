@@ -108,8 +108,9 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
             //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
             WheelItem(Icons.Default.Map, "맛집도")   {
-                // 이제 여기서는 단순히 지도를 렌더링만
-                RestaurantV2MapScreen(modifier = Modifier.fillMaxSize())
+                RestaurantMapWithDrawerAndFab(
+                )
+                //RestaurantV2MapScreen(modifier = Modifier.fillMaxSize())
             },
         )
     }
