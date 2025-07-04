@@ -107,6 +107,7 @@
         android:screenOrientation="portrait"
         android:supportsRtl="true"
         android:theme="@style/Theme.FoodTable"
+        android:networkSecurityConfig="@xml/network_security_config"
         tools:ignore="DiscouragedApi"
         tools:targetApi="35"
         >

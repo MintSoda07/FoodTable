@@ -58,34 +58,46 @@ fun AddIngredientScreen(
 
 
     // OCR 스캔된 이름 임시 저장(null 이면 다이얼로그 미표시)
-    var scannedNames by remember { mutableStateOf<List<String>?>(null) }
+    var scannedIngredients by remember { mutableStateOf<List<IngredientExtracted>?>(null) }
 
     // OCR 텍스트를 재료명 리스트로 걸러내는 로직
-    fun handleOcrResult(text: String) {
-        val allLines = text.lines().map { it.trim() }
-        val delim = Regex("^-{3,}\$")
-        val idxs = allLines.mapIndexedNotNull { i, line ->
-            i.takeIf { delim.matches(line) }
-        }
-        val segment = if (idxs.size >= 2) {
-            allLines.subList(idxs.first() + 1, idxs[1])
-        } else allLines
+//    fun handleOcrResult(text: String) {
+//        // 1) 줄 단위로 분리
+//        val lines = text.lines().map { it.trim() }
+//
+//        // 2) “수량 금액 상품” 헤더 찾기
+//        val headerIdx = lines.indexOfFirst {
+//            it.contains("수량") && it.contains("금액") && it.contains("상품")
+//        }
+//        if (headerIdx == -1) {
+//            Toast.makeText(context, "항목 헤더를 찾지 못했습니다.", Toast.LENGTH_LONG).show()
+//            return
+//        }
+//
+//        // 3) 헤더 아래부터 패턴 매칭
+//        val itemPattern = Regex("""^(.+?)\s+\d+\s+[\d,]+$""")
+//        val blacklist = setOf("선택안함", "합계", "판매금액", "부가", "신용승인")
+//        val items = mutableListOf<String>()
+//
+//        for (i in headerIdx + 1 until lines.size) {
+//            val line = lines[i]
+//            // 빈 줄이거나 블랙리스트 키워드로 시작하면 끝
+//            if (line.isBlank() || blacklist.any { line.startsWith(it) }) break
+//
+//            itemPattern.find(line)?.let { m ->
+//                val name = m.groupValues[1]
+//                items += name
+//            }
+//        }
+//
+//        val unique = items.distinct()
+//        if (unique.isEmpty()) {
+//            Toast.makeText(context, "유효한 재료명을 찾지 못했습니다.", Toast.LENGTH_LONG).show()
+//        } else {
+//            scannedNames = unique
+//        }
+//    }
 
-        val blacklist = listOf("전화번호","홈페이지","매출전표","승인","상품명","금액","가격","이름")
-        val ingredients = segment
-            .filter { line ->
-                line.matches(Regex("^[가-힣 ]{2,12}\$"))
-                        && !line.contains(Regex("\\d"))
-                        && blacklist.none { blk -> line.contains(blk) }
-            }
-            .distinct()
-
-        if (ingredients.isEmpty()) {
-            Toast.makeText(context, "유효한 재료를 찾지 못했습니다.", Toast.LENGTH_LONG).show()
-        } else {
-            scannedNames = ingredients
-        }
-    }
     val recognizer = TextRecognition
         .getClient(KoreanTextRecognizerOptions.Builder().build())
 
@@ -114,50 +126,80 @@ fun AddIngredientScreen(
     // ② Document Scanner 클라이언트
     val documentScanner = GmsDocumentScanning.getClient(scannerOptions)
 
-    // ③ IntentSender 런처
     val docScanLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            // 스캔 결과 객체로부터 페이지 리스트 얻기
-            val scanResult = GmsDocumentScanningResult
-                .fromActivityResultIntent(result.data)
-            // 첫 페이지의 URI
-            val pageUri = GmsDocumentScanningResult
-                .fromActivityResultIntent(result.data)    // GmsDocumentScanningResult?
-                ?.pages                                   // List<Document>?
-                ?.firstOrNull()                           // Document?
-                ?.getImageUri()                           // Uri?
+            val scanResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+            val pageUri = scanResult
+                ?.pages
+                ?.firstOrNull()
+                ?.getImageUri()
+
             pageUri?.let { uri ->
-                // URI → InputImage → OCR
-                val bmpImage = InputImage.fromFilePath(context, uri)
-                recognizer.process(bmpImage)
-                    .addOnSuccessListener { visionText ->
-                        // handleOcrResult 내부 로직 호출
-                        handleOcrResult(visionText.text)
+                // 1) Uri → Bitmap
+                val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                // 2) Base64
+                val base64 = encodeImageToBase64(bitmap)
+                // 3) Clova OCR
+                viewModel.sendToClovaOCR(
+                    base64Image = base64,
+                    onSuccess = { extractedText ->
+                        // 4) AI로 재료+수량 추출
+                        viewModel.extractIngredientsWithQuantityUsingAI(
+                            ocrText = extractedText,
+                            onResult = { aiIngredients ->
+                                scannedIngredients = aiIngredients
+                            },
+                            onError = { err ->
+                                Toast.makeText(context, "AI 오류: $err", Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    },
+                    onError = { err ->
+                        Toast.makeText(context, "Clova OCR 오류: $err", Toast.LENGTH_LONG).show()
                     }
-                    .addOnFailureListener { e ->
-                        Toast.makeText(context, "OCR 실패: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+                )
             } ?: run {
                 Toast.makeText(context, "유효한 스캔 결과가 없습니다.", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    // ④ (Optional) 갤러리에서도 OCR 할 거면 기존 galleryLauncher 유지
+
+    // 갤러리에서도 OCR 할 거면 기존 galleryLauncher 유지
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            val img = InputImage.fromFilePath(context, it)
-            recognizer.process(img)
-                .addOnSuccessListener { handleOcrResult(it.text) }
-                .addOnFailureListener { e ->
-                    Toast.makeText(context, "OCR 실패: ${e.message}", Toast.LENGTH_LONG).show()
+            val bitmap = MediaStore.Images.Media.getBitmap(context.contentResolver, it)
+            val base64Image = encodeImageToBase64(bitmap)
+            viewModel.sendToClovaOCR(
+                base64Image = base64Image,
+                onSuccess = { extractedText ->
+                    viewModel.extractIngredientsWithQuantityUsingAI(
+                        ocrText = extractedText,
+                        onResult = { aiIngredients ->
+                            if (aiIngredients.isEmpty()) {
+                                Toast.makeText(context, "AI가 유효한 재료를 찾지 못했습니다.", Toast.LENGTH_LONG).show()
+                            } else {
+                                scannedIngredients = aiIngredients
+                            }
+                        },
+                        onError = { errMsg ->
+                            Toast.makeText(context, "AI 호출 실패: $errMsg", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                },
+                onError = { errorMsg ->
+                    Toast.makeText(context, "Clova OCR 실패: $errorMsg", Toast.LENGTH_LONG).show()
                 }
+            )
         }
     }
+
+
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -338,25 +380,27 @@ fun AddIngredientScreen(
         }
     }
     // ⑥ 스캔 결과 다이얼로그
-    scannedNames?.let { names ->
+    scannedIngredients?.let { ingredients ->
         AlertDialog(
-            onDismissRequest = { scannedNames = null },
-            title = { Text("스캔된 재료") },
+            onDismissRequest = { scannedIngredients = null },
+            title = { Text("스캔된 재료 및 수량") },
             text = {
                 Column {
                     Text("다음 재료들이 감지되었습니다:")
                     Spacer(Modifier.height(8.dp))
-                    names.forEach { nm -> Text("• $nm") }
+                    ingredients.forEach { ingredient ->
+                        Text("• ${ingredient.name} (${ingredient.quantity}개)")
+                    }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    names.forEach { nm ->
+                    ingredients.forEach { ingredient ->
                         viewModel.addIngredient(
                             Ingredient(
                                 id = UUID.randomUUID().toString(),
-                                name = nm,
-                                quantity = 1,
+                                name = ingredient.name,
+                                quantity = ingredient.quantity,
                                 expireDate = expireDate.ifBlank {
                                     LocalDate.now().plusDays(7).toString()
                                 },
@@ -364,16 +408,17 @@ fun AddIngredientScreen(
                             ), section
                         ){}
                     }
-                    Toast.makeText(context, "${names.size}개 추가됨", Toast.LENGTH_SHORT).show()
-                    scannedNames = null
+                    Toast.makeText(context, "${ingredients.size}개 추가됨", Toast.LENGTH_SHORT).show()
+                    scannedIngredients = null
                     navController.popBackStack()
                 }) { Text("확인") }
             },
             dismissButton = {
-                TextButton(onClick = { scannedNames = null }) { Text("취소") }
+                TextButton(onClick = { scannedIngredients = null }) { Text("취소") }
             }
         )
     }
+
 }
 @Composable
 private fun outlinedTextFieldColors() = OutlinedTextFieldDefaults.colors(
