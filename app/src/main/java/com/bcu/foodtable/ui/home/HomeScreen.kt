@@ -167,6 +167,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -1304,6 +1305,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ){
                 RankScreenImproved(navController)
             }
+            composable("map") { RestaurantMapWithDrawerAndFab() }
             composable(
                 route = "profile/{uid}",
                 arguments = listOf(navArgument("uid") {

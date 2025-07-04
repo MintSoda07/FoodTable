@@ -9,27 +9,48 @@ import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.ViewGroup
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.RateReview
+import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,6 +86,7 @@ import com.kakao.vectormap.camera.CameraUpdateFactory
 import com.kakao.vectormap.label.Label
 import com.kakao.vectormap.label.LabelOptions
 import com.kakao.vectormap.label.LabelStyle
+import kotlinx.coroutines.launch
 
 private const val TAG = "RestaurantV2Map"
 //
@@ -261,6 +283,7 @@ fun RestaurantV2MapScreen(
 
     // ③ 승인 여부에 따라 분기
     if (permissionState.status.isGranted) {
+
         MapWithTracking(modifier, viewModel)
     } else {
         Box(
@@ -753,6 +776,35 @@ private fun MapWithTracking(
                                     text = "위치: (%.5f, %.5f)".format(md.lat, md.lng),
                                     style = MaterialTheme.typography.labelSmall
                                 )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    // 찜하기 버튼
+                                    TextButton(onClick = { /* 찜하기 구현 */ }) {
+                                        Icon(Icons.Default.Favorite, contentDescription = "찜하기", tint = Color.Red)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("찜하기")
+                                    }
+                                    // 공유하기 버튼
+                                    TextButton(onClick = { /* 공유 구현 */ }) {
+                                        Icon(Icons.Default.Share, contentDescription = "공유")
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("공유")
+                                    }
+                                    // 메뉴 보기 버튼
+                                    TextButton(onClick = { /* 메뉴 보기 구현 */ }) {
+                                        Icon(Icons.Default.MenuBook, contentDescription = "메뉴")
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("메뉴")
+                                    }
+                                    // 후기 보기 버튼
+                                    TextButton(onClick = { /* 후기 보기 구현 */ }) {
+                                        Icon(Icons.Default.RateReview, contentDescription = "후기")
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("후기")
+                                    }
+                                }
                             }
                         },
                         confirmButton = {
@@ -769,6 +821,190 @@ private fun MapWithTracking(
         }
     }
 
+@Composable
+fun RestaurantMapWithDrawerAndFab(viewModel: MatzipViewModel = viewModel()) {
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerContent = {
+            DrawerContent(
+                favoriteList = viewModel.favoriteRestaurants,
+                onSearch = { viewModel.searchRestaurants(it) },
+                nearbyList = viewModel.nearbyRestaurants,
+                searchResults = viewModel.searchResults
+            )
+        },
+        drawerState = drawerState
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            RestaurantV2MapScreen(viewModel = viewModel)
+            FloatingActionButton(
+                onClick = { scope.launch { drawerState.open() } },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = 80.dp, end = 24.dp)
+            ) {
+                Icon(Icons.Default.Menu, contentDescription = "메뉴")
+            }
+        }
+    }
+}
+
+@Composable
+fun DrawerContent(
+    favoriteList: List<MatzipData>,
+    onSearch: (String) -> Unit,
+    nearbyList: List<MatzipData>,
+    searchResults: List<MatzipData>,
+    onItemClick: (MatzipData) -> Unit = {}
+)  {
+    var searchQuery by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(300.dp)
+            .padding(20.dp)
+    ) {
+        // --- 검색창 ---
+        Text(
+            text = "맛집 탐색",
+            style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(Modifier.height(8.dp))
+        TextField(
+            value = searchQuery,
+            onValueChange = {
+                searchQuery = it
+                onSearch(it)
+            },
+            placeholder = { Text("이름/태그/설명 검색") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(18.dp))
+
+        // --- 검색 결과 표시 ---
+        if (searchQuery.isNotBlank()) {
+            Text("🔍 검색 결과", style = MaterialTheme.typography.titleMedium)
+            if (searchResults.isEmpty()) {
+                Text("검색 결과가 없습니다.", color = Color.Gray)
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .heightIn(max = 120.dp)
+                        .fillMaxWidth()
+                ) {
+                    items(searchResults) { matzip ->
+                        DrawerRestaurantItem(matzip, onItemClick)
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+
+        // --- 찜한 맛집 ---
+        Text("⭐ 찜한 맛집", style = MaterialTheme.typography.titleMedium)
+        if (favoriteList.isEmpty()) {
+            Text("아직 찜한 맛집이 없어요.", color = Color.Gray)
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .heightIn(max = 120.dp)
+                    .fillMaxWidth()
+            ) {
+                items(favoriteList) { matzip ->
+                    DrawerRestaurantItem(matzip, onItemClick)
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        // --- 주변 맛집 ---
+        Text("📍 주변 맛집", style = MaterialTheme.typography.titleMedium)
+        LazyColumn(
+            modifier = Modifier
+                .heightIn(max = 120.dp)
+                .fillMaxWidth()
+        ) {
+            items(nearbyList) { matzip ->
+                DrawerRestaurantItem(matzip, onItemClick)
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+        Divider(Modifier.padding(vertical = 12.dp))
+        Text("FoodTable v1.0", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+// 맛집 리스트 아이템 컴포저블
+@Composable
+fun DrawerRestaurantItem(
+    matzip: MatzipData,
+    onClick: (MatzipData) -> Unit = {}
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick(matzip) }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.RestaurantMenu, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(matzip.name, style = MaterialTheme.typography.bodyMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                matzip.tags.take(2).forEach { tag ->
+                    Text("#$tag ", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                }
+                Spacer(Modifier.width(6.dp))
+                Text("${matzip.rating}★", style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+// --- 샘플 데이터 (실제 구현 시 ViewModel에서 가져오세요!) ---
+val sampleFavorites = listOf(
+    MatzipData(
+        id = "1",
+        name = "감성라멘",
+        desc = "진한 국물 맛집",
+        tags = listOf("라멘", "일식"),
+        priceRange = "₩₩",
+        hours = "11:00-21:00",
+        rating = 4.7,
+        userName = "유저1",
+        lat = 37.0, lng = 127.0
+    )
+)
+val sampleNearby = listOf(
+    MatzipData(
+        id = "2",
+        name = "고기굽는집",
+        desc = "숯불구이 전문",
+        tags = listOf("고기", "한식"),
+        priceRange = "₩₩₩",
+        hours = "16:00-22:00",
+        rating = 4.3,
+        userName = "유저2",
+        lat = 37.0, lng = 127.01
+    ),
+    MatzipData(
+        id = "3",
+        name = "미미분식",
+        desc = "떡볶이, 튀김, 김밥",
+        tags = listOf("분식", "떡볶이"),
+        priceRange = "₩",
+        hours = "09:00-20:00",
+        rating = 4.1,
+        userName = "유저3",
+        lat = 37.01, lng = 127.0
+    )
+)
 
 
 // Float 소수 자리 포맷 헬퍼
