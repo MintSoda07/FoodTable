@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
+// 나의 냉장고 관련 ai 호출
 class AiHelperViewModel(
     private val apiClient: OpenAIClient
 ) : ViewModel() {
@@ -113,11 +113,43 @@ class AiHelperViewModel(
                             // ★ 여기를 recipes.joinToString("\n") 대신 response로 변경 ★
                             resultText = response.trim(),
                             reasonText = details.joinToString("\n"),
-                            isSending = false
+
                         )
                     }
 
                     Log.d("AiHelper", "✅ UI 상태 업데이트 완료")
+
+                    // 3) 이미지 생성 프롬프트 구성
+                    val title = recipes.firstOrNull() ?: "Delicious Dish"
+                    val imgPrompt = """
+                        A hyper-realistic, top-down shot of a beautifully plated gourmet dish called "$title", 
+                        with glistening sauce, fresh herbs and microgreens garnish, steam gently rising 
+                        from the center, soft natural window light casting delicate shadows, 
+                        shallow depth of field to blur the background, vibrant colors highlighting texture 
+                            and freshness, styled on a rustic wooden table.
+                        """.trimIndent()
+                    // 이미지 생성 시작 직전에
+
+                    _uiState.update { it.copy(/* 이미 isSending=true */) }
+
+                    // 4) DALL·E 3 호출
+                    apiClient.generateImage(
+                        prompt   = imgPrompt,
+                        size     = "1024x1024",
+                        onSuccess = { url ->
+                            // 성공 시 UI 상태에 URL 반영
+                            _uiState.update {
+                                it.copy(
+                                    imageUrl = url,
+                                    isSending = false      // 텍스트+이미지 모두 끝나면 꺼주기
+                                )
+                            }
+                        },
+                        onError = { err ->
+                            Log.e("AiHelper", "Image gen failed: $err")
+                            _uiState.update { it.copy(isSending = false) }
+                        }
+                    )
                 }
             },
             onError = { error ->
@@ -128,3 +160,4 @@ class AiHelperViewModel(
 
     }
 }
+

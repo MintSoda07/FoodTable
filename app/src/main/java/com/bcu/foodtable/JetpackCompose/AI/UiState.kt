@@ -9,5 +9,7 @@ data class AiUiState(
     val isSending: Boolean = false,
     val showWarning: Boolean = true,
     val resultText: String = "",
-    val reasonText: String = ""
+    val reasonText: String = "",
+    val imageUrl: String? = null,
+
 )

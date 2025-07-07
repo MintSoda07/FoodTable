@@ -4,6 +4,7 @@ package com.bcu.foodtable.ui.home
 import AiRecipeScreen
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
@@ -168,6 +169,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.FastOutSlowInEasing
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
+import com.google.gson.Gson
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -1454,22 +1456,25 @@ fun HomeScreen(viewModel: HomeViewModel) {
             }
 
             // AI 추천 레시피 화면
+            // 수정 후: recipeJson 인자 하나로 변경
             composable(
-                route = "ai_recipe?name={name}",
-                arguments = listOf(navArgument("name") {
+                route = "ai_recipe/{recipeJson}",
+                arguments = listOf(navArgument("recipeJson") {
                     type = NavType.StringType
-                    defaultValue = ""
                 })
             ) { backStackEntry ->
-                val recipeName = backStackEntry.arguments?.getString("name") ?: ""
-                val recipeItem = recipes.firstOrNull { it.name == recipeName }
-                    ?: RecipeItem(name=recipeName, description="", ingredients=emptyList(), order="")
+                val json = backStackEntry.arguments?.getString("recipeJson") ?: ""
+                // URL 디코딩 + Gson으로 RecipeItem 객체로 복원
+                val recipeItem = Gson()
+                    .fromJson(Uri.decode(json), RecipeItem::class.java)
+
                 AiRecipeScreen(
-                    recipe      = recipeItem,
+                    recipe = recipeItem,
                     navController = navController,
-                    onSaveToChannel = { /* 저장 로직 */ }
+                    onSaveToChannel = { /* … */ }
                 )
             }
+
 
             composable(Screen.Subscribe.route) {
                 SubscribeScreen(viewModel = subscribeViewModel, navController = navController)

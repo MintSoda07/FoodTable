@@ -838,7 +838,6 @@ fun RestaurantMapWithDrawerAndFab(viewModel: MatzipViewModel = viewModel()) {
         drawerState = drawerState
     ) {
         Box(Modifier.fillMaxSize()) {
-            RestaurantV2MapScreen(viewModel = viewModel)
             FloatingActionButton(
                 onClick = { scope.launch { drawerState.open() } },
                 modifier = Modifier
@@ -847,6 +846,8 @@ fun RestaurantMapWithDrawerAndFab(viewModel: MatzipViewModel = viewModel()) {
             ) {
                 Icon(Icons.Default.Menu, contentDescription = "메뉴")
             }
+            RestaurantV2MapScreen(viewModel = viewModel)
+
         }
     }
 }

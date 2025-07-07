@@ -1,3 +1,5 @@
+import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -13,6 +15,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,8 +28,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavController
+import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
+import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.RecipeItem // RecipeItem 경로는 기존과 동일
 
 // RecipeCookingScreen.kt 에서 가져온 WarmLightColorScheme 정의를 AiRecipeScreen.kt 에도 동일하게 적용
@@ -77,6 +86,11 @@ fun AiRecipeScreen(
 ) {
     FoodTableTheme { // 테마 적용
         // RecipeCookingScreen.kt의 배경 그라데이션 적용
+
+        //이미지 생성 확인 디버그
+        LaunchedEffect(recipe.imageResId) {
+            Log.d("AiRecipeScreen", "DEBUG: imageResId updated → ${recipe.imageResId}")
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -122,6 +136,7 @@ fun AiRecipeScreen(
                                 modifier = Modifier.padding(bottom = 16.dp) // 간격 조정
                             )
 
+
                             // 레시피 대표 이미지
                             if (!recipe.imageResId.isNullOrBlank()) {
                                 AsyncImage(
@@ -142,6 +157,7 @@ fun AiRecipeScreen(
                                         )
                                 )
                             }
+
 
                             // Floating Info Cards (RecipeCookingScreen.kt의 InfoChip 디자인 적용)
                             Row(

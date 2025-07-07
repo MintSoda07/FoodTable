@@ -50,6 +50,8 @@ class OpenAIClient @Inject constructor() {
     private val gson = Gson()
     private val baseUrl = "https://api.openai.com/v1/chat/completions"
 
+    private val imgUrl  = "https://api.openai.com/v1/images/generations"
+
     // API 키 정보를 가져오는 함수 (콜백을 사용하여 성공 및 오류 처리)
     suspend fun setAIWithAPIAsync(): ApiKey = suspendCoroutine { continuation ->
         val client = OpenAIClient()
@@ -133,6 +135,66 @@ class OpenAIClient @Inject constructor() {
                     }
                 } else {
                     onError("Empty response body")
+                }
+            }
+        })
+    }
+    /** DALL·E 3 이미지 생성 */
+    fun generateImage(
+        prompt: String,
+        size: String = "1024x1024",
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        // 1) 요청 로그
+        Log.d("OpenAIClient", "🖼️ generateImage() prompt=\"$prompt\", size=$size")
+
+        // 2) 바디 JSON 문자열로 미리 생성하고 로그
+        val bodyMap = mapOf(
+            "model"           to "dall-e-3",
+            "prompt"          to prompt,
+            "n"               to 1,
+            "size"            to size,
+            "response_format" to "url"
+        )
+        val jsonBody = gson.toJson(bodyMap)
+        Log.v("OpenAIClient", "🔤 Request JSON: $jsonBody")
+
+        val body = RequestBody.create(
+            "application/json; charset=utf-8".toMediaType(),
+            jsonBody
+        )
+
+        val req = Request.Builder()
+            .url(imgUrl)
+            .addHeader("Authorization", "Bearer ${apiKeyInfo.KEY_VALUE}")
+            .post(body)
+            .build()
+
+        // 3) 네트워크 호출
+        client.newCall(req).enqueue(object: Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("OpenAIClient", "❌ generateImage onFailure: ${e.localizedMessage}", e)
+                onError(e.localizedMessage ?: "Unknown error")
+            }
+            override fun onResponse(call: Call, res: Response) {
+                val code = res.code
+                val respBody = res.body?.string().orEmpty()
+                Log.d("OpenAIClient", "📨 generateImage response code=$code, body=$respBody")
+
+                if (code != 200) {
+                    onError("HTTP $code")
+                    return
+                }
+                try {
+                    val root = gson.fromJson(respBody, Map::class.java)
+                    val data = root["data"] as List<Map<String,Any>>
+                    val url = data[0]["url"] as String
+                    Log.d("OpenAIClient", "🎉 Image URL -> $url")
+                    onSuccess(url)
+                } catch (e: Exception) {
+                    Log.e("OpenAIClient", "⚠️ generateImage parse error: ${e.localizedMessage}", e)
+                    onError("Parse error: ${e.localizedMessage}")
                 }
             }
         })
