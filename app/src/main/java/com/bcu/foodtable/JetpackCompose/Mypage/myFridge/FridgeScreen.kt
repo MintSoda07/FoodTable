@@ -546,6 +546,11 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 items = outsideFridge,
                 onItemReturn = { ingredient ->
                     moveIngredientToFridge(ingredient, selectedSection)
+                },
+                onItemDelete = { ingredient ->
+                    viewModel.deleteIngredientFromTray(ingredient)
+                    outsideFridge.removeAll { it.id == ingredient.id }
+                    GlobalTray.items.removeAll { it.id == ingredient.id }
                 }
             )
         }
@@ -782,7 +787,8 @@ fun DraggableHolographicIngredientCard(
 @Composable
 fun SmartTray(
     items: List<Ingredient>,
-    onItemReturn: (Ingredient) -> Unit
+    onItemReturn: (Ingredient) -> Unit,
+    onItemDelete: (Ingredient) -> Unit
 ) {
     val trayHeightCollapsed = 90.dp
     val trayHeightExpanded = 260.dp
@@ -869,6 +875,7 @@ fun SmartTray(
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
+            Log.d("SmartTray", "items = " + items.joinToString { "${it.id}:${it.name}" })
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -881,8 +888,13 @@ fun SmartTray(
                         ingredient = ingredient,
                         onReturn = {
                             onItemReturn(ingredient)
-                            GlobalTray.items.remove(ingredient)
+                            GlobalTray.items.removeAll { it.id == ingredient.id }
+                        },
+                        onDelete = { ing ->
+                            onItemDelete(ing)
+                            GlobalTray.items.removeAll { it.id == ing.id }
                         }
+
                     )
                 }
             }
@@ -894,7 +906,8 @@ fun SmartTray(
 @Composable
 fun FloatingIngredientChip(
     ingredient: Ingredient,
-    onReturn: () -> Unit
+    onReturn: () -> Unit,
+    onDelete: (Ingredient) -> Unit
 ) {
     var offset by remember { mutableStateOf(Offset.Zero) }
     var isDragging by remember { mutableStateOf(false) }
@@ -910,16 +923,23 @@ fun FloatingIngredientChip(
             }
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { isDragging = true
+                    onDragStart = {
+                        isDragging = true
                         Log.d("FridgeDebug", "Drag started on ${ingredient.name}")
                     },
                     onDragEnd = {
-                        Log.d("FridgeDebug", "Drag ended on ${ingredient.name} with offset y=${offset.y}")
+                        Log.d(
+                            "FridgeDebug",
+                            "Drag ended on ${ingredient.name} with offset y=${offset.y}"
+                        )
                         if (offset.y < -100f) {
                             Log.d("FridgeDebug", " → offset threshold passed, calling onReturn()")
                             onReturn()
                         } else {
-                            Log.d("FridgeDebug", " → offset threshold NOT passed, cancelling return")
+                            Log.d(
+                                "FridgeDebug",
+                                " → offset threshold NOT passed, cancelling return"
+                            )
                         }
                         offset = Offset.Zero
                         isDragging = false
@@ -941,38 +961,52 @@ fun FloatingIngredientChip(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = getEmojiForIngredient(ingredient.name),
-                fontSize = 24.sp
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = ingredient.name,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFF666666),
-                maxLines = 1,
-                fontWeight = FontWeight.Medium
-            )
-
-            if (!isDragging && offset == Offset.Zero) {
+        Box(Modifier.fillMaxSize()) {
+            // 1. 삭제버튼
+            IconButton(
+                onClick = { onDelete(ingredient) },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(24.dp)
+            ) {
                 Icon(
-                    imageVector = Icons.Default.SwipeUp,
-                    contentDescription = "Swipe up",
-                    tint = Color(0xFF9E9E9E),
-                    modifier = Modifier.size(12.dp)
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "재료 삭제",
+                    tint = Color(0xFFE57373)
                 )
+            }
+            // 2. 실제 내용(이모지, 텍스트 등)을 Box 안에!
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = getEmojiForIngredient(ingredient.name),
+                    fontSize = 24.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = ingredient.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF666666),
+                    maxLines = 1,
+                    fontWeight = FontWeight.Medium
+                )
+                if (!isDragging && offset == Offset.Zero) {
+                    Icon(
+                        imageVector = Icons.Default.SwipeUp,
+                        contentDescription = "Swipe up",
+                        tint = Color(0xFF9E9E9E),
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
             }
         }
     }
 }
-
 
 fun getEmojiForIngredient(name: String): String {
     return when (name) {

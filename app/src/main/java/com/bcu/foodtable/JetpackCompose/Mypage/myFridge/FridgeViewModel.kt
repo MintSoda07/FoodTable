@@ -237,8 +237,16 @@ $ocrText
         })
     }
 
+    // 재료 삭제 함수
+    fun deleteIngredientFromTray(ingredient: Ingredient) {
+        if (uid.isBlank() || ingredient.docId.isNullOrBlank()) return
 
-
+        db.collection("user").document(uid).collection("fridge")
+            .document(ingredient.docId)
+            .delete()
+            .addOnSuccessListener { loadIngredients() }
+            .addOnFailureListener { Log.e("Delete", "Failed to delete: ${it.message}") }
+    }
 
 
 }
