@@ -3,6 +3,7 @@
 const functions = require("firebase-functions");
 const {GoogleGenerativeAI} = require("@google/generative-ai");
 const util = require("util");
+const admin = require('firebase-admin');
 // --- genAI 초기화 로직 (안전한 버전 유지) ---
 let genAI = null;
 
@@ -128,92 +129,85 @@ exports.evaluateDish = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("internal", "이미지 비교 평가 중 서버에서 오류가 발생했습니다. 관리자에게 문의하여 서버 로그를 확인해주세요.");
   }
 });
+if (!admin.apps.length) admin.initializeApp();
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
 exports.askRecipe = functions.https.onCall(async (data, context) => {
   if (!genAI) {
-    console.error("askRecipe: genAI가 초기화되지 않았습니다.");
-    throw new functions.https.HttpsError(
-      "internal",
-      "AI 서비스 초기화에 실패했습니다.",
-    );
+    throw new functions.https.HttpsError("internal", "AI 서비스 초기화에 실패했습니다.");
   }
 
-  console.log("--- askRecipe V5.1 실행 (Gemini 오류 로깅 강화) ---");
-  console.log("수신된 'data' 파라미터 (util.inspect, depth: 3):", util.inspect(data, { depth: 3, colors: false }));
-
-  const clientPayload = data?.data;
+  const clientPayload = data?.data || data; // 혹시 몰라 data.data/data 둘 다 지원
   const userText = clientPayload?.text;
 
-  console.log("추출된 clientPayload (data.data):", clientPayload ? JSON.stringify(clientPayload, null, 2) : clientPayload);
-  console.log("추출된 userText (data.data.text 사용):", userText);
-  console.log("추출된 userText의 타입:", typeof userText);
-
   if (!userText || typeof userText !== "string" || userText.trim() === "") {
-    console.error("userText 유효성 검사 실패. 추출된 userText:", userText);
-    throw new functions.https.HttpsError(
-      "invalid-argument",
-      "사용자의 질문이 비어 있거나 문자열이 아닙니다.",
-    );
+    throw new functions.https.HttpsError("invalid-argument", "사용자의 질문이 비어 있거나 문자열이 아닙니다.");
   }
-
-  // Gemini API 호출 로직
-  try {
-    console.log("askRecipe: Gemini generateContent 호출 시작. userText:", userText);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
-    const result = await model.generateContent(userText);
-
-    if (!result || !result.response) {
-      console.error("askRecipe: Gemini 응답이 없음 또는 형식 오류");
-      throw new functions.https.HttpsError("internal", "AI 응답이 없습니다.");
+// 1) Firestore에서 recipe 컬렉션의 'name' 필드만 최대 20개 추출
+    let recipeNames = [];
+    try {
+      const snapshot = await admin.firestore()
+        .collection("recipe")
+        .limit(20)
+        .get();
+      recipeNames = snapshot.docs
+        .map(doc => doc.data()?.name)
+        .filter(name => typeof name === "string" && name.trim().length > 0);
+    } catch (err) {
+      console.error("Firestore recipe 목록 불러오기 실패:", err);
     }
 
-    const response = result.response;
-    let replyMessage;
+        // 2) Gemini 프롬프트 생성 (더 정교하게)
+       const prompt = `
+       너는 오직 아래 [앱에 등록된 레시피 목록]에 있는 레시피만 안내할 수 있는 "매우 엄격한" 요리 챗봇이야.
 
-    if (typeof response.text === "function") {
-      replyMessage = response.text();
-    } else {
-      console.error("askRecipe: response.text가 함수가 아닙니다. Gemini API 응답 구조를 확인해야 합니다.");
-      replyMessage = "AI 응답을 처리하는 중 예기치 않은 오류가 발생했습니다.";
-    }
+       [중요 규칙]
+       - 아래 목록에 없는 음식, 유사 음식, 응용 요리, 관련 없는 주제는 그 어떤 상황에도 안내/추천/설명/예시/부연설명/추측/변형을 해서는 안 된다.
+       - 유저 입력과 목록의 레시피명이 정확히 일치하지 않아도, 철자/띄어쓰기/발음/복수단수/부분일치/유사 단어(예: 오타, 비슷한 표기, 영어-한글, 재료 등)라면 가장 관련성 높은 **1개 레시피만** 골라서 안내한다.
+       - 여러 음식/재료/키워드가 입력돼도 반드시 하나만 골라서, **앱에 실제 등록된 레시피**여야 한다.
+       - 전혀 관련성이 없거나 유사도가 낮은 경우, 반드시 "앱에 없는 레시피입니다."라는 문장만 출력하고, 그 외 불필요한 안내는 절대 하지 마라.
 
-    if (replyMessage.trim() === "") {
-      console.log("askRecipe: Gemini가 빈 응답을 반환했습니다. 사용자 안내 메시지를 설정합니다.");
-      replyMessage = "AI가 현재 질문에 대해 답변을 생성하지 못했습니다. 다른 방식으로 질문해주시겠어요?";
-    }
+       [출력 규칙]
+       - 오직 아래 예시 포맷 중 하나만 사용해라. 절대 다른 형식, 추가 문장, 서론, 인사, 요리 추천, 유사 안내, 잡담, 부연, 변형, 요리사가 알아야 할 팁, 추가 설명 등은 금지!
+       - 답변의 첫 번째 문장에 반드시 레시피 이름이 자연스럽게 노출되어야 한다.
+       - 요리법 설명은 반드시 5문장 이내로, 주요 재료와 요리 순서를 짧고 쉬운 문장으로 안내한다.
+       - 만약, 유저 입력이 앱에 등록된 레시피와 관련성이 애매하거나, 여러 개 중에 확실히 골라낼 수 없는 경우도 반드시 "앱에 없는 레시피입니다."라고만 답한다.
+       - 답변 형식/문장 구조/내용이 아래 예시 포맷 중 하나와 100% 동일하지 않으면, "앱에 없는 레시피입니다."라고만 출력한다(실수 방지용).
 
-    console.log("askRecipe: Gemini 응답 수신 (클라이언트 전달 예정) →", replyMessage);
-    return { reply: replyMessage };
+       [앱에 등록된 레시피 목록]
+       ${recipeNames.map((r, i) => (i + 1) + '. ' + r).join('\n')}
 
-  } catch (err) {
-    console.error("askRecipe: Gemini API 호출 중 심각한 오류 발생!"); // 로그 메시지 변경
-    // ★★★ 강화된 오류 로깅 시작 ★★★
-    console.error("askRecipe: 전체 오류 객체 (util.inspect) →", util.inspect(err, { depth: 5, colors: false }));
+       유저 입력:
+       ${userText}
 
-    if (err.message) {
-        console.error("askRecipe: 오류 메시지 (err.message):", err.message);
-    }
-    // GoogleGenerativeAIFetchError 와 같은 네트워크 기반 오류는 status 나 cause 를 가질 수 있습니다.
-    if (err.status) {
-        console.error("askRecipe: 오류 상태 (err.status):", err.status);
-    }
-    if (err.cause) {
-        console.error("askRecipe: 오류 원인 (err.cause, util.inspect) →", util.inspect(err.cause, { depth: 3, colors: false }));
-    }
-    // 기존 HTTP 응답 관련 로깅 시도도 유지 (일부 오류 유형에 유용할 수 있음)
-    if (err.response?.status) {
-      console.error("askRecipe: 오류 객체 내 HTTP 응답 상태 코드 (err.response.status):", err.response.status);
-    }
-    if (err.response?.data) {
-      try {
-        console.error("askRecipe: 오류 객체 내 HTTP 응답 본문 (err.response.data):", JSON.stringify(err.response.data, null, 2));
-      } catch (jsonErr) {
-        console.error("askRecipe: 응답 본문 stringify 실패:", jsonErr);
-      }
-    }
-    // ★★★ 강화된 오류 로깅 끝 ★★★
+       [출력 예시(아래 중 반드시 하나!)]
+       1. [요리 이름] 레시피입니다. 주요 재료는 [재료 예시]이고, 만드는 방법은 [간단 순서 설명]입니다.
+       2. [요리 이름]은(는) [재료 예시]를 사용해서 [간단 순서]로 만들 수 있습니다.
+       3. (앱에 없는 경우) 앱에 없는 레시피입니다.
 
-    const errorMessage = err.message || "Gemini API 호출 중 알 수 없는 오류가 발생했습니다.";
-    throw new functions.https.HttpsError("internal", errorMessage);
+       (※ 위 예시 이외의 말, 인사, 잡담, 창작, 부연, 안내, 주석, 포맷 일탈, 불필요한 안내, 두 개 이상 안내, 반복, 설명 등은 절대 쓰지 마라. 실수로라도 형식을 벗어날 경우 "앱에 없는 레시피입니다." 한 문장만 남겨라.)
+       `;
+
+try {
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+  const result = await model.generateContent(prompt);
+
+  if (!result || !result.response) {
+    throw new functions.https.HttpsError("internal", "AI 응답이 없습니다.");
   }
+  const response = result.response;
+  let replyMessage;
+  if (typeof response.text === "function") {
+    replyMessage = response.text();
+  } else {
+    replyMessage = "AI 응답을 처리하는 중 예기치 않은 오류가 발생했습니다.";
+  }
+  if (replyMessage.trim() === "") {
+    replyMessage = "AI가 현재 질문에 대해 답변을 생성하지 못했습니다. 다른 방식으로 질문해주시겠어요?";
+  }
+  return { reply: replyMessage };
+} catch (err) {
+  const errorMessage = err.message || "Gemini API 호출 중 알 수 없는 오류가 발생했습니다.";
+  throw new functions.https.HttpsError("internal", errorMessage);
+}
 });

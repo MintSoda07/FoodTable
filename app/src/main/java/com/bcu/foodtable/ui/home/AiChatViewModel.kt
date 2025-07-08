@@ -45,6 +45,22 @@ class AiChatViewModel : ViewModel() {
             )
             return
         }
+        //  도움말 명령 분기 추가
+        if (trimmed.equals("도움말", ignoreCase = true)) {
+            _messages.value = _messages.value + ChatMessage(
+                text = """
+            📝 요리 레시피 AI 상담 도움말
+            
+            - 냉장고에 있는 재료로 만들 수 있는 요리 추천해줘
+            - 샐러드/파스타 등 레시피를 간단하게 알려줘
+            - 레시피에 없는 요리는 추천하지 않습니다!
+            
+            언제든 궁금한 요리 레시피나 만드는 방법을 자유롭게 물어보세요!
+            """.trimIndent(),
+                isUser = false
+            )
+            return
+        }
 
         // 1) 사용자가 보낸 메시지를 목록에 추가
         _messages.value = _messages.value + ChatMessage(
