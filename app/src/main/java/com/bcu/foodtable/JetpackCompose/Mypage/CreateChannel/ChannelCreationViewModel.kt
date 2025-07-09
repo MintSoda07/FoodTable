@@ -35,22 +35,66 @@ class ChannelCreationViewModel : ViewModel() {
         val description = channelDescription.value
         val userId = UserManager.getUser()?.uid ?: return
 
-        if (selectedImageUri.value != null) {
-            val imageRef = storage.reference.child("channel_images/${System.currentTimeMillis()}.jpg")
-            imageRef.putFile(selectedImageUri.value!!)
-                .addOnSuccessListener { taskSnapshot ->
-                    taskSnapshot.storage.downloadUrl.addOnSuccessListener { uri ->
-                        uploadChannelData(name, description, userId, uri.toString(), uri.toString(), context, onSuccess)
+        val profileUri = selectedImageUri.value
+        val backgroundUri = selectedBackgroundUri.value
+
+        // 둘 다 선택된 경우 (동시에 업로드)
+        if (profileUri != null && backgroundUri != null) {
+            val imageRef = storage.reference.child("channel_images/${System.currentTimeMillis()}_profile.jpg")
+            val bgRef = storage.reference.child("channel_images/${System.currentTimeMillis()}_background.jpg")
+            // 프로필 업로드
+            imageRef.putFile(profileUri).addOnSuccessListener { imgTask ->
+                imgTask.storage.downloadUrl.addOnSuccessListener { profileUrl ->
+                    // 배경 업로드
+                    bgRef.putFile(backgroundUri).addOnSuccessListener { bgTask ->
+                        bgTask.storage.downloadUrl.addOnSuccessListener { bgUrl ->
+                            uploadChannelData(
+                                name, description, userId,
+                                profileUrl.toString(),
+                                bgUrl.toString(),
+                                context, onSuccess
+                            )
+                        }
+                    }.addOnFailureListener {
+                        _isUploading.value = false
+                        Toast.makeText(context, "배경 이미지 업로드 실패", Toast.LENGTH_SHORT).show()
                     }
                 }
-                .addOnFailureListener {
-                    _isUploading.value = false
-                    Toast.makeText(context, "이미지 업로드 실패", Toast.LENGTH_SHORT).show()
+            }.addOnFailureListener {
+                _isUploading.value = false
+                Toast.makeText(context, "프로필 이미지 업로드 실패", Toast.LENGTH_SHORT).show()
+            }
+        }
+        // 프로필만 선택
+        else if (profileUri != null) {
+            val imageRef = storage.reference.child("channel_images/${System.currentTimeMillis()}_profile.jpg")
+            imageRef.putFile(profileUri).addOnSuccessListener { taskSnapshot ->
+                taskSnapshot.storage.downloadUrl.addOnSuccessListener { uri ->
+                    uploadChannelData(name, description, userId, uri.toString(), null, context, onSuccess)
                 }
-        } else {
+            }.addOnFailureListener {
+                _isUploading.value = false
+                Toast.makeText(context, "프로필 이미지 업로드 실패", Toast.LENGTH_SHORT).show()
+            }
+        }
+        // 배경만 선택
+        else if (backgroundUri != null) {
+            val bgRef = storage.reference.child("channel_images/${System.currentTimeMillis()}_background.jpg")
+            bgRef.putFile(backgroundUri).addOnSuccessListener { bgTask ->
+                bgTask.storage.downloadUrl.addOnSuccessListener { bgUrl ->
+                    uploadChannelData(name, description, userId, null, bgUrl.toString(), context, onSuccess)
+                }
+            }.addOnFailureListener {
+                _isUploading.value = false
+                Toast.makeText(context, "배경 이미지 업로드 실패", Toast.LENGTH_SHORT).show()
+            }
+        }
+        // 둘 다 선택 안함
+        else {
             uploadChannelData(name, description, userId, null, null, context, onSuccess)
         }
     }
+
 
     private fun uploadChannelData(
         name: String,
