@@ -115,7 +115,7 @@ fun ChannelViewPageScreen(
             Scaffold(
                 // 배너를 topBar 에 직접 배치해 상단 여백 제거
                 topBar = {
-                    BannerSection(backgroundPathOrUrl = channel!!.BackgroundResId)
+                    BannerSection(backgroundPathOrUrl = channel!!.backgroundResId)
                 }
             ) { innerPadding ->
                 LazyColumn(

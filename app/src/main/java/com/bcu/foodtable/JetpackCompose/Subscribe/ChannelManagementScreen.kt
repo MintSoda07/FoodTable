@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.airbnb.lottie.compose.*
@@ -35,7 +38,8 @@ import kotlin.math.roundToInt
 @Composable
 fun ChannelManagementScreen(
     channelName: String,
-    viewModel: ChannelViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    viewModel: ChannelViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+    onEditClick: () -> Unit
 ) {
     val stats by remember { derivedStateOf { viewModel.stats } }
     val isLoading by remember { derivedStateOf { viewModel.isLoading } }
@@ -92,19 +96,47 @@ fun ChannelManagementScreen(
                             fontSize = 16.sp
                         )
                     }
+                    Spacer(modifier = Modifier.weight(0.35f)) //
+
+                    // 중앙: 날짜 박스
                     Surface(
                         color = Color(0xFF282B37),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.shadow(2.dp)
+                        modifier = Modifier
+                            .shadow(2.dp)
+                            .align(Alignment.CenterVertically)
                     ) {
-                        Text(
-                            text = nowDateString(),
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = nowDateString(),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.weight(0.65f)) // 오른쪽 Spacer 비율 ↓
+                    // 오른쪽: 수정 버튼
+                    IconButton(
+                        onClick = { onEditClick() },
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .size(34.dp)
+                            .align(Alignment.CenterVertically)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "채널 수정",
+                            tint = Color(0xFF282B37)
                         )
                     }
                 }
+
+
                 Spacer(Modifier.height(12.dp))
 
                 // 상단 카드 요약 + 변화율

@@ -2,6 +2,8 @@ package com.bcu.foodtable.ui.home
 
 
 import AiRecipeScreen
+import ChannelEditScreen
+import ChannelEditScreenLoader
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -1300,8 +1302,24 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 arguments = listOf(navArgument("channelName") { defaultValue = "DefaultChannel" })
             ) { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: "DefaultChannel"
-                ChannelManagementScreen(channelName)
+                ChannelManagementScreen(
+                    channelName = channelName,
+                    onEditClick = {
+                        navController.navigate("edit_channel/$channelName") // 채널 documentId나 name 사용
+                    }
+                )
             }
+            composable(
+                route = "edit_channel/{channelName}",
+                arguments = listOf(navArgument("channelName") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
+                ChannelEditScreenLoader(
+                    channelName = channelName,
+                    navController = navController // NavController를 넘겨준다
+                )
+            }
+
             composable(
                 route ="ranklist"
             ){
