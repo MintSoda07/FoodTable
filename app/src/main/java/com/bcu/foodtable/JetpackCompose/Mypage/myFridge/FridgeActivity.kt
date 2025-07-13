@@ -13,6 +13,7 @@ import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
 
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.theme.FridgeTheme //
 import com.bcu.foodtable.useful.RecipeItem
+import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 
 class FridgeActivity : ComponentActivity() {
@@ -28,7 +29,7 @@ class FridgeActivity : ComponentActivity() {
 fun FridgeApp() {
     val navController = rememberNavController()
     val fridgeViewModel: FridgeViewModel = viewModel()
-
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     FridgeTheme {
         NavHost(navController = navController, startDestination = "fridge") {
             composable("fridge") {
@@ -45,9 +46,12 @@ fun FridgeApp() {
             composable("ai_recipe/{recipeJson}") { backStackEntry ->
                 val json = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
                 val recipe = Gson().fromJson(json, RecipeItem::class.java)
-                AiRecipeScreen(recipe = recipe, navController = navController) {
-                    // 저장 시 동작 정의
-                }
+                AiRecipeScreen(
+                    recipe = recipe,
+                    navController = navController,
+                    onSaveToChannel = {}, // 실제 저장시 필요한 동작 없으면 빈 람다
+                    userId = userId
+                )
             }
             composable("recipe_cook/{recipeJson}") { backStackEntry ->
                 val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable

@@ -63,8 +63,7 @@ fun ChannelViewPageScreen(
     viewModel: ChannelViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val userId  = remember { UserManager.getUser()?.uid.orEmpty() }
-
+    val userId = UserManager.getUser()?.uid.orEmpty()
     // 탭 상태
     var selectedTab by remember { mutableStateOf("레시피") }
 

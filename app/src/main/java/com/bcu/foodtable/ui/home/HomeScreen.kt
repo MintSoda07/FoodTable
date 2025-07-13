@@ -170,6 +170,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
 import com.google.gson.Gson
 
@@ -1372,7 +1373,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             // 3) 맛집도 탭 — RestaurantV2MapScreen
             composable("matzip") { backStackEntry ->
                 val matzipViewModel: MatzipViewModel = viewModel(backStackEntry)
-                RestaurantV2MapScreen(
+                RestaurantMapMainScreen(
                     modifier = Modifier.fillMaxSize(),
                     viewModel = matzipViewModel
                 )
@@ -1429,6 +1430,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
                 ChannelViewPageScreen(channelName = channelName, navController = navController)
             }
+
+
             composable("write/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
                 WriteScreen(
@@ -1485,11 +1488,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 // URL 디코딩 + Gson으로 RecipeItem 객체로 복원
                 val recipeItem = Gson()
                     .fromJson(Uri.decode(json), RecipeItem::class.java)
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
                 AiRecipeScreen(
                     recipe = recipeItem,
                     navController = navController,
-                    onSaveToChannel = { /* … */ }
+                    onSaveToChannel = { /* … */ },
+                    userId = userId
                 )
             }
 
