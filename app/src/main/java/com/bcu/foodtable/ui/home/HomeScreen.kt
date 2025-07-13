@@ -170,6 +170,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
 import com.google.gson.Gson
@@ -1298,6 +1300,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+
             composable(
                 route = "channel_management/{channelName}",
                 arguments = listOf(navArgument("channelName") { defaultValue = "DefaultChannel" })
@@ -1346,6 +1349,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val uid = backStackEntry.arguments?.getString("uid") ?: return@composable
                 val healthConnectViewModel: HealthConnectViewModel = viewModel()
                 val homeViewModel: HomeViewModel = viewModel()
+
                 HealthConnectScreen(
                     viewModel = healthConnectViewModel,
                     homeViewModel = homeViewModel
@@ -1473,6 +1477,23 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 FridgeScreen(
                     viewModel     = fridgeViewModel,
                     navController = navController    // 전역 컨트롤러
+                )
+            }
+            composable("add_ingredient?section={section}") { backStackEntry ->
+                val fridgeViewModel: FridgeViewModel = viewModel()
+                val section = backStackEntry.arguments?.getString("section") ?: "냉장"
+                AddIngredientScreen(
+                    viewModel = fridgeViewModel,
+                    navController = navController,
+                    section = section
+                )
+            }
+            composable("recipe_cook/{recipeJson}") { backStackEntry ->
+                val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
+                val recipeItem = Gson().fromJson(recipeJson, RecipeItem::class.java)
+                RecipeCookingScreen(
+                    recipe = recipeItem,
+                    navController = navController
                 )
             }
 
