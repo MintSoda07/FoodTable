@@ -125,7 +125,7 @@ dependencies {
     //ML Kit 바코드 스캐닝 라이브러리
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
     // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    implementation(platform("androidx.compose:compose-bom:2024.05.00"))
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.1")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
