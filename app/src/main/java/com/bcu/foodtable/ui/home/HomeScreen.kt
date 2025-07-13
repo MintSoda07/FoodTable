@@ -174,6 +174,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import coil.Coil
+import coil.request.ImageRequest
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -1290,7 +1292,6 @@ fun PromoBannerPagerFromFirestore(
     var promoList by remember { mutableStateOf<List<PromotionItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Firestore 비동기 로딩
     LaunchedEffect(Unit) {
         try {
             val snapshot = db.collection("promotion").get().await()
@@ -1332,10 +1333,24 @@ fun PromoBannerPagerFromFirestore(
                     pageCount = { promoList.size }
                 )
 
-                LaunchedEffect(pagerState.currentPage, promoList.size) {
+                // ✅ 전환 보장: 애니메이션 실패시 즉시 전환
+                LaunchedEffect(pagerState.currentPage) {
                     delay(5000)
                     val next = (pagerState.currentPage + 1) % promoList.size
-                    pagerState.animateScrollToPage(next)
+
+                    try {
+                        if (!pagerState.isScrollInProgress) {
+                            pagerState.animateScrollToPage(
+                                page = next,
+                                animationSpec = tween(
+                                    durationMillis = 500,
+                                    easing = FastOutSlowInEasing
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        pagerState.scrollToPage(next)
+                    }
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -1346,7 +1361,10 @@ fun PromoBannerPagerFromFirestore(
                         val item = promoList[page]
 
                         AsyncImage(
-                            model = item.imageres,
+                            model = ImageRequest.Builder(context)
+                                .data(item.imageres)
+                                .crossfade(true)
+                                .build(),
                             contentDescription = item.name,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -1373,6 +1391,10 @@ fun PromoBannerPagerFromFirestore(
         }
     }
 }
+
+
+
+
 
 
 
