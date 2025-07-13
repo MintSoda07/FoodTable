@@ -9,7 +9,6 @@ import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity
 import com.bcu.foodtable.PuchasePage
 
-import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity
 import com.bcu.foodtable.useful.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -115,8 +114,8 @@ class ProfileViewModel : ViewModel() {
         navController.navigate("health/$uid")
     }
     // 나의 냉장고로 이동하는 함수...
-    fun navigateToFridge(context: Context) {
-        context.startActivity(Intent(context, FridgeActivity::class.java))
+    fun navigateToFridge(navController: NavController) {
+        navController.navigate("fridge")
     }
     // 유저 데이터 가져오는 함수...
     fun fetchUserData() {

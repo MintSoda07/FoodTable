@@ -12,13 +12,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +36,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.RecipeSaveViewModel
 import com.bcu.foodtable.ai.OpenAIClient
+import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem // RecipeItem 경로는 기존과 동일
 
 // RecipeCookingScreen.kt 에서 가져온 WarmLightColorScheme 정의를 AiRecipeScreen.kt 에도 동일하게 적용
@@ -82,8 +88,14 @@ fun FoodTableTheme(
 fun AiRecipeScreen(
     recipe: RecipeItem,
     navController: NavController,
-    onSaveToChannel: (RecipeItem) -> Unit // 기존 기능 유지
+    onSaveToChannel: (RecipeItem) -> Unit, // 기존 기능 유지
+    userId: String,
+    recipeSaveViewModel: RecipeSaveViewModel = viewModel()
 ) {
+    var showChannelDialog by remember { mutableStateOf(false) }
+    val myChannels by recipeSaveViewModel.myChannels.collectAsState()
+    val saveSuccess by recipeSaveViewModel.saveSuccess.collectAsState()
+    var selectedChannel by remember { mutableStateOf<Channel?>(null) }
     FoodTableTheme { // 테마 적용
         // RecipeCookingScreen.kt의 배경 그라데이션 적용
 
@@ -170,7 +182,9 @@ fun AiRecipeScreen(
                                     InfoChip(
                                         text = it,
                                         icon = "🔥",
-                                        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
+                                        backgroundColor = MaterialTheme.colorScheme.primary.copy(
+                                            alpha = 0.9f
+                                        )
                                     )
                                 }
                                 // AiRecipeScreen에서는 단계 수가 없을 수 있으므로, 임의로 "AI 추천" 칩 추가
@@ -225,7 +239,10 @@ fun AiRecipeScreen(
                                     recipe.C_categories.forEach { category ->
                                         CategoryChip(
                                             text = category,
-                                            modifier = Modifier.weight(1f, fill = false) // Chip 크기 조절
+                                            modifier = Modifier.weight(
+                                                1f,
+                                                fill = false
+                                            ) // Chip 크기 조절
                                         )
                                     }
                                 }
@@ -337,14 +354,104 @@ fun AiRecipeScreen(
                 item {
                     ModernActionButton(
                         text = "내 채널에 저장",
-                        onClick = { onSaveToChannel(recipe) },
-                        backgroundColor = MaterialTheme.colorScheme.primary, // Theme primary 색상
-                        textColor = MaterialTheme.colorScheme.onPrimary // Theme onPrimary 색상
+                        onClick = {
+                            recipeSaveViewModel.loadMyChannels(userId)
+                            showChannelDialog = true
+                        },
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        textColor = MaterialTheme.colorScheme.onPrimary
                     )
                 }
             }
+
+            if (showChannelDialog) {
+                ChannelSelectDialog(
+                    channels = myChannels,
+                    onSelect = { channel ->
+                        showChannelDialog = false
+                        selectedChannel = channel
+                        recipeSaveViewModel.saveRecipeToChannel(recipe, channel)
+                    },
+                    onDismiss = { showChannelDialog = false }
+                )
+            }
+
+            // 저장 성공시 안내 및 이동
+            LaunchedEffect(saveSuccess) {
+                if (saveSuccess == true && selectedChannel != null) {
+                    Log.d("DEBUG", "selectedChannel name: ${selectedChannel?.name}")
+                    navController.navigate("channelView/${Uri.encode(selectedChannel!!.name)}")
+                    recipeSaveViewModel.resetSaveSuccess()
+                }
+            }
+
+
+        }
         }
     }
+
+
+@Composable
+fun ChannelSelectDialog(
+    channels: List<Channel>,
+    onSelect: (Channel) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedIndex by remember { mutableStateOf(-1) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("내 채널 선택", style = MaterialTheme.typography.titleLarge) },
+        text = {
+            if (channels.isEmpty()) {
+                Text("생성된 채널이 없습니다.", style = MaterialTheme.typography.bodyLarge)
+            } else {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                ) {
+                    itemsIndexed(channels) { idx, channel ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(
+                                    if (selectedIndex == idx) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                    else Color.Transparent
+                                )
+                                .clickable { selectedIndex = idx }
+                                .padding(8.dp)
+                        ) {
+                            AsyncImage(
+                                model = channel.imageResId,
+                                contentDescription = channel.name,
+                                modifier = Modifier.size(72.dp).clip(CircleShape)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                channel.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (selectedIndex == idx)
+                                    MaterialTheme.colorScheme.primary
+                                else Color.Unspecified
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (selectedIndex != -1) onSelect(channels[selectedIndex])
+                },
+                enabled = selectedIndex != -1
+            ) { Text("확인") }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("취소") }
+        }
+    )
 }
 
 // RecipeCookingScreen.kt에서 가져온 Composable 함수들

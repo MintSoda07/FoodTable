@@ -179,6 +179,9 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
 import com.bcu.foodtable.useful.PromotionItem
 import com.google.gson.Gson
@@ -966,6 +969,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+
             composable(
                 route = "channel_management/{channelName}",
                 arguments = listOf(navArgument("channelName") { defaultValue = "DefaultChannel" })
@@ -1013,6 +1017,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ) { backStackEntry ->
                 val healthConnectViewModel: HealthConnectViewModel = viewModel()
                 val homeViewModel: HomeViewModel = viewModel()
+
                 HealthConnectScreen(
                     viewModel = healthConnectViewModel,
                     homeViewModel = homeViewModel
@@ -1040,7 +1045,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             // 3) 맛집도 탭 — RestaurantV2MapScreen
             composable("matzip") { backStackEntry ->
                 val matzipViewModel: MatzipViewModel = viewModel(backStackEntry)
-                RestaurantV2MapScreen(
+                RestaurantMapMainScreen(
                     modifier = Modifier.fillMaxSize(),
                     viewModel = matzipViewModel
                 )
@@ -1094,6 +1099,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: return@composable
                 ChannelViewPageScreen(channelName = channelName, navController = navController)
             }
+
+
             composable("write/{channelName}") { backStackEntry ->
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
                 WriteScreen(
@@ -1137,6 +1144,23 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     navController = navController    // 전역 컨트롤러
                 )
             }
+            composable("add_ingredient?section={section}") { backStackEntry ->
+                val fridgeViewModel: FridgeViewModel = viewModel()
+                val section = backStackEntry.arguments?.getString("section") ?: "냉장"
+                AddIngredientScreen(
+                    viewModel = fridgeViewModel,
+                    navController = navController,
+                    section = section
+                )
+            }
+            composable("recipe_cook/{recipeJson}") { backStackEntry ->
+                val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
+                val recipeItem = Gson().fromJson(recipeJson, RecipeItem::class.java)
+                RecipeCookingScreen(
+                    recipe = recipeItem,
+                    navController = navController
+                )
+            }
 
             // AI 추천 레시피 화면
             // 수정 후: recipeJson 인자 하나로 변경
@@ -1150,11 +1174,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 // URL 디코딩 + Gson으로 RecipeItem 객체로 복원
                 val recipeItem = Gson()
                     .fromJson(Uri.decode(json), RecipeItem::class.java)
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
                 AiRecipeScreen(
                     recipe = recipeItem,
                     navController = navController,
-                    onSaveToChannel = { /* … */ }
+                    onSaveToChannel = { /* … */ },
+                    userId = userId
                 )
             }
 

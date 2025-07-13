@@ -232,7 +232,7 @@ fun ProfileMainScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Button(
-                                onClick = { viewModel.navigateToFridge(context) },
+                                onClick = { navController.navigate("fridge") },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("나의 냉장고")
