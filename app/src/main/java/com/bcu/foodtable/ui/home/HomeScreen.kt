@@ -915,6 +915,22 @@ fun HomeScreen(viewModel: HomeViewModel) {
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
     }
+    // 구독 탭 클릭 효과
+    LaunchedEffect(currentRoute) {
+        when {
+            currentRoute == Screen.Subscribe.route ||
+                    (currentRoute?.startsWith("channelView/") == true) -> {
+                selectedTab = screens.indexOf(Screen.Subscribe)
+            }
+            currentRoute == Screen.Home.route -> {
+                selectedTab = screens.indexOf(Screen.Home)
+            }
+            currentRoute == Screen.Social.route -> {
+                selectedTab = screens.indexOf(Screen.Social)
+            }
+            // 필요하면 더 추가!
+        }
+    }
 
     if (showBottomSheet) {
         ModalBottomSheet(
