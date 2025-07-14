@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.AI
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.ai.OpenAIClient
@@ -68,6 +69,7 @@ class AiChattingViewModel(
         val chatTime = Timestamp.now()
         val yourChat = AIChatting(content = input, chatDate = chatTime, uid = currentUser.uid)
 
+        Log.i("AI ChatTest","Chat 호출됨.")
         _uiState.update {
             it.copy(
                 inputText = "",

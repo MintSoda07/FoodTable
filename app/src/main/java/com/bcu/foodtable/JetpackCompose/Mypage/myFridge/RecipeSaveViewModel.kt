@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem
@@ -22,6 +23,7 @@ class RecipeSaveViewModel : ViewModel() {
             .get()
             .addOnSuccessListener { snapshot ->
                 val channels = snapshot.documents.map { doc ->
+                    Log.i("AI ChatTest","채널 내채널 띄워주는중 , ${doc} 호출됨")
                     val channel = doc.toObject(Channel::class.java)
                     channel?.copy(documentId = doc.id)
                 }.filterNotNull()
@@ -31,6 +33,7 @@ class RecipeSaveViewModel : ViewModel() {
 
     fun saveRecipeToChannel(recipe: RecipeItem, selectedChannel: Channel) {
         val data = recipe.copy(contained_channel = selectedChannel.name)
+        Log.i("AI ChatTest","saveRecipeToChannel 호출됨")
         db.collection("recipe")
             .add(data)
             .addOnSuccessListener { _saveSuccess.value = true }
@@ -38,6 +41,7 @@ class RecipeSaveViewModel : ViewModel() {
     }
 
     fun resetSaveSuccess() {
+        Log.i("AI ChatTest","resetSaveSuccess 호출됨")
         _saveSuccess.value = null
     }
 }

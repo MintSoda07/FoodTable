@@ -1,5 +1,6 @@
 import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -38,6 +39,7 @@ import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.RecipeSaveViewModel
 import com.bcu.foodtable.ai.OpenAIClient
+import com.bcu.foodtable.ui.home.Screen
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem // RecipeItem 경로는 기존과 동일
 
@@ -363,7 +365,7 @@ fun AiRecipeScreen(
                     )
                 }
             }
-
+            var is_saved = false;
             if (showChannelDialog) {
                 ChannelSelectDialog(
                     channels = myChannels,
@@ -378,16 +380,32 @@ fun AiRecipeScreen(
 
             // 저장 성공시 안내 및 이동
             LaunchedEffect(saveSuccess) {
-                if (saveSuccess == true && selectedChannel != null) {
-                    Log.d("DEBUG", "selectedChannel name: ${selectedChannel?.name}")
-                    navController.navigate("channelView/${Uri.encode(selectedChannel!!.name)}")
-                    recipeSaveViewModel.resetSaveSuccess()
+                if (is_saved){
+                    Log.i("AI ChatTest","새 페이지 시도했으나 차단됨 $is_saved")
+                    return@LaunchedEffect}
+                is_saved = true;
+                Log.i("AI ChatTest","새 페이지 호출되는중 $is_saved")
+
+                    if (saveSuccess == true && selectedChannel != null) {
+                        navController.navigate("channelView/${Uri.encode(selectedChannel!!.name)}") {
+                            Log.i("AI ChatTest","채널 경로 : channelView/${Uri.encode(selectedChannel!!.name)}")
+                            popUpTo("subscribe") { inclusive = false }
+                            launchSingleTop = true
+                        }
+                        recipeSaveViewModel.resetSaveSuccess()
+                    }
                 }
-            }
+
 
 
         }
         }
+    BackHandler {
+        navController.navigate("fridge") {
+            popUpTo(0) // 스택 전부 삭제하고
+            launchSingleTop = true
+        }
+    }
     }
 
 
@@ -444,6 +462,7 @@ fun ChannelSelectDialog(
             Button(
                 onClick = {
                     if (selectedIndex != -1) onSelect(channels[selectedIndex])
+                    Log.i("AI ChatTest","채널 선택됨 . 선택된 채널 : ${channels[selectedIndex]} ")
                 },
                 enabled = selectedIndex != -1
             ) { Text("확인") }

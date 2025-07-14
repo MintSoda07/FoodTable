@@ -87,6 +87,7 @@ class OpenAIClient @Inject constructor() {
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
+        Log.i("AI ChatTest", "AI _ OpenAI 호출됨")
         // API 요청에 필요한 JSON 데이터
         val requestBody = mapOf(
             "model" to "gpt-4o",  // gpt-4o 혹은 gpt-4
@@ -148,6 +149,7 @@ class OpenAIClient @Inject constructor() {
     ) {
         // 1) 요청 로그
         Log.d("OpenAIClient", "🖼️ generateImage() prompt=\"$prompt\", size=$size")
+        
 
         // 2) 바디 JSON 문자열로 미리 생성하고 로그
         val bodyMap = mapOf(

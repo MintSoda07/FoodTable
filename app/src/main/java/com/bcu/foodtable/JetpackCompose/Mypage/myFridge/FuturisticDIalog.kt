@@ -2,6 +2,7 @@ package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import ads_mobile_sdk.ui
 import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
@@ -65,9 +66,12 @@ fun FuturisticDialog(
         }
     }
 
-
+    var onetimecall = false;
     // 2) 이미지 URL이 준비되면 ai_recipe 화면으로 전환
     LaunchedEffect(ui.imageUrl, progress.value) {
+        if(onetimecall){
+        return@LaunchedEffect}
+        onetimecall =  true;
         if (!ui.imageUrl.isNullOrBlank() && progress.value >= 1f) {
             // RecipeItem 생성
             val recipeItem = RecipeItem(
@@ -85,7 +89,9 @@ fun FuturisticDialog(
             val json    = Gson().toJson(recipeItem)
             val encoded = Uri.encode(json)
             navController.navigate("ai_recipe/$encoded") {
+                Log.i("AI ChatTest","상세페이지 호출당함, $encoded");
                 popUpTo("fridge") { inclusive = false }
+                launchSingleTop = true
             }
             onDismiss()
         }

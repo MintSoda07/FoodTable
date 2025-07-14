@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
@@ -46,6 +47,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
+import com.bcu.foodtable.ui.home.Screen
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
@@ -80,6 +82,13 @@ fun ChannelViewPageScreen(
             viewModel.loadAll(channelName, userId)
         }
     }
+    BackHandler {
+        navController.navigate(Screen.Subscribe.route) {
+            popUpTo(0) // 스택 전체 비우고
+            launchSingleTop = true
+        }
+    }
+
 
     // 레시피 클릭 후 ActivityResult 콜백
     val launcher = rememberLauncherForActivityResult(

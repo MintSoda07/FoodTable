@@ -137,8 +137,10 @@ class AiHelperViewModel(
                         prompt   = imgPrompt,
                         size     = "1024x1024",
                         onSuccess = { url ->
+                            Log.i("AI ChatTest","1차 DALL 호출")
                             // 성공 시 UI 상태에 URL 반영
                             _uiState.update {
+                                Log.i("AI ChatTest","2차 DALL 호출")
                                 it.copy(
                                     imageUrl = url,
                                     isSending = false      // 텍스트+이미지 모두 끝나면 꺼주기
@@ -157,7 +159,7 @@ class AiHelperViewModel(
                 _uiState.update { it.copy(isSending = false) }
             }
         )
-
+        Log.i("AI ChatTest","Helper 호출됨.")
     }
 }
 
