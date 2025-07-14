@@ -66,14 +66,16 @@ fun FuturisticDialog(
         }
     }
 
-    var onetimecall = false;
+
     // 2) 이미지 URL이 준비되면 ai_recipe 화면으로 전환
-    LaunchedEffect(ui.imageUrl, progress.value) {
-        if(onetimecall){
-        return@LaunchedEffect}
-        onetimecall =  true;
-        if (!ui.imageUrl.isNullOrBlank() && progress.value >= 1f) {
-            // RecipeItem 생성
+    LaunchedEffect(ui.imageUrl, ui.isSending, progress.value) {
+        // 조건: 1) isSending이 false (API, 이미지 모두 완료), 2) imageUrl 도착, 3) 조리 레시피도 도착
+        if (
+            ui.isSending == false &&
+            !ui.imageUrl.isNullOrBlank() &&
+            ui.resultText.isNotBlank()
+        ) {
+            // RecipeItem 생성 등 원하는 작업
             val recipeItem = RecipeItem(
                 id                = "ai_${System.currentTimeMillis()}",
                 name              = ui.recipes.firstOrNull().orEmpty(),
@@ -85,17 +87,16 @@ fun FuturisticDialog(
                 C_categories      = emptyList(),
                 tags              = emptyList()
             )
-            // JSON으로 인코딩해 네비게이트
             val json    = Gson().toJson(recipeItem)
             val encoded = Uri.encode(json)
             navController.navigate("ai_recipe/$encoded") {
-                Log.i("AI ChatTest","상세페이지 호출당함, $encoded");
                 popUpTo("fridge") { inclusive = false }
                 launchSingleTop = true
             }
             onDismiss()
         }
     }
+
 
 
     Dialog(onDismissRequest = onDismiss) {

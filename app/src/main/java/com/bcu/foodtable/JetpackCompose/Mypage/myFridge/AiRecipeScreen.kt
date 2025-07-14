@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
+import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModelFactory
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.RecipeSaveViewModel
 import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.ui.home.Screen
@@ -92,12 +93,18 @@ fun AiRecipeScreen(
     navController: NavController,
     onSaveToChannel: (RecipeItem) -> Unit, // 기존 기능 유지
     userId: String,
+    aiViewModel: AiHelperViewModel = viewModel(
+        factory = AiHelperViewModelFactory(OpenAIClient())
+    ),// <- AI 뷰모델
     recipeSaveViewModel: RecipeSaveViewModel = viewModel()
 ) {
     var showChannelDialog by remember { mutableStateOf(false) }
     val myChannels by recipeSaveViewModel.myChannels.collectAsState()
     val saveSuccess by recipeSaveViewModel.saveSuccess.collectAsState()
     var selectedChannel by remember { mutableStateOf<Channel?>(null) }
+    var imageError by remember { mutableStateOf(false) }
+    val uiState by aiViewModel.uiState.collectAsState()
+    val imageUrl = recipe.imageResId
     FoodTableTheme { // 테마 적용
         // RecipeCookingScreen.kt의 배경 그라데이션 적용
 
@@ -151,26 +158,54 @@ fun AiRecipeScreen(
                             )
 
 
-                            // 레시피 대표 이미지
-                            if (!recipe.imageResId.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = recipe.imageResId,
-                                    contentDescription = recipe.name,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(320.dp)
-                                        .clip(RoundedCornerShape(24.dp))
-                                        .background(
-                                            brush = Brush.radialGradient(
-                                                colors = listOf(
-                                                    Color.Transparent,
-                                                    Color.Black.copy(alpha = 0.1f)
-                                                )
-                                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(320.dp)
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.1f))
                                         )
-                                )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when {
+                                    uiState.isSending -> {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(48.dp),
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    uiState.imageError -> {
+                                        Button(
+                                            onClick = { aiViewModel.generateImageAgain(recipe) },
+                                            shape = RoundedCornerShape(20.dp)
+                                        ) { Text("이미지 다시 불러오기") }
+                                    }
+                                    !uiState.imageUrl.isNullOrBlank() -> {
+                                        AsyncImage(
+                                            model = uiState.imageUrl,
+                                            contentDescription = recipe.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize(),
+                                            onError = {
+                                                // 이미지 자체 로딩 실패시
+                                                aiViewModel.generateImageAgain(recipe)
+                                            }
+                                        )
+                                    }
+                                    else -> {
+                                        Button(
+                                            onClick = { aiViewModel.generateImageAgain(recipe) },
+                                            shape = RoundedCornerShape(20.dp)
+                                        ) { Text("이미지 불러오기") }
+                                    }
+                                }
                             }
+
+
+
 
 
                             // Floating Info Cards (RecipeCookingScreen.kt의 InfoChip 디자인 적용)

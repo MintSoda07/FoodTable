@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
+import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,13 +122,17 @@ class AiHelperViewModel(
 
                     // 3) 이미지 생성 프롬프트 구성
                     val title = recipes.firstOrNull() ?: "Delicious Dish"
+                    val ingredientsText = details.firstOrNull() ?: ingredients.joinToString(", ")
+
                     val imgPrompt = """
-                        A hyper-realistic, top-down shot of a beautifully plated gourmet dish called "$title", 
-                        with glistening sauce, fresh herbs and microgreens garnish, steam gently rising 
-                        from the center, soft natural window light casting delicate shadows, 
-                        shallow depth of field to blur the background, vibrant colors highlighting texture 
-                            and freshness, styled on a rustic wooden table.
-                        """.trimIndent()
+                    A realistic, top-down food photo of a dish called "$title", made **only** using these ingredients: $ingredientsText.
+                    The dish should look exactly like a real "$title" as served at home or in a restaurant, using the listed ingredients, with no missing or extra items.
+                    Present the dish authentically, with all ingredients accurately prepared and incorporated.
+                    No fantasy, no additional decorations, no unrelated foods.
+                    Simple background, focus on the food, natural lighting.
+                    """.trimIndent()
+
+
                     // 이미지 생성 시작 직전에
 
                     _uiState.update { it.copy(/* 이미 isSending=true */) }
@@ -161,5 +166,38 @@ class AiHelperViewModel(
         )
         Log.i("AI ChatTest","Helper 호출됨.")
     }
+    fun generateImageAgain(recipe: RecipeItem) {
+        // 1) 프롬프트 재생성 (최신 프롬프트 로직에 맞게!)
+        val prompt = """
+        A hyper-realistic, top-down photo of "${
+            recipe.name
+        }", made with: ${recipe.ingredients.joinToString(", ")}.
+        Clearly show each main ingredient, with realistic colors and plating, in the style of a gourmet dish.
+        Background should be a warm wooden table, natural lighting, and appetizing, photogenic composition.
+    """.trimIndent()
+
+        // 2) 상태 업데이트 (로딩)
+        _uiState.update { it.copy(isSending = true, imageUrl = null) }
+
+        // 3) 이미지 생성 API 호출
+        apiClient.generateImage(
+            prompt = prompt,
+            size = "1024x1024",
+            onSuccess = { url ->
+                // 성공 시 UI 상태에 URL 반영
+                _uiState.update {
+                    it.copy(
+                        imageUrl = url,
+                        isSending = false      // 텍스트+이미지 모두 끝나면 꺼주기
+                    )
+                }
+            },
+            onError = { err ->
+                // 실패시 에러처리
+                _uiState.update { it.copy(isSending = false) }
+            }
+        )
+    }
+
 }
 

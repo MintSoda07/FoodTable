@@ -1,5 +1,4 @@
 package com.bcu.foodtable.JetpackCompose.AI
-
 data class AiUiState(
     val userPoint: Int = 0,
     val inputText: String = "",
@@ -11,5 +10,5 @@ data class AiUiState(
     val resultText: String = "",
     val reasonText: String = "",
     val imageUrl: String? = null,
-
+    val imageError: Boolean = false
 )
