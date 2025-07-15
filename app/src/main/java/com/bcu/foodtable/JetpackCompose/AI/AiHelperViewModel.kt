@@ -148,7 +148,8 @@ class AiHelperViewModel(
                                 Log.i("AI ChatTest","2차 DALL 호출")
                                 it.copy(
                                     imageUrl = url,
-                                    isSending = false      // 텍스트+이미지 모두 끝나면 꺼주기
+                                    isSending = false, // 텍스트+이미지 모두 끝나면 꺼주기
+                                    done = true
                                 )
                             }
                         },
@@ -166,37 +167,19 @@ class AiHelperViewModel(
         )
         Log.i("AI ChatTest","Helper 호출됨.")
     }
-    fun generateImageAgain(recipe: RecipeItem) {
-        // 1) 프롬프트 재생성 (최신 프롬프트 로직에 맞게!)
-        val prompt = """
-        A hyper-realistic, top-down photo of "${
-            recipe.name
-        }", made with: ${recipe.ingredients.joinToString(", ")}.
-        Clearly show each main ingredient, with realistic colors and plating, in the style of a gourmet dish.
-        Background should be a warm wooden table, natural lighting, and appetizing, photogenic composition.
-    """.trimIndent()
-
-        // 2) 상태 업데이트 (로딩)
-        _uiState.update { it.copy(isSending = true, imageUrl = null) }
-
-        // 3) 이미지 생성 API 호출
-        apiClient.generateImage(
-            prompt = prompt,
-            size = "1024x1024",
-            onSuccess = { url ->
-                // 성공 시 UI 상태에 URL 반영
-                _uiState.update {
-                    it.copy(
-                        imageUrl = url,
-                        isSending = false      // 텍스트+이미지 모두 끝나면 꺼주기
-                    )
-                }
-            },
-            onError = { err ->
-                // 실패시 에러처리
-                _uiState.update { it.copy(isSending = false) }
-            }
-        )
+    // 초기화?
+    fun resetDone() {
+        _uiState.update { it.copy(done = false) }
+    }
+    fun retryLoadImage() {
+        _uiState.update {
+            it.copy(
+                imageError = false,
+                isSending = false
+                // imageUrl은 그대로!
+                // done은 건드리지 않는다!!
+            )
+        }
     }
 
 }

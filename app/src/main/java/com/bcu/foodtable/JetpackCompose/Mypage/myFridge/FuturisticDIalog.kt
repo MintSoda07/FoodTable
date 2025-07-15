@@ -68,31 +68,26 @@ fun FuturisticDialog(
 
 
     // 2) 이미지 URL이 준비되면 ai_recipe 화면으로 전환
-    LaunchedEffect(ui.imageUrl, ui.isSending, progress.value) {
-        // 조건: 1) isSending이 false (API, 이미지 모두 완료), 2) imageUrl 도착, 3) 조리 레시피도 도착
-        if (
-            ui.isSending == false &&
-            !ui.imageUrl.isNullOrBlank() &&
-            ui.resultText.isNotBlank()
-        ) {
-            // RecipeItem 생성 등 원하는 작업
+    LaunchedEffect(ui.done) {
+        if (ui.done) {
             val recipeItem = RecipeItem(
-                id                = "ai_${System.currentTimeMillis()}",
-                name              = ui.recipes.firstOrNull().orEmpty(),
-                description       = "",
-                imageResId        = ui.imageUrl!!,
-                ingredients       = ingredients.map { it.name },
-                order             = ui.resultText,
+                id = "ai_${System.currentTimeMillis()}",
+                name = ui.recipes.firstOrNull().orEmpty(),
+                description = "",
+                imageResId = ui.imageUrl!!,
+                ingredients = ingredients.map { it.name },
+                order = ui.resultText,
                 estimatedCalories = null,
-                C_categories      = emptyList(),
-                tags              = emptyList()
+                C_categories = emptyList(),
+                tags = emptyList()
             )
-            val json    = Gson().toJson(recipeItem)
+            val json = Gson().toJson(recipeItem)
             val encoded = Uri.encode(json)
             navController.navigate("ai_recipe/$encoded") {
                 popUpTo("fridge") { inclusive = false }
                 launchSingleTop = true
             }
+            aiViewModel.resetDone() // <- done 값 초기화
             onDismiss()
         }
     }

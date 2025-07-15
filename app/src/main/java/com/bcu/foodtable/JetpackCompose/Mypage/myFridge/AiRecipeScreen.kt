@@ -30,12 +30,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavController
+import coil.request.ImageRequest
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModelFactory
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.RecipeSaveViewModel
@@ -172,36 +174,49 @@ fun AiRecipeScreen(
                             ) {
                                 when {
                                     uiState.isSending -> {
+                                        Log.d("AiRecipeScreen", "isSending=true: CircularProgressIndicator 표시")
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(48.dp),
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                     }
                                     uiState.imageError -> {
+                                        Log.d("AiRecipeScreen", "imageError=true: 이미지 에러 버튼 표시")
                                         Button(
-                                            onClick = { aiViewModel.generateImageAgain(recipe) },
+                                            onClick = { aiViewModel.retryLoadImage() },
                                             shape = RoundedCornerShape(20.dp)
                                         ) { Text("이미지 다시 불러오기") }
                                     }
-                                    !uiState.imageUrl.isNullOrBlank() -> {
+                                    !imageUrl.isNullOrBlank() -> {
+                                        Log.d("AiRecipeScreen", "imageResId 분기 진입! url=${recipe.imageResId}")
                                         AsyncImage(
-                                            model = uiState.imageUrl,
+                                            model = ImageRequest.Builder(LocalContext.current)
+                                                .data(recipe.imageResId)
+                                                .crossfade(true)          // 부드러운 로딩 애니메이션
+                                                .allowHardware(false)     // ★ DALL·E presigned에서 문제날 때 필수!
+                                                .build(),
                                             contentDescription = recipe.name,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize(),
-                                            onError = {
-                                                // 이미지 자체 로딩 실패시
-                                                aiViewModel.generateImageAgain(recipe)
+                                            onSuccess = {
+                                                Log.d("AiRecipeScreen", "AsyncImage 이미지 로딩 성공! url=${recipe.imageResId}")
+                                            },
+                                            onError = { error ->
+                                                Log.e("AiRecipeScreen", "AsyncImage 이미지 로딩 실패: $error, url=${recipe.imageResId}")
+                                                aiViewModel.retryLoadImage()
                                             }
                                         )
                                     }
                                     else -> {
+                                        Log.d("AiRecipeScreen", "else 분기 진입: 이미지 불러오기 버튼 표시")
                                         Button(
-                                            onClick = { aiViewModel.generateImageAgain(recipe) },
+                                            onClick = { aiViewModel.retryLoadImage() },
                                             shape = RoundedCornerShape(20.dp)
                                         ) { Text("이미지 불러오기") }
                                     }
                                 }
+
+
                             }
 
 

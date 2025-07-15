@@ -10,5 +10,6 @@ data class AiUiState(
     val resultText: String = "",
     val reasonText: String = "",
     val imageUrl: String? = null,
-    val imageError: Boolean = false
+    val imageError: Boolean = false,
+    val done: Boolean = false
 )
