@@ -180,6 +180,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.BeyondBoundsLayout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.LayoutDirection
@@ -1418,13 +1419,141 @@ fun PromoBannerPagerFromFirestore(
 }
 
 
+@Composable
+fun RecipePreviewCard(
+    recipe: RecipeItem,
+    onClick: ((String) -> Unit)? = null,
+    homeViewModel: HomeViewModel
+) {
+    val context = LocalContext.current
+    val db = FirebaseFirestore.getInstance()
+    val scope = rememberCoroutineScope()
+    var showPurchaseDialog by remember { mutableStateOf(false) }
+    var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+
+    fun goToRecipeCooking(recipeId: String) {
+        onClick?.invoke(recipeId)
+        val intent = Intent(context, RecipeCookingActivity::class.java)
+        intent.putExtra("recipe_id", recipeId)
+        context.startActivity(intent)
+    }
+
+    fun handlePurchase(recipe: RecipeItem) {
+        val uid = UserManager.getUser()?.uid ?: return
+        val userRef = db.collection("user").document(uid)
+
+        userRef.get().addOnSuccessListener { document ->
+            val currentPoint = document.getLong("point")?.toInt() ?: 0
+            if (currentPoint >= recipe.cost) {
+                val newPoint = currentPoint - recipe.cost
+                userRef.update("point", newPoint)
+                    .addOnSuccessListener {
+                        userRef.collection("purchased")
+                            .document(recipe.id)
+                            .set(mapOf("purchased" to true))
+                            .addOnSuccessListener {
+                                Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
+                                homeViewModel.markRecipeAsPurchased(recipe.id)
+                                goToRecipeCooking(recipe.id)
+                            }
+                    }
+            } else {
+                Toast.makeText(
+                    context,
+                    "소금이 부족합니다! ($currentPoint / ${recipe.cost})",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }.addOnFailureListener {
+            Toast.makeText(context, "사용자 정보 조회 실패", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .size(80.dp)
+            .clickable {
+                scope.launch {
+                    val uid = UserManager.getUser()?.uid ?: return@launch
+                    db.collection("user")
+                        .document(uid)
+                        .collection("purchased")
+                        .document(recipe.id)
+                        .get()
+                        .addOnSuccessListener { document ->
+                            if (document.exists()) {
+                                homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
+                                goToRecipeCooking(recipe.id)
+                            } else {
+                                selectedRecipe = recipe
+                                showPurchaseDialog = true
+                            }
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(context, "구매 여부 확인 실패", Toast.LENGTH_SHORT).show()
+                        }
+                }
+            },
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(12.dp))
+        ) {
+            AsyncImage(
+                model = recipe.imageResId,
+                contentDescription = recipe.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                placeholder = painterResource(id = R.drawable.ic_placeholder_dish),
+                error = painterResource(id = R.drawable.ic_placeholder_dish)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .align(Alignment.BottomCenter)
+            ) {
+                Text(
+                    text = recipe.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                )
+            }
+        }
+    }
+
+    if (showPurchaseDialog && selectedRecipe != null) {
+        PurchaseDialog(
+            recipeName = selectedRecipe!!.name,
+            cost = selectedRecipe!!.cost,
+            onConfirm = {
+                scope.launch {
+                    handlePurchase(selectedRecipe!!)
+                    showPurchaseDialog = false
+                }
+            },
+            onDismiss = { showPurchaseDialog = false }
+        )
+    }
+}
 
 
-
-
-
-
-
+private fun goToRecipeCooking(context: Context, recipeId: String) {
+    val intent = Intent(context, RecipeCookingActivity::class.java)
+    intent.putExtra("recipe_id", recipeId)
+    context.startActivity(intent)
+}
 
 
 
@@ -1461,6 +1590,8 @@ fun HomeContent(
             }
     }
 
+
+
     val filteredRecipes = recipes.filter { recipe ->
         val matchesSearch = searchQuery.text.isEmpty() ||
                 recipe.name.contains(searchQuery.text, ignoreCase = true) ||
@@ -1488,6 +1619,7 @@ fun HomeContent(
             )
         )
     }
+    val topClickedRecipes by homeViewModel.topClickedRecipes.collectAsState()
 
     var draggedIndex by remember { mutableStateOf<Int?>(null) }
     var offsetY by remember { mutableStateOf(0f) }
@@ -1509,7 +1641,16 @@ fun HomeContent(
             PromoBannerPagerFromFirestore(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp)
+                    .height(220.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary, // 약간 다른 배경색
+                        shape = RoundedCornerShape(0.dp)
+                    )
             )
         }
 
@@ -1569,7 +1710,7 @@ fun HomeContent(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
@@ -1580,24 +1721,53 @@ fun HomeContent(
                                             is HomeSection.RecipeList -> "레시피 구경하기"
                                             else -> ""
                                         },
-                                        style = MaterialTheme.typography.headlineSmall
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
                                     )
 
-                                    if (section !is HomeSection.RecipeList) {
-                                        Icon(
-                                            imageVector = Icons.Default.DragHandle,
-                                            contentDescription = "Drag Handle"
-                                        )
-                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Divider(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                        thickness = 1.dp
+                                    )
                                 }
 
                                 // 내용물
                                 when (section) {
                                     is HomeSection.TrendRecipes -> {
-                                        Text(
-                                            text = "트렌드 레시피 내용물 (더미)",
-                                            modifier = Modifier.padding(16.dp)
-                                        )
+                                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+
+                                            if (topClickedRecipes.isEmpty()) {
+                                                Text(
+                                                    text = "불러오는 중...",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            } else {
+                                                val context = LocalContext.current
+                                                LazyRow(
+                                                    contentPadding = PaddingValues(horizontal = 0.dp),
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                ) {
+                                                    items(topClickedRecipes) { recipe ->
+                                                        RecipePreviewCard(
+                                                            recipe = recipe, onClick = { recipeID ->
+                                                            },
+                                                            homeViewModel = homeViewModel
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Divider(
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                thickness = 1.dp
+                                            )
+                                        }
                                     }
                                     is HomeSection.RecommendRecipes -> {
                                         Text(
