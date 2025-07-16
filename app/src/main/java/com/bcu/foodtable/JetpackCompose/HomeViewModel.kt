@@ -10,6 +10,7 @@ import com.bcu.foodtable.ai.AIRecommendationService
 import com.bcu.foodtable.manager.TimeBasedRecommendationManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.toObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,6 +70,29 @@ class HomeViewModel(
     // 🔄 추천 업데이트 타이머
     private var recommendationUpdateTimer: kotlinx.coroutines.Job? = null
 
+    private val _recommendedRecipes = MutableStateFlow<List<RecipeItem>>(emptyList())
+    val recommendedRecipes: StateFlow<List<RecipeItem>> = _recommendedRecipes.asStateFlow()
+
+    fun loadRecommendedRecipes(limit: Long = 10) {
+        viewModelScope.launch {
+            try {
+                val result = db.collection("recipe")
+                    .orderBy("likes", Query.Direction.DESCENDING)
+                    .limit(limit)
+                    .get()
+                    .await()
+
+                val recipes = result.documents.mapNotNull {
+                    it.toObject(RecipeItem::class.java)?.apply { id = it.id }
+                }
+
+                _recommendedRecipes.value = recipes
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "추천 레시피 로드 실패", e)
+            }
+        }
+    }
+
     init {
         // 초기화: 시간 관리자와 행동 추적기 설정
         setupTimeManager()
@@ -91,6 +115,7 @@ class HomeViewModel(
                 }
         }
         loadTopClickedRecipes()
+        loadRecommendedRecipes()
     }
 
 

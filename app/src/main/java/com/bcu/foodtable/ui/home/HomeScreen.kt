@@ -1,7 +1,8 @@
 package com.bcu.foodtable.ui.home
 
-
+import androidx.lifecycle.viewmodel.compose.viewModel
 import AiRecipeScreen
+import CategoriesViewModel
 import ChannelEditScreen
 import ChannelEditScreenLoader
 import android.content.Context
@@ -179,11 +180,25 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.BrunchDining
+import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Eco
+import androidx.compose.material.icons.filled.EmojiNature
+import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.LocalCafe
+import androidx.compose.material.icons.filled.LocalPizza
+import androidx.compose.material.icons.filled.LunchDining
+import androidx.compose.material.icons.filled.NightShelter
+import androidx.compose.material.icons.filled.RamenDining
+import androidx.compose.material.icons.filled.RiceBowl
+import androidx.compose.material.icons.filled.SetMeal
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.BeyondBoundsLayout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.navigation.NavController
 import coil.Coil
 import coil.request.ImageRequest
 import com.airbnb.lottie.compose.LottieAnimation
@@ -193,6 +208,7 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
+import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
 import com.bcu.foodtable.useful.PromotionItem
@@ -997,6 +1013,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(paddingValues)
         ) {
+            composable("category/{categoryName}") { backStackEntry ->
+                val categoryName = backStackEntry.arguments?.getString("categoryName") ?: ""
+                val categoryViewModel: CategoriesViewModel = viewModel()
+
+                CategoryScreen(
+                    categoryName = categoryName,
+                    viewModel = categoryViewModel
+                )
+            }
 
             composable(
                 route = "channel_management/{channelName}",
@@ -1021,6 +1046,16 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 )
             }
 
+            composable(
+                route ="trendRecipes"
+            ){
+                RankScreenImproved(navController)
+            }
+            composable(
+                route ="recommendRecipes"
+            ){
+                RankScreenImproved(navController)
+            }
             composable(
                 route ="ranklist"
             ){
@@ -1094,7 +1129,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                             searchQuery = searchQuery,
                             onSearchQueryChange = { searchQuery = it },
                             homeViewModel = viewModel,
-                            listState = listState
+                            listState = listState,
+                            nav = navController
                         )
                     }
                 }
@@ -1549,10 +1585,98 @@ fun RecipePreviewCard(
 }
 
 
-private fun goToRecipeCooking(context: Context, recipeId: String) {
-    val intent = Intent(context, RecipeCookingActivity::class.java)
-    intent.putExtra("recipe_id", recipeId)
-    context.startActivity(intent)
+@Composable
+fun CategoryGrid(
+    categories: List<Pair<String, ImageVector>>,
+    selectedCategory: String?,
+    navController: NavController
+) {
+    val chunkedCategories = categories.chunked(6)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        chunkedCategories.forEach { rowItems ->
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                rowItems.forEach { (name, icon) ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clickable {
+                                navController.navigate("category/${name}")
+                            }
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (name == selectedCategory) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = name,
+                                tint = if (name == selectedCategory) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+fun MoreButton(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .size(80.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.AddCircleOutline,
+                contentDescription = "더보기",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "더보기",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 
@@ -1565,7 +1689,8 @@ fun HomeContent(
     searchQuery: TextFieldValue,
     onSearchQueryChange: (TextFieldValue) -> Unit,
     homeViewModel: HomeViewModel,
-    listState: LazyListState
+    listState: LazyListState,
+    nav: NavController
 ) {
 
     var selectedCuisine by remember { mutableStateOf<String?>(null) }
@@ -1614,12 +1739,15 @@ fun HomeContent(
             mutableListOf(
                 HomeSection.TrendRecipes,
                 HomeSection.RecommendRecipes,
+                HomeSection.Categories,
                 HomeSection.SearchBar,
                 HomeSection.RecipeList
             )
         )
     }
     val topClickedRecipes by homeViewModel.topClickedRecipes.collectAsState()
+    val recommendedRecipes by homeViewModel.recommendedRecipes.collectAsState()
+
 
     var draggedIndex by remember { mutableStateOf<Int?>(null) }
     var offsetY by remember { mutableStateOf(0f) }
@@ -1643,20 +1771,12 @@ fun HomeContent(
                     .fillMaxWidth()
                     .height(220.dp)
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(18.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primary, // 약간 다른 배경색
-                        shape = RoundedCornerShape(0.dp)
-                    )
-            )
         }
 
         itemsIndexed(sectionOrder) { index, section ->
             val isDragging = draggedIndex == index
             val isRecipeList = section is HomeSection.RecipeList
+            val isSearchBar = section is HomeSection.SearchBar
 
             Box(
                 modifier = Modifier
@@ -1665,7 +1785,7 @@ fun HomeContent(
                         if (isDragging) translationY = offsetY
                     }
                     .pointerInput(section) {
-                        if (!isRecipeList) {
+                        if (!isRecipeList && !isSearchBar) {
                             detectDragGesturesAfterLongPress(
                                 onDragStart = {
                                     draggedIndex = index
@@ -1698,6 +1818,26 @@ fun HomeContent(
                 Column {
                     when (section) {
                         is HomeSection.SearchBar -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "레시피 둘러보기",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Divider(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                    thickness = 1.dp
+                                )
+                            }
                             ModernSearchBar(
                                 searchQuery = searchQuery,
                                 onSearchQueryChange = onSearchQueryChange
@@ -1714,11 +1854,11 @@ fun HomeContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
+                                    if(!isRecipeList){
                                     Text(
                                         text = when (section) {
                                             is HomeSection.TrendRecipes -> "인기 레시피"
                                             is HomeSection.RecommendRecipes -> "추천 레시피"
-                                            is HomeSection.RecipeList -> "레시피 구경하기"
                                             else -> ""
                                         },
                                         style = MaterialTheme.typography.bodyMedium,
@@ -1730,7 +1870,7 @@ fun HomeContent(
                                     Divider(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                                         thickness = 1.dp
-                                    )
+                                    )}
                                 }
 
                                 // 내용물
@@ -1759,21 +1899,35 @@ fun HomeContent(
                                                             homeViewModel = homeViewModel
                                                         )
                                                     }
+                                                    item {
+                                                        MoreButton {
+                                                            nav.navigate("TrendRecipes")
+                                                        }
+                                                    }
                                                 }
                                             }
-
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Divider(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                                thickness = 1.dp
-                                            )
                                         }
                                     }
                                     is HomeSection.RecommendRecipes -> {
-                                        Text(
-                                            text = "추천 레시피 내용물 (더미)",
-                                            modifier = Modifier.padding(16.dp)
-                                        )
+                                        LazyRow(
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            items(recommendedRecipes) { recipe ->
+                                                RecipePreviewCard(
+                                                    recipe = recipe,
+                                                    homeViewModel = homeViewModel,
+                                                    onClick = { recipeId ->
+                                                        // 선택 시 추가 동작
+                                                    }
+                                                )
+                                            }
+                                            item {
+                                                MoreButton {
+                                                    nav.navigate("RecommendRecipes")
+                                                }
+                                            }
+                                        }
                                     }
                                     is HomeSection.RecipeList -> {
                                         if (filteredRecipes.isEmpty()) {
@@ -1896,6 +2050,51 @@ fun HomeContent(
                                 }
                             }
                         }
+
+                        is HomeSection.Categories -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "카테고리",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Divider(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                    thickness = 1.dp
+                                )
+                            }
+                            val categoryList = listOf(
+                                "한식" to Icons.Default.RiceBowl,
+                                "중식" to Icons.Default.RamenDining,
+                                "양식" to Icons.Default.LunchDining,
+                                "일식" to Icons.Default.SetMeal,
+                                "디저트" to Icons.Default.Cake,
+                                "분식" to Icons.Default.Fastfood,
+                                "샐러드" to Icons.Default.EmojiNature,
+                                "패스트푸드" to Icons.Default.LocalPizza,
+                                "야식" to Icons.Default.NightShelter,
+                                "브런치" to Icons.Default.BrunchDining,
+                                "음료" to Icons.Default.LocalCafe,
+                                "채식" to Icons.Default.Eco
+                            )
+
+                            var selectedCategory by remember { mutableStateOf<String?>(null) }
+
+                            CategoryGrid(
+                                categories = categoryList,
+                                selectedCategory = selectedCategory,
+                                navController =  nav
+                            )
+                        }
                     }
 
 
@@ -1911,6 +2110,7 @@ sealed class HomeSection {
     object SearchBar : HomeSection()
     object TrendRecipes : HomeSection()
     object RecommendRecipes : HomeSection()
+    object Categories : HomeSection()
     object RecipeList : HomeSection()
 }
 
