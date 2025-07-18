@@ -5,6 +5,7 @@ import AiRecipeScreen
 import CategoriesViewModel
 import ChannelEditScreen
 import ChannelEditScreenLoader
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -209,12 +210,17 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
+import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeScreen
+import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
 import com.bcu.foodtable.useful.PromotionItem
 import com.google.gson.Gson
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.isActive
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
 import java.sql.Date
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
@@ -1019,7 +1025,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
                 CategoryScreen(
                     categoryName = categoryName,
-                    viewModel = categoryViewModel
+                    viewModel = categoryViewModel,
+                    navController = navController
                 )
             }
 
@@ -1046,10 +1053,12 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 )
             }
 
-            composable(
-                route ="trendRecipes"
-            ){
-                RankScreenImproved(navController)
+            composable("trendRecipes") {
+                val trendRecipeViewModel: TrendRecipeViewModel = viewModel()
+                TrendRecipeScreen(
+                    viewModel = trendRecipeViewModel,
+                    navController = navController
+                )
             }
             composable(
                 route ="recommendRecipes"
@@ -1218,8 +1227,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 )
             }
             composable("recipe_cook/{recipeJson}") { backStackEntry ->
-                val recipeJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
-                val recipeItem = Gson().fromJson(recipeJson, RecipeItem::class.java)
+                val encodedJson = backStackEntry.arguments?.getString("recipeJson") ?: return@composable
+                val decodedJson = URLDecoder.decode(encodedJson, StandardCharsets.UTF_8.toString())
+                val recipeItem = Gson().fromJson(decodedJson, RecipeItem::class.java)
+
                 RecipeCookingScreen(
                     recipe = recipeItem,
                     navController = navController
@@ -1955,9 +1966,18 @@ fun HomeContent(
                                                 val context = LocalContext.current
                                                 val scope = rememberCoroutineScope()
 
+                                                var showPurchaseDialog by remember { mutableStateOf(false) }
+                                                var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+
+                                                val estimatedCal = calorieVm.caloriesMap[recipe.id]
+
                                                 LaunchedEffect(recipe.id) {
-                                                    isVisible = true
-                                                    calorieVm.loadOrEstimateCalories(recipe)
+                                                    try {
+                                                        isVisible = true
+                                                        calorieVm.loadOrEstimateCalories(recipe)
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                    }
                                                 }
 
                                                 AnimatedVisibility(
@@ -1968,35 +1988,44 @@ fun HomeContent(
                                                     ) + fadeIn(animationSpec = tween(400))
                                                 ) {
                                                     val cardModifier = Modifier.animateItemPlacement(tween(300))
-                                                    var showPurchaseDialog by remember { mutableStateOf(false) }
-                                                    var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
-                                                    val estimatedCal = calorieVm.caloriesMap[recipe.id]
 
                                                     ModernRecipeCard(
                                                         recipe = recipe.copy(isPurchased = isPurchasedFlag),
                                                         estimatedCal = estimatedCal,
                                                         onCardClick = {
                                                             scope.launch {
-                                                                val uid = UserManager.getUser()!!.uid
-                                                                db.collection("user")
-                                                                    .document(uid)
-                                                                    .collection("purchased")
-                                                                    .document(recipe.id)
-                                                                    .get()
-                                                                    .addOnSuccessListener { document ->
-                                                                        if (document.exists()) {
-                                                                            homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
+                                                                try {
+                                                                    val uid = UserManager.getUser()?.uid
+                                                                    if (uid == null) {
+                                                                        Toast.makeText(context, "유저 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+                                                                        return@launch
+                                                                    }
+
+                                                                    val docSnapshot = db.collection("user")
+                                                                        .document(uid)
+                                                                        .collection("purchased")
+                                                                        .document(recipe.id)
+                                                                        .get()
+                                                                        .await()
+
+                                                                    if (!isActive) return@launch
+
+                                                                    if (docSnapshot.exists()) {
+                                                                        homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
+
+                                                                        if (context.isActivity()) {
                                                                             val intent = Intent(context, RecipeCookingActivity::class.java)
                                                                             intent.putExtra("recipe_id", recipe.id)
                                                                             context.startActivity(intent)
-                                                                        } else {
-                                                                            selectedRecipe = recipe
-                                                                            showPurchaseDialog = true
                                                                         }
+                                                                    } else {
+                                                                        selectedRecipe = recipe
+                                                                        showPurchaseDialog = true
                                                                     }
-                                                                    .addOnFailureListener {
-                                                                        Toast.makeText(context, "구매 여부 확인 실패", Toast.LENGTH_SHORT).show()
-                                                                    }
+                                                                } catch (e: Exception) {
+                                                                    e.printStackTrace()
+                                                                    Toast.makeText(context, "레시피 확인 중 오류 발생", Toast.LENGTH_SHORT).show()
+                                                                }
                                                             }
                                                         },
                                                         modifier = cardModifier
@@ -2008,35 +2037,45 @@ fun HomeContent(
                                                             cost = selectedRecipe!!.cost,
                                                             onConfirm = {
                                                                 showPurchaseDialog = false
-                                                                val uid = UserManager.getUser()!!.uid
-                                                                val userRef = db.collection("user").document(uid)
+                                                                scope.launch {
+                                                                    try {
+                                                                        val uid = UserManager.getUser()?.uid
+                                                                        if (uid == null) {
+                                                                            Toast.makeText(context, "유저 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+                                                                            return@launch
+                                                                        }
 
-                                                                userRef.get().addOnSuccessListener { document ->
-                                                                    val currentPoint = document.getLong("point")?.toInt() ?: 0
-                                                                    if (currentPoint >= selectedRecipe!!.cost) {
-                                                                        val newPoint = currentPoint - selectedRecipe!!.cost
-                                                                        userRef.update("point", newPoint)
-                                                                            .addOnSuccessListener {
-                                                                                userRef.collection("purchased")
-                                                                                    .document(selectedRecipe!!.id)
-                                                                                    .set(mapOf("purchased" to true))
-                                                                                    .addOnSuccessListener {
-                                                                                        Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
-                                                                                        homeViewModel.markRecipeAsPurchased(selectedRecipe!!.id)
-                                                                                        val intent = Intent(context, RecipeCookingActivity::class.java)
-                                                                                        intent.putExtra("recipe_id", selectedRecipe!!.id)
-                                                                                        context.startActivity(intent)
-                                                                                    }
+                                                                        val userRef = db.collection("user").document(uid)
+                                                                        val document = userRef.get().await()
+                                                                        val currentPoint = document.getLong("point")?.toInt() ?: 0
+
+                                                                        if (currentPoint >= selectedRecipe!!.cost) {
+                                                                            userRef.update("point", currentPoint - selectedRecipe!!.cost).await()
+                                                                            userRef.collection("purchased")
+                                                                                .document(selectedRecipe!!.id)
+                                                                                .set(mapOf("purchased" to true))
+                                                                                .await()
+
+                                                                            homeViewModel.markRecipeAsPurchased(selectedRecipe!!.id)
+
+                                                                            Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
+
+                                                                            if (context.isActivity()) {
+                                                                                val intent = Intent(context, RecipeCookingActivity::class.java)
+                                                                                intent.putExtra("recipe_id", selectedRecipe!!.id)
+                                                                                context.startActivity(intent)
                                                                             }
-                                                                    } else {
-                                                                        Toast.makeText(
-                                                                            context,
-                                                                            "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
-                                                                            Toast.LENGTH_LONG
-                                                                        ).show()
+                                                                        } else {
+                                                                            Toast.makeText(
+                                                                                context,
+                                                                                "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
+                                                                                Toast.LENGTH_LONG
+                                                                            ).show()
+                                                                        }
+                                                                    } catch (e: Exception) {
+                                                                        e.printStackTrace()
+                                                                        Toast.makeText(context, "구매 처리 중 오류 발생", Toast.LENGTH_SHORT).show()
                                                                     }
-                                                                }.addOnFailureListener {
-                                                                    Toast.makeText(context, "사용자 정보 조회 실패", Toast.LENGTH_SHORT).show()
                                                                 }
                                                             },
                                                             onDismiss = { showPurchaseDialog = false }
@@ -2045,6 +2084,7 @@ fun HomeContent(
                                                 }
                                             }
                                         }
+
                                     }
                                     else -> {}
                                 }
@@ -2104,7 +2144,9 @@ fun HomeContent(
     }
 }
 
-
+fun Context.isActivity(): Boolean {
+    return this is Activity && !this.isFinishing && !this.isDestroyed
+}
 
 sealed class HomeSection {
     object SearchBar : HomeSection()
