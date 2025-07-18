@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -29,7 +30,7 @@ fun AiHelperScreen(
     viewModel: AiHelperViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
+    val context = LocalContext.current
     Column(modifier = Modifier.fillMaxSize()) {
         // 상단 바
         Row(
@@ -139,7 +140,7 @@ fun AiHelperScreen(
                 )
             )
             IconButton(
-                onClick = { viewModel.sendMessage() },
+                onClick = { viewModel.sendMessage(context) },
                 enabled = !uiState.isSending,
                 modifier = Modifier.padding(start = 8.dp)
             ) {

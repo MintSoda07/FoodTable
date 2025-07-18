@@ -1,5 +1,6 @@
 import android.net.Uri
 import android.util.Log
+import android.widget.ImageView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -23,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavController
@@ -41,10 +44,17 @@ import coil.request.ImageRequest
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModelFactory
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.RecipeSaveViewModel
+import com.bcu.foodtable.R
 import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.ui.home.Screen
 import com.bcu.foodtable.useful.Channel
 import com.bcu.foodtable.useful.RecipeItem // RecipeItem 경로는 기존과 동일
+import com.bumptech.glide.Glide
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 // RecipeCookingScreen.kt 에서 가져온 WarmLightColorScheme 정의를 AiRecipeScreen.kt 에도 동일하게 적용
 private val WarmLightColorScheme = lightColorScheme(
@@ -95,18 +105,28 @@ fun AiRecipeScreen(
     navController: NavController,
     onSaveToChannel: (RecipeItem) -> Unit, // 기존 기능 유지
     userId: String,
-    aiViewModel: AiHelperViewModel = viewModel(
-        factory = AiHelperViewModelFactory(OpenAIClient())
-    ),// <- AI 뷰모델
     recipeSaveViewModel: RecipeSaveViewModel = viewModel()
 ) {
     var showChannelDialog by remember { mutableStateOf(false) }
     val myChannels by recipeSaveViewModel.myChannels.collectAsState()
     val saveSuccess by recipeSaveViewModel.saveSuccess.collectAsState()
     var selectedChannel by remember { mutableStateOf<Channel?>(null) }
-    var imageError by remember { mutableStateOf(false) }
-    val uiState by aiViewModel.uiState.collectAsState()
-    val imageUrl = recipe.imageResId
+    val coroutineScope = rememberCoroutineScope()
+
+    val decodedPath = recipe.imageResId.replace("%2F", "/")
+    val storageRef = FirebaseStorage.getInstance().reference.child(decodedPath)
+
+    val downloadUrl = remember(decodedPath) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(decodedPath) {
+        try {
+            val url = storageRef.downloadUrl.await().toString()
+            downloadUrl.value = url
+        } catch (e: Exception) {
+            Log.e("AiRecipeScreen", "Storage 이미지 로드 실패: ${e.message}")
+        }
+    }
+
     FoodTableTheme { // 테마 적용
         // RecipeCookingScreen.kt의 배경 그라데이션 적용
 
@@ -172,51 +192,17 @@ fun AiRecipeScreen(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                when {
-                                    uiState.isSending -> {
-                                        Log.d("AiRecipeScreen", "isSending=true: CircularProgressIndicator 표시")
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(48.dp),
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    uiState.imageError -> {
-                                        Log.d("AiRecipeScreen", "imageError=true: 이미지 에러 버튼 표시")
-                                        Button(
-                                            onClick = { aiViewModel.retryLoadImage() },
-                                            shape = RoundedCornerShape(20.dp)
-                                        ) { Text("이미지 다시 불러오기") }
-                                    }
-                                    !imageUrl.isNullOrBlank() -> {
-                                        Log.d("AiRecipeScreen", "imageResId 분기 진입! url=${recipe.imageResId}")
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
-                                                .data(recipe.imageResId)
-                                                .crossfade(true)          // 부드러운 로딩 애니메이션
-                                                .allowHardware(false)     // ★ DALL·E presigned에서 문제날 때 필수!
-                                                .build(),
-                                            contentDescription = recipe.name,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize(),
-                                            onSuccess = {
-                                                Log.d("AiRecipeScreen", "AsyncImage 이미지 로딩 성공! url=${recipe.imageResId}")
-                                            },
-                                            onError = { error ->
-                                                Log.e("AiRecipeScreen", "AsyncImage 이미지 로딩 실패: $error, url=${recipe.imageResId}")
-                                                aiViewModel.retryLoadImage()
-                                            }
-                                        )
-                                    }
-                                    else -> {
-                                        Log.d("AiRecipeScreen", "else 분기 진입: 이미지 불러오기 버튼 표시")
-                                        Button(
-                                            onClick = { aiViewModel.retryLoadImage() },
-                                            shape = RoundedCornerShape(20.dp)
-                                        ) { Text("이미지 불러오기") }
-                                    }
-                                }
+                                Log.d("이미지디버그", "Firestore imageUrl: ${recipe.imageResId}")
 
 
+                                AsyncImage(
+                                    model = downloadUrl.value,
+                                    contentDescription = recipe.name,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(RoundedCornerShape(24.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
                             }
 
 
@@ -416,13 +402,16 @@ fun AiRecipeScreen(
                 }
             }
             var is_saved = false;
+
             if (showChannelDialog) {
                 ChannelSelectDialog(
                     channels = myChannels,
                     onSelect = { channel ->
                         showChannelDialog = false
                         selectedChannel = channel
-                        recipeSaveViewModel.saveRecipeToChannel(recipe, channel)
+                        coroutineScope.launch {
+                            recipeSaveViewModel.saveRecipeToChannel(recipe, channel, userId)
+                        }
                     },
                     onDismiss = { showChannelDialog = false }
                 )

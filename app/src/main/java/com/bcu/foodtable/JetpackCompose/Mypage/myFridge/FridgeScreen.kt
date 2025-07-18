@@ -581,6 +581,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             recipes = emptyList(),
             navController = navController,
             aiViewModel = aiViewModel,
+            userId = UserManager.getUser()?.uid ?: "",
             onDismiss = { showDialog.value = null }
         )
     }

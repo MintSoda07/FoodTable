@@ -1,6 +1,7 @@
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import ads_mobile_sdk.ui
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.core.Animatable
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,8 +33,16 @@ import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import com.bcu.foodtable.useful.RecipeItem
+import com.bumptech.glide.Glide
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.URLEncoder
+import kotlinx.coroutines.Dispatchers
 
 @Composable
 fun FuturisticDialog(
@@ -40,14 +50,18 @@ fun FuturisticDialog(
     recipes: List<String>,
     navController: NavController,
     aiViewModel: AiHelperViewModel,
-    onDismiss: () -> Unit
-) {
+    onDismiss: () -> Unit,
+    userId: String
+
+    ) {
 
     // 1) 게이지 진행 상태를 위한 Animatable
     val progress = remember { Animatable(0f) }
 
     // 1) ViewModel 상태 구독
     val ui by aiViewModel.uiState.collectAsState()
+
+    val context = LocalContext.current
 
     // 2) isSending 변할 때마다 0→1 애니메이션
     LaunchedEffect(ui.isSending) {
@@ -65,32 +79,51 @@ fun FuturisticDialog(
             progress.snapTo(1f)
         }
     }
-
-
-    // 2) 이미지 URL이 준비되면 ai_recipe 화면으로 전환
     LaunchedEffect(ui.done) {
         if (ui.done) {
-            val recipeItem = RecipeItem(
-                id = "ai_${System.currentTimeMillis()}",
-                name = ui.recipes.firstOrNull().orEmpty(),
-                description = "",
-                imageResId = ui.imageUrl!!,
-                ingredients = ingredients.map { it.name },
-                order = ui.resultText,
-                estimatedCalories = null,
-                C_categories = emptyList(),
-                tags = emptyList()
-            )
-            val json = Gson().toJson(recipeItem)
-            val encoded = Uri.encode(json)
-            navController.navigate("ai_recipe/$encoded") {
-                popUpTo("fridge") { inclusive = false }
-                launchSingleTop = true
+            try {
+                // 1. Storage에 이미지 업로드 후 Storage 경로(path) 받기
+                val storagePath = aiViewModel.uploadImageToFirebaseStorage(context, ui.imageUrl!!, userId)
+                Log.d("이미지업로드", "Storage 경로: $storagePath")
+
+                // 2. Firestore에 저장할 때 '/'를 '%2F'로 인코딩
+                val encodedPath = storagePath.replace("/", "%2F")
+
+                val recipeItem = RecipeItem(
+                    id = "ai_${System.currentTimeMillis()}",
+                    name = ui.recipes.firstOrNull().orEmpty(),
+                    description = "",
+                    imageResId = encodedPath,  // 인코딩된 Storage 경로 저장
+                    ingredients = ingredients.map { it.name },
+                    order = ui.resultText,
+                    estimatedCalories = null,
+                    C_categories = emptyList(),
+                    tags = emptyList()
+                )
+                val docRef = FirebaseFirestore.getInstance()
+                    .collection("user").document(userId)
+                    .collection("ai_recipe")
+                    .add(recipeItem)
+                    .await()
+                Log.d("파베업로드", "Firestore 저장 완료: ${docRef.id}")
+
+                // 3. 저장 완료 후 화면 전환
+                navController.navigate("ai_recipe/${Uri.encode(docRef.id)}") {
+                    popUpTo("fridge") { inclusive = false }
+                    launchSingleTop = true
+                }
+                aiViewModel.resetDone()
+                onDismiss()
+            } catch (e: Exception) {
+                Log.e("AI_RECIPE_ERROR", "업로드/DB저장/화면전환 실패: ${e.message}")
+                // 사용자 안내 등 추가 처리 가능
             }
-            aiViewModel.resetDone() // <- done 값 초기화
-            onDismiss()
         }
     }
+
+
+
+
 
 
 
@@ -203,7 +236,7 @@ fun FuturisticDialog(
                     onClick = {
                         val selected = ingredients.map { it.name }.joinToString(", ")
                         aiViewModel.onInputChange(selected)
-                        aiViewModel.sendMessage()
+                        aiViewModel.sendMessage(context)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled  = !ui.isSending,                  // ← 로딩 중엔 눌리지 않도록
@@ -238,4 +271,23 @@ fun FuturisticDialog(
             }
         }
     }
+}
+
+suspend fun waitUntilImageIsAvailable(url: String, maxAttempts: Int = 10, delayMs: Long = 800): Boolean {
+    repeat(maxAttempts) { attempt ->
+        try {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 1500
+            connection.readTimeout = 1500
+            val code = connection.responseCode
+            Log.d("IMAGE_WAIT", "시도 ${attempt + 1}: response=$code for $url")
+            connection.disconnect()
+            if (code == 200) return true
+        } catch (e: Exception) {
+            Log.d("IMAGE_WAIT", "시도 중 에러: ${e.message}")
+        }
+        delay(delayMs)
+    }
+    return false
 }

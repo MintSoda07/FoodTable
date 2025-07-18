@@ -11,5 +11,6 @@ data class AiUiState(
     val reasonText: String = "",
     val imageUrl: String? = null,
     val imageError: Boolean = false,
-    val done: Boolean = false
+    val done: Boolean = false,
+    val aiRecipeDocId: String? = null
 )

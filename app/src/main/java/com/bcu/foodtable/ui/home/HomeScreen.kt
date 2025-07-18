@@ -1188,10 +1188,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     type = NavType.StringType
                 })
             ) { backStackEntry ->
-                val json = backStackEntry.arguments?.getString("recipeJson") ?: ""
-                // URL 디코딩 + Gson으로 RecipeItem 객체로 복원
-                val recipeItem = Gson()
-                    .fromJson(Uri.decode(json), RecipeItem::class.java)
+                val jsonEncoded = backStackEntry.arguments?.getString("recipeJson") ?: ""
+                Log.d("NavRoute", "Encoded recipeJson from route: $jsonEncoded")
+
+                val jsonDecoded = Uri.decode(jsonEncoded)
+                Log.d("NavRoute", "Decoded recipeJson: $jsonDecoded")
+
+                val recipeItem = Gson().fromJson(jsonDecoded, RecipeItem::class.java)
                 val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
                 AiRecipeScreen(

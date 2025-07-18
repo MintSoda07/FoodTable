@@ -1,17 +1,34 @@
 package com.bcu.foodtable.JetpackCompose.AI
 
+import android.content.Context
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.waitUntilImageIsAvailable
 import com.bcu.foodtable.ai.OpenAIClient
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.bcu.foodtable.useful.FirebaseHelper.updateFieldById
 import com.bcu.foodtable.useful.RecipeItem
 import com.bcu.foodtable.useful.UserManager
+import com.bumptech.glide.Glide
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
+
 // 나의 냉장고 관련 ai 호출
 class AiHelperViewModel(
     private val apiClient: OpenAIClient
@@ -52,7 +69,7 @@ class AiHelperViewModel(
         _uiState.update { it.copy(showWarning = false) }
     }
 
-    fun sendMessage() {
+    fun sendMessage(context: Context) {
         val state = _uiState.value
         val input = state.inputText
         val point = state.userPoint
@@ -62,7 +79,6 @@ class AiHelperViewModel(
         Log.d("AiHelper", "🔄 AI 호출 시작: 입력 = $input, 포인트 = $point")
 
         _uiState.update { it.copy(isSending = true, showWarning = false) }
-
 
         val rule = """
         당신은 요리 도우미 AI입니다. 사용자가 가진 재료로 만들 수 있는 요리 하나를 아래 형식에 따라 제공합니다.
@@ -77,9 +93,7 @@ class AiHelperViewModel(
 
         ❗꼭 한 가지 요리만 제공하세요.
         ❗형식을 반드시 지키고, 여는 멘트나 설명은 넣지 마세요.
-        """.trimIndent()
-
-
+    """.trimIndent()
 
         apiClient.sendMessage(
             prompt = "사용자 입력:$input",
@@ -90,16 +104,10 @@ class AiHelperViewModel(
                 viewModelScope.launch {
                     val ingredientRegex = """\{(.*?)\}""".toRegex()
                     val ingredients = ingredientRegex.findAll(response).map { it.groupValues[1] }.toList()
-                    Log.d("AiHelper", "🟢 추출된 재료: $ingredients")
-
                     val recipeRegex = """◆(.*?)◆""".toRegex()
                     val recipes = recipeRegex.findAll(response).map { it.groupValues[1] }.toList()
-                    Log.d("AiHelper", "🟢 추출된 레시피 제목: $recipes")
-
                     val recipeDetailsRegex = """◆.*?◆\((.*?)\)""".toRegex()
                     val details = recipeDetailsRegex.findAll(response).map { it.groupValues[1] }.toList()
-                    Log.d("AiHelper", "🟢 추출된 레시피 상세: $details")
-
                     val newPoint = point - aiUseCost
                     user?.point = newPoint
                     updateFieldById("user", user?.uid ?: "", "point", newPoint)
@@ -111,16 +119,11 @@ class AiHelperViewModel(
                             ingredients = ingredients,
                             recipes = recipes,
                             recipeDetails = details,
-                            // ★ 여기를 recipes.joinToString("\n") 대신 response로 변경 ★
                             resultText = response.trim(),
                             reasonText = details.joinToString("\n"),
-
                         )
                     }
 
-                    Log.d("AiHelper", "✅ UI 상태 업데이트 완료")
-
-                    // 3) 이미지 생성 프롬프트 구성
                     val title = recipes.firstOrNull() ?: "Delicious Dish"
                     val ingredientsText = details.firstOrNull() ?: ingredients.joinToString(", ")
 
@@ -130,27 +133,53 @@ class AiHelperViewModel(
                     Present the dish authentically, with all ingredients accurately prepared and incorporated.
                     No fantasy, no additional decorations, no unrelated foods.
                     Simple background, focus on the food, natural lighting.
-                    """.trimIndent()
+                """.trimIndent()
 
+                    // 이미지 생성
+                    _uiState.update { it.copy(isSending = true) }
 
-                    // 이미지 생성 시작 직전에
-
-                    _uiState.update { it.copy(/* 이미 isSending=true */) }
-
-                    // 4) DALL·E 3 호출
                     apiClient.generateImage(
                         prompt   = imgPrompt,
                         size     = "1024x1024",
-                        onSuccess = { url ->
-                            Log.i("AI ChatTest","1차 DALL 호출")
-                            // 성공 시 UI 상태에 URL 반영
-                            _uiState.update {
-                                Log.i("AI ChatTest","2차 DALL 호출")
-                                it.copy(
-                                    imageUrl = url,
-                                    isSending = false, // 텍스트+이미지 모두 끝나면 꺼주기
-                                    done = true
-                                )
+                        onSuccess = { dalleUrl ->
+                            Log.i("AI ChatTest", "1차 DALL 호출")
+                            viewModelScope.launch {
+                                try {
+                                    // 1. DALL-E 이미지 Firebase Storage에 업로드
+                                    val uid = user?.uid ?: return@launch
+                                    val storageUrl = uploadImageToFirebaseStorage(context, dalleUrl, uid)
+
+                                    // 2. Firestore에 user/{uid}/ai_recipe 저장
+                                    val aiRecipe = hashMapOf(
+                                        "name"        to title,
+                                        "imageUrl"    to storageUrl,
+                                        "order"       to response.trim(),
+                                        "ingredients" to ingredients,
+                                        "details"     to details,
+                                        "createdAt"   to System.currentTimeMillis()
+                                    )
+                                    val aiRecipeRef = FirebaseFirestore.getInstance()
+                                        .collection("user").document(uid)
+                                        .collection("ai_recipe").document()
+                                    aiRecipeRef.set(aiRecipe)
+                                        .addOnSuccessListener {
+                                            _uiState.update {
+                                                it.copy(
+                                                    imageUrl = storageUrl,
+                                                    isSending = false,
+                                                    done = true,
+                                                    aiRecipeDocId = aiRecipeRef.id // 이 필드를 FuturisticDialog에서 사용!
+                                                )
+                                            }
+                                        }
+                                        .addOnFailureListener { e ->
+                                            Log.e("AiHelper", "Firestore 저장 실패: ${e.message}")
+                                            _uiState.update { it.copy(isSending = false) }
+                                        }
+                                } catch (e: Exception) {
+                                    Log.e("AiHelper", "이미지 Storage 업로드 실패: ${e.message}")
+                                    _uiState.update { it.copy(isSending = false) }
+                                }
                             }
                         },
                         onError = { err ->
@@ -165,22 +194,74 @@ class AiHelperViewModel(
                 _uiState.update { it.copy(isSending = false) }
             }
         )
-        Log.i("AI ChatTest","Helper 호출됨.")
+        Log.i("AI ChatTest", "Helper 호출됨.")
     }
     // 초기화?
     fun resetDone() {
         _uiState.update { it.copy(done = false) }
     }
-    fun retryLoadImage() {
-        _uiState.update {
-            it.copy(
-                imageError = false,
-                isSending = false
-                // imageUrl은 그대로!
-                // done은 건드리지 않는다!!
-            )
+
+    suspend fun uploadImageToFirebaseStorage(
+        context: Context,
+        imageUrl: String,
+        userId: String
+    ): String {
+        val imagePath = "ai_recipes/${userId}/${System.currentTimeMillis()}.jpg"
+        val storageRef = FirebaseStorage.getInstance().reference.child(imagePath)
+
+        // Glide로 비트맵 받아오기 (네트워크 작업)
+        val bitmap = withContext(Dispatchers.IO) {
+            Glide.with(context)
+                .asBitmap()
+                .load(imageUrl)
+                .submit()
+                .get()
+        }
+        val baos = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, baos)
+        val data = baos.toByteArray()
+
+        // Storage에 업로드 (downloadUrl X)
+        suspendCoroutine<Unit> { cont ->
+            storageRef.putBytes(data)
+                .addOnSuccessListener {
+                    Log.d("IMAGE_UPLOAD", "업로드 성공! path=$imagePath")
+                    cont.resume(Unit)
+                }
+                .addOnFailureListener { e ->
+                    Log.e("IMAGE_UPLOAD", "업로드 실패! message: ${e.message}", e)
+                    cont.resumeWithException(e)
+                }
+        }
+
+        // 다운로드 URL 대신 **Storage 경로를 반환**
+        return imagePath
+    }
+
+    suspend fun uploadAiImageAndSaveUrl(imageBytes: ByteArray, firestoreDocRef: DocumentReference) {
+        try {
+            // 1. 스토리지 경로 생성 (예: ai_recipes/UUID.jpg)
+            val fileName = "${System.currentTimeMillis()}.jpg"
+            val storageRef = FirebaseStorage.getInstance().reference.child("ai_recipes/$fileName")
+
+            // 2. 이미지 업로드
+            storageRef.putBytes(imageBytes).await()
+
+            // 3. 업로드 후 다운로드 URL 가져오기
+            val downloadUrl = storageRef.downloadUrl.await().toString()
+
+            // 4. Firestore에 imageResId를 다운로드 URL로 저장 (통일된 URL 형태)
+            firestoreDocRef.update("imageResId", downloadUrl).await()
+
+            Log.d("UploadAiImage", "AI image uploaded and URL saved: $downloadUrl")
+
+        } catch (e: Exception) {
+            Log.e("UploadAiImage", "Failed to upload AI image or save URL", e)
         }
     }
+
+
+
 
 }
 
