@@ -10,6 +10,7 @@ import com.bcu.foodtable.ai.AIRecommendationService
 import com.bcu.foodtable.manager.TimeBasedRecommendationManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.toObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,9 @@ class HomeViewModel(
     private val _loadFailed = MutableStateFlow(false)
     val loadFailed: StateFlow<Boolean> = _loadFailed
 
+    private val _topClickedRecipes = MutableStateFlow<List<RecipeItem>>(emptyList())
+    val topClickedRecipes: StateFlow<List<RecipeItem>> = _topClickedRecipes.asStateFlow()
+
     // 🤖 AI 기반 추천 상태들
     private val _aiTimeRecommendation = MutableStateFlow<AIRecommendationService.TimeBasedRecommendation?>(null)
     val aiTimeRecommendation: StateFlow<AIRecommendationService.TimeBasedRecommendation?> = _aiTimeRecommendation.asStateFlow()
@@ -66,6 +70,29 @@ class HomeViewModel(
     // 🔄 추천 업데이트 타이머
     private var recommendationUpdateTimer: kotlinx.coroutines.Job? = null
 
+    private val _recommendedRecipes = MutableStateFlow<List<RecipeItem>>(emptyList())
+    val recommendedRecipes: StateFlow<List<RecipeItem>> = _recommendedRecipes.asStateFlow()
+
+    fun loadRecommendedRecipes(limit: Long = 10) {
+        viewModelScope.launch {
+            try {
+                val result = db.collection("recipe")
+                    .orderBy("likes", Query.Direction.DESCENDING)
+                    .limit(limit)
+                    .get()
+                    .await()
+
+                val recipes = result.documents.mapNotNull {
+                    it.toObject(RecipeItem::class.java)?.apply { id = it.id }
+                }
+
+                _recommendedRecipes.value = recipes
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "추천 레시피 로드 실패", e)
+            }
+        }
+    }
+
     init {
         // 초기화: 시간 관리자와 행동 추적기 설정
         setupTimeManager()
@@ -87,10 +114,32 @@ class HomeViewModel(
                     snap?.toObject(User::class.java)?.let { _user.value = it }
                 }
         }
+        loadTopClickedRecipes()
+        loadRecommendedRecipes()
     }
 
 
+    fun loadTopClickedRecipes(limit: Long = 10) {
+        viewModelScope.launch {
+            try {
+                val result = db.collection("recipe")
+                    .orderBy("clicked", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .limit(limit)
+                    .get()
+                    .await()
 
+                val recipes = result.documents.mapNotNull {
+                    it.toObject(RecipeItem::class.java)?.apply { id = it.id }
+                }
+
+                _topClickedRecipes.value = recipes
+                Log.d("HomeViewModel", "Top clicked recipes loaded: ${recipes.size}")
+
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Failed to load top clicked recipes", e)
+            }
+        }
+    }
     /**
      * 🤖 AI 기반 시간대별 추천을 업데이트합니다.
      */
@@ -131,6 +180,7 @@ class HomeViewModel(
             Log.e("HomeViewModel", "❌ 사용자 맞춤 추천 업데이트 실패", e)
         }
     }
+
 
     /**
      * 🔍 레시피 조회 행동을 추적합니다.
