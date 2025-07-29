@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
+import com.kakao.vectormap.LatLng
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
@@ -26,6 +27,26 @@ class MatzipViewModel : ViewModel() {
     // 4. (옵션) 사용자가 찜한 맛집 목록(Firestore에 저장된 것)
     var favoriteRestaurants = mutableStateListOf<KakaoPlace>()
         private set
+
+    var cameraMoveTarget by mutableStateOf<LatLng?>(null)
+        private set
+    var pendingCustomMarker by mutableStateOf<CustomMarkerData?>(null)
+        private set
+    var selectedCustomMarker by mutableStateOf<CustomMarkerData?>(null)
+        private set
+
+    fun moveToLocation(lat: Double, lng: Double) {
+        cameraMoveTarget = LatLng.from(lat, lng)
+    }
+    fun resetCameraMoveTarget() { cameraMoveTarget = null }
+    fun setPendingCustomMarkerValue(marker: CustomMarkerData) {
+        pendingCustomMarker = marker
+    }
+    fun clearPendingCustomMarker() { pendingCustomMarker = null }
+    fun showCustomMarkerDialog(marker: CustomMarkerData) {
+        selectedCustomMarker = marker
+    }
+    fun dismissCustomMarkerDialog() { selectedCustomMarker = null }
 
     // 카카오맵 API 연동 객체
     private val kakaoMapApi by lazy {

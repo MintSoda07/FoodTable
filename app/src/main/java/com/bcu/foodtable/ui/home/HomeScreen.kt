@@ -1070,7 +1070,16 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ){
                 RankScreenImproved(navController)
             }
-            composable("map") { RestaurantMapWithCustomDrawer() }
+            composable("map") {
+                val viewModel = viewModel<MatzipViewModel>(it) // NavBackStackEntry로 viewModel 스코프 맞추기
+                val drawerState = rememberDrawerState(DrawerValue.Closed)
+                val scope = rememberCoroutineScope()
+                RestaurantMapWithCustomDrawer(
+                    viewModel = viewModel,
+                    drawerState = drawerState,
+                    scope = scope
+                )
+            }
             composable(
                 route = "profile/{uid}",
                 arguments = listOf(navArgument("uid") {

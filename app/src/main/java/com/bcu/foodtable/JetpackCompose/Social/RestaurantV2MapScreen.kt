@@ -58,13 +58,18 @@ import com.kakao.vectormap.label.Label
 import com.kakao.vectormap.label.LabelLayer
 import com.kakao.vectormap.label.LabelOptions
 import com.kakao.vectormap.label.LabelStyle
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
 
 private const val TAG = "RestaurantMapScreen"
 
 @Composable
-fun RestaurantMapWithCustomDrawer(viewModel: MatzipViewModel = viewModel()) {
+fun RestaurantMapWithCustomDrawer(
+    viewModel: MatzipViewModel,
+    drawerState: DrawerState,
+    scope: CoroutineScope
+) {
     // drawer 오픈 상태 State
     var drawerOpened by remember { mutableStateOf(false) }
 
@@ -176,7 +181,11 @@ fun RestaurantMapWithCustomDrawer(viewModel: MatzipViewModel = viewModel()) {
                                 )
                             },
                             // drawer 내부 리스트 클릭시에도 닫기 원하면 아래처럼
-                            onItemClicked = { drawerOpened = false }
+                            onItemClicked = { marker ->
+                                viewModel.moveToLocation(marker.lat, marker.lng)
+                                viewModel.setPendingCustomMarkerValue(marker)
+                                scope.launch { drawerState.close() }
+                            }
                         )
                     }
                 }
@@ -192,6 +201,8 @@ fun RestaurantMapMainScreen(
 ) {
     val permissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
     var drawerOpened by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     // 위치 권한 요청
     LaunchedEffect(Unit) {
@@ -199,6 +210,8 @@ fun RestaurantMapMainScreen(
             permissionState.launchPermissionRequest()
         }
     }
+
+
 
     if (!permissionState.status.isGranted) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -317,7 +330,11 @@ fun RestaurantMapMainScreen(
                                     lng = place.x.toDoubleOrNull() ?: 0.0
                                 )
                             },
-                            onItemClicked = { drawerOpened = false }
+                            onItemClicked = { marker ->
+                                viewModel.moveToLocation(marker.lat, marker.lng)
+                                viewModel.setPendingCustomMarkerValue(marker)
+                                scope.launch { drawerState.close() }
+                            }
                         )
                     }
                 }
@@ -342,8 +359,10 @@ fun RestaurantKakaoMap(
     var userLocationLatLng by remember { mutableStateOf(LatLng.from(37.554722, 126.970833)) }
     var trackingEnabled by remember { mutableStateOf(true) }
     var userLocationLabel by remember { mutableStateOf<Label?>(null) }
-    var selectedPlace by remember { mutableStateOf<KakaoPlace?>(null) }
-    var selectedCustomMarker by remember { mutableStateOf<CustomMarkerData?>(null) }
+    val selectedPlace = viewModel.selectedPlace
+    val selectedCustomMarker = viewModel.selectedCustomMarker
+    val cameraMoveTarget = viewModel.cameraMoveTarget
+    val pendingCustomMarker = viewModel.pendingCustomMarker
 
     // 2. custom_markers Firestore fetch 1회
     LaunchedEffect(Unit) {
@@ -358,6 +377,17 @@ fun RestaurantKakaoMap(
                     }
                 }
             }
+    }
+    LaunchedEffect(cameraMoveTarget) {
+        Log.d("MAP", "LaunchedEffect(cameraMoveTarget): $cameraMoveTarget, kakaoMap=$kakaoMap")
+        if (cameraMoveTarget != null && kakaoMap != null) {
+            kakaoMap?.moveCamera(
+                CameraUpdateFactory.newCenterPosition(cameraMoveTarget),
+                CameraAnimation.from(600, true, true)
+            )
+            viewModel.resetCameraMoveTarget()
+            // 절대 showCustomMarkerDialog/clearPendingCustomMarker 여기서 하지 않기!
+        }
     }
 
     // 3. 지도 컴포넌트
@@ -447,6 +477,7 @@ fun RestaurantKakaoMap(
 
                                 // 마커 표시 함수
                                 fun showMarkers() {
+                                    Log.d("MAP", "showMarkers 호출, 마커 갯수: visibleRestaurants=${viewModel.visibleRestaurants.size}, customMarkers=${customMarkers.size}")
                                     layer?.removeAll()
                                     // 현위치 마커
                                     updateUserMarker(userLocationLatLng)
@@ -457,6 +488,7 @@ fun RestaurantKakaoMap(
                                             .setStyles(R.drawable.user_loc_small)
                                             .setRank(10L)
                                         layer?.addLabel(opts)
+                                        Log.d("MAP", "카카오 맛집 마커 추가: ${place.place_name} at $pos")
                                     }
                                     // 2. custom_markers
                                     customMarkers.values.forEach { marker ->
@@ -465,6 +497,7 @@ fun RestaurantKakaoMap(
                                             .setStyles(R.drawable.user_loc_small)
                                             .setRank(20L)
                                         layer?.addLabel(opts)
+                                        Log.d("MAP", "커스텀 마커 추가: ${marker.name} at $pos")
                                     }
                                 }
                                 showMarkers()
@@ -474,6 +507,11 @@ fun RestaurantKakaoMap(
                                     val center = cameraPosition?.getPosition() ?: userLocationLatLng
                                     viewModel.fetchRestaurantsFromKakao(center.latitude, center.longitude)
                                     showMarkers()
+                                    viewModel.pendingCustomMarker?.let { marker ->
+                                        Log.d("MAP", "카메라 이동 종료 → CustomMarkerDetailDialog 표시: ${marker.name}")
+                                        viewModel.showCustomMarkerDialog(marker)
+                                        viewModel.clearPendingCustomMarker()
+                                    }
                                 }
 
                                 // 마커 클릭 시 상세 다이얼로그 표시
@@ -483,12 +521,15 @@ fun RestaurantKakaoMap(
                                         val placeId = id.removePrefix("matzip_")
                                         val place = viewModel.visibleRestaurants.find { it.id == placeId }
                                         if (place != null) {
-                                            selectedPlace = place
-                                            selectedCustomMarker = null
+                                            viewModel.onMarkerClicked(place)    //  ViewModel 상태 업데이트
+                                            viewModel.dismissCustomMarkerDialog()
                                         }
                                     } else if (id.startsWith("cust_")) {
-                                        selectedCustomMarker = customMarkers[id]
-                                        selectedPlace = null
+
+                                        customMarkers[id]?.let { marker ->
+                                            viewModel.showCustomMarkerDialog(marker) //  ViewModel 메서드 사용
+                                        }
+                                        viewModel.dismissPlaceDialog()
                                     }
                                     true
                                 }
@@ -511,14 +552,15 @@ fun RestaurantKakaoMap(
     selectedPlace?.let { place ->
         KakaoPlaceDetailDialog(
             place = place,
-            onClose = { selectedPlace = null },
+            onClose = { viewModel.dismissPlaceDialog() },
             onFavorite = { viewModel.saveRestaurantToFavorites(place) }
         )
     }
     selectedCustomMarker?.let { marker ->
+        Log.d("MAP", "CustomMarkerDetailDialog 보여짐: ${marker.name}")
         CustomMarkerDetailDialog(
             marker = marker,
-            onClose = { selectedCustomMarker = null }
+            onClose = { viewModel.dismissCustomMarkerDialog() }
         )
     }
 }
@@ -610,7 +652,7 @@ fun DrawerContent(
     onSearch: (String) -> Unit,
     nearbyList: List<CustomMarkerData>,
     searchResults: List<CustomMarkerData>,
-    onItemClicked: () -> Unit   // ← 추가!
+    onItemClicked: (CustomMarkerData) -> Unit   // ← 추가!
 ) {
     Column(
         modifier = Modifier
@@ -629,7 +671,7 @@ fun DrawerContent(
                         .fillMaxWidth()
                         .clickable {
                             Log.d("DrawerDebug", "Row 클릭됨!")
-                            onItemClicked() } // ← 여기!
+                            onItemClicked(marker) } // ← 여기!
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -657,7 +699,7 @@ fun DrawerContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onItemClicked() } // ← 여기!
+                        .clickable { onItemClicked(marker) } // ← 여기!
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

@@ -91,6 +91,9 @@ fun SocialScreen(navController: NavHostController) {
         val label: String,
         val screen: @Composable () -> Unit,
     )
+    val viewModel = viewModel<MatzipViewModel>()  // ViewModel 인스턴스
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     val wheelItems = remember {
         listOf(
@@ -107,10 +110,12 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.EmojiEvents, "랭킹") { RankTab(navController) },
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
             //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
-            WheelItem(Icons.Default.Map, "맛집도")   {
+            WheelItem(Icons.Default.Map, "맛집도") {
                 RestaurantMapWithCustomDrawer(
+                    viewModel = viewModel,
+                    drawerState = drawerState,
+                    scope = scope
                 )
-                //RestaurantV2MapScreen(modifier = Modifier.fillMaxSize())
             },
         )
     }
