@@ -16,4 +16,5 @@ data class User(
     var description: String = "",
     val location : String = "",
     val manager : Boolean = false,
+    val fcmtoken : String = "",
 )
