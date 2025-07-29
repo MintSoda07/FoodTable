@@ -100,6 +100,9 @@ dependencies {
     // 포트원 결제
     implementation("com.github.portone-io:android-sdk:0.1.0")
 
+    // 푸시 메시지 - 파이어베이스 클라우드 메시징 기반
+    implementation("com.google.firebase:firebase-messaging-ktx")
+
     // 성능 측정 및 오류 추적
     implementation(libs.androidx.benchmark.macro)
     implementation(libs.firebase.perf.ktx)
