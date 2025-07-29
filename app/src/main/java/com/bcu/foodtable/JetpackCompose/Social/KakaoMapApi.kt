@@ -4,6 +4,9 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Query
 
+/**
+ * 카카오맵 장소검색 API Retrofit 인터페이스
+ */
 interface KakaoMapApi {
     @GET("v2/local/search/keyword.json")
     suspend fun searchPlace(
@@ -15,10 +18,16 @@ interface KakaoMapApi {
     ): KakaoPlaceResponse
 }
 
+/**
+ * 카카오맵 장소 검색 결과(루트 응답)
+ */
 data class KakaoPlaceResponse(
     val documents: List<KakaoPlace>
 )
 
+/**
+ * 카카오맵 장소 상세 데이터
+ */
 data class KakaoPlace(
     val id: String,
     val place_name: String,
@@ -28,6 +37,6 @@ data class KakaoPlace(
     val address_name: String,
     val road_address_name: String,
     val place_url: String,
-    val x: String, // 경도
-    val y: String  // 위도
+    val x: String, // 경도(longitude)
+    val y: String  // 위도(latitude)
 )

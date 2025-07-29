@@ -157,7 +157,6 @@ import com.bcu.foodtable.JetpackCompose.Social.DetailedChatScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel
-import com.bcu.foodtable.JetpackCompose.Social.RestaurantV2MapScreen
 import com.bcu.foodtable.JetpackCompose.Social.UserProfileScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.EditRecipeScreen
 import com.bcu.foodtable.JetpackCompose.Subscribe.ChannelManagementScreen
@@ -213,7 +212,8 @@ import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
-import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithDrawerAndFab
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
+
 import com.bcu.foodtable.useful.PromotionItem
 import com.google.gson.Gson
 import kotlinx.coroutines.tasks.await
@@ -1070,7 +1070,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ){
                 RankScreenImproved(navController)
             }
-            composable("map") { RestaurantMapWithDrawerAndFab() }
+            composable("map") { RestaurantMapWithCustomDrawer() }
             composable(
                 route = "profile/{uid}",
                 arguments = listOf(navArgument("uid") {
@@ -1118,7 +1118,6 @@ fun HomeScreen(viewModel: HomeViewModel) {
             composable("matzip") { backStackEntry ->
                 val matzipViewModel: MatzipViewModel = viewModel(backStackEntry)
                 RestaurantMapMainScreen(
-                    modifier = Modifier.fillMaxSize(),
                     viewModel = matzipViewModel
                 )
             }

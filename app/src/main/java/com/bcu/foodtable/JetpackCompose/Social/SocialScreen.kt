@@ -108,7 +108,7 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
             //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
             WheelItem(Icons.Default.Map, "맛집도")   {
-                RestaurantMapWithDrawerAndFab(
+                RestaurantMapWithCustomDrawer(
                 )
                 //RestaurantV2MapScreen(modifier = Modifier.fillMaxSize())
             },
