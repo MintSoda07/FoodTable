@@ -72,6 +72,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.bcu.foodtable.JetpackCompose.MultiShopPriceSearchActivity
 import com.bcu.foodtable.TTS.CookingAiViewModel
 import com.bcu.foodtable.TTS.CookingAiViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
@@ -551,10 +552,12 @@ fun RecipeCookingScreen(
                             .padding(bottom = 20.dp),
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFFE2D6) // primaryContainer 색상
+                            containerColor = Color(0xFFFFE2D6)
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                     ) {
+                        val context = LocalContext.current
+
                         Column(
                             modifier = Modifier.padding(20.dp)
                         ) {
@@ -571,7 +574,7 @@ fun RecipeCookingScreen(
                                     "재료",
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFFE25532) // primary 색상
+                                        color = Color(0xFFE25532)
                                     )
                                 )
                             }
@@ -583,21 +586,19 @@ fun RecipeCookingScreen(
                                     IngredientItem(
                                         ingredient = ingredient,
                                         onClick = {
-                                            val encodedQuery = Uri.encode(ingredient)
-                                            val url =
-                                                "https://search.shopping.naver.com/search/all?query=$encodedQuery"
-                                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                                data = Uri.parse(url)
+                                            // 가격비교 전용 액티비티로 이동
+                                            val intent = Intent(context, MultiShopPriceSearchActivity::class.java).apply {
+                                                putExtra("SEARCH_INGREDIENT", ingredient)
                                             }
                                             try {
                                                 context.startActivity(intent)
                                             } catch (e: Exception) {
                                                 Toast.makeText(
                                                     context,
-                                                    "웹 브라우저를 열 수 없습니다.",
+                                                    "가격 비교 화면을 열 수 없습니다.",
                                                     Toast.LENGTH_SHORT
                                                 ).show()
-                                                Log.e("RecipeCookingScreen", "네이버 쇼핑 링크 열기 오류: $e")
+                                                Log.e("RecipeCookingScreen", "MultiShopPriceSearch 열기 오류: $e")
                                             }
                                         }
                                     )
@@ -606,6 +607,7 @@ fun RecipeCookingScreen(
                         }
                     }
                 }
+
 
                 LikeButton(recipeId = recipeId)
                 Spacer(modifier = Modifier.height(24.dp))

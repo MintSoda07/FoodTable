@@ -120,53 +120,19 @@
             android:name=".PurchaseConfirmActivity"
             android:exported="false" />
         <activity
-            android:name=".ui.subscribeNavMenu.EditRecipeActivity"
-            android:exported="false" />
-        <activity
             android:name=".PuchasePage"
-            android:exported="false" />
-        <activity
-            android:name=".RecipeDetailViewByHelperActivity"
-            android:exported="false" />
-        <activity
-            android:name=".RecipeViewMakingActivity"
-            android:exported="false" />
-        <activity android:name=".JetpackCompose.RecipeStorage.RecipeStorageActivity" />
-        <activity
-            android:name=".ai.AiHelperActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".ai.AiChattingActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".ai.AiRecommendationActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustPan" />
-        <activity
-            android:name=".RecipeViewActivity"
             android:exported="false" />
         <activity
             android:name=".SignUpActivity"
             android:exported="false" />
-        <activity
-            android:name=".SearchResultActivity"
-            android:exported="false"/>
         <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity"
             android:exported="false"/>
-        <activity
-            android:name="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
-            android:exported="false" />
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity"
             android:exported="false" />
         <activity
             android:name="com.bcu.foodtable.model.ChallengeDetailActivity"
             android:exported="false" />
-        <activity
-            android:name="com.bcu.foodtable.JetpackCompose.Mypage.myFridge.FridgeActivity"
-            android:exported="false"/>
         <activity android:name=".JetpackCompose.HomeChannelDatil.RecipeCookingActivity" />
         <activity android:name=".HomeActivity" />
 
@@ -179,7 +145,7 @@
             android:windowSoftInputMode="adjustPan" />
         <activity android:name=".JetpackCompose.Subscribe.SubscribeActivity" />
         <activity
-            android:name="com.bcu.foodtable.ui.myPage.ChannelCreationActivity"
+            android:name=".JetpackCompose.MultiShopPriceSearchActivity"
             android:exported="false" />
         <activity
             android:name=".MainActivity"
@@ -190,16 +156,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity-alias
-            android:name=".AndroidURationaleActivity"
-            android:exported="true"
-            android:targetActivity="com.bcu.foodtable.JetpackCompose.Mypage.Health.HealthConnectActivity"
-            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
-                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
-            </intent-filter>
-        </activity-alias>
         <activity
             android:name=".ui.ChallengeActivity"
             android:exported="false"
