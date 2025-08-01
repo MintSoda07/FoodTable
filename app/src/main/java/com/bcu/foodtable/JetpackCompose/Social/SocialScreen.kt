@@ -111,10 +111,9 @@ fun SocialScreen(navController: NavHostController) {
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
             //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
             WheelItem(Icons.Default.Map, "맛집도") {
-                RestaurantMapWithCustomDrawer(
+                RestaurantMapMainScreen(
                     viewModel = viewModel,
-                    drawerState = drawerState,
-                    scope = scope
+                    navController = navController
                 )
             },
         )

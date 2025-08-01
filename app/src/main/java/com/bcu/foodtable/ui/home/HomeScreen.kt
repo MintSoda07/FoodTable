@@ -1077,7 +1077,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 RestaurantMapWithCustomDrawer(
                     viewModel = viewModel,
                     drawerState = drawerState,
-                    scope = scope
+                    scope = scope,
+                    navController = navController
                 )
             }
             composable(
@@ -1127,7 +1128,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
             composable("matzip") { backStackEntry ->
                 val matzipViewModel: MatzipViewModel = viewModel(backStackEntry)
                 RestaurantMapMainScreen(
-                    viewModel = matzipViewModel
+                    viewModel = matzipViewModel,
+                    navController = navController
                 )
             }
             composable(Screen.Home.route) {

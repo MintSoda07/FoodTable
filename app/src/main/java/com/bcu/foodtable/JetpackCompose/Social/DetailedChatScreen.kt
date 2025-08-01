@@ -1,5 +1,6 @@
 package com.bcu.foodtable.JetpackCompose.Social
 
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,7 +57,11 @@ data class ChatMessage(
     val amount: Int? = null,
     val timestamp: Long = System.currentTimeMillis(),
     val claimed: Boolean = false,
-    val read: Boolean = false
+    val read: Boolean = false,
+    val type: String? = null,
+    val placeName: String? = null,
+    val category: String? = null,
+    val placeUrl: String? = null
 )
 
 // ─── 테마 정의 ────────────────────────────────────────────────────────────
@@ -225,14 +230,30 @@ fun DetailedChatScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(messages, key = { it.id }) { msg ->
-                            ChatMessageBubble(
-                                message = msg,
-                                isMe = msg.senderUid == currentUid,
-                                onClaim = {
-                                    claimPoint(db, scope, context, currentUid, targetUid, msg)
+                            val isMe = msg.senderUid == currentUid
+
+                            when {
+                                msg.type == "place" -> {
+                                    SharedPlaceMessageBubble(
+                                        message = msg,
+                                        isMe = isMe
+                                    )
                                 }
-                            )
+
+                                else -> {
+                                    ChatMessageBubble(
+                                        message = msg,
+                                        isMe = isMe,
+                                        onClaim = {
+                                            claimPoint(db, scope, context, currentUid, targetUid, msg)
+                                        }
+                                    )
+                                }
+                            }
                         }
+
+
+
                     }
                 }
             }
@@ -251,6 +272,58 @@ fun DetailedChatScreen(
         )
     }
 }
+@Composable
+fun SharedPlaceMessageBubble(
+    message: ChatMessage,
+    isMe: Boolean
+) {
+    val context = LocalContext.current
+    val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.KOREA) }
+    val timeText = timeFormatter.format(Date(message.timestamp))
+
+    val bubbleColor = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val shape = if (isMe) {
+        RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+    } else {
+        RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        if (isMe) {
+            Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
+                Text(timeText, fontSize = 10.sp, color = Color.Gray)
+            }
+        }
+
+        Surface(color = bubbleColor, shape = shape) {
+            Column(
+                modifier = Modifier
+                    .padding(12.dp)
+                    .widthIn(max = 280.dp)
+            ) {
+                Text("📍 ${message.placeName}", fontWeight = FontWeight.Bold, color = textColor)
+                Text("🗂 ${message.category}", color = textColor)
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(message.placeUrl))
+                    context.startActivity(intent)
+                }) {
+                    Text("카카오맵으로 보기")
+                }
+            }
+        }
+
+        if (!isMe) {
+            Text(timeText, fontSize = 10.sp, color = Color.Gray, modifier = Modifier.padding(start = 4.dp))
+        }
+    }
+}
+
 
 @Composable
 fun ChatInputBar(

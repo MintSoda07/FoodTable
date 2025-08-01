@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Share
@@ -47,6 +49,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bcu.foodtable.R
+import com.bcu.foodtable.useful.User
 import com.google.accompanist.permissions.*
 import com.google.android.gms.location.*
 import com.google.firebase.auth.FirebaseAuth
@@ -61,6 +64,9 @@ import com.kakao.vectormap.label.LabelStyle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.lazy.items
+import androidx.navigation.NavController
+import com.google.firebase.firestore.FieldValue
 
 private const val TAG = "RestaurantMapScreen"
 
@@ -68,7 +74,8 @@ private const val TAG = "RestaurantMapScreen"
 fun RestaurantMapWithCustomDrawer(
     viewModel: MatzipViewModel,
     drawerState: DrawerState,
-    scope: CoroutineScope
+    scope: CoroutineScope,
+    navController: NavController
 ) {
     // drawer 오픈 상태 State
     var drawerOpened by remember { mutableStateOf(false) }
@@ -83,7 +90,8 @@ fun RestaurantMapWithCustomDrawer(
         // 지도 always 아래 깔림
         RestaurantKakaoMap(
             modifier = Modifier.fillMaxSize(),
-            viewModel = viewModel
+            viewModel = viewModel,
+            navController = navController
         )
 
         // drawer 오픈 버튼 (오른쪽 하단/상단 등)
@@ -150,16 +158,20 @@ fun RestaurantMapWithCustomDrawer(
                             .padding(bottom = 8.dp)
                     ) {
                         DrawerContent(
-                            favoriteList = viewModel.favoriteRestaurants.map { place ->
-                                CustomMarkerData(
-                                    id = place.id,
-                                    name = place.place_name,
-                                    desc = place.category_name ?: "",
-                                    tags = place.category_name?.let { listOf(it) } ?: emptyList(),
-                                    lat = place.y.toDoubleOrNull() ?: 0.0,
-                                    lng = place.x.toDoubleOrNull() ?: 0.0
-                                )
-                            },
+                            favoriteList = viewModel.favoriteRestaurants
+                                .sortedByDescending { it.rating }  // ← 정렬 추가
+                                .map { place ->
+                                    CustomMarkerData(
+                                        id = place.id,
+                                        name = place.place_name,
+                                        desc = place.category_name ?: "",
+                                        tags = place.category_name?.let { listOf(it) } ?: emptyList(),
+                                        lat = place.y.toDoubleOrNull() ?: 0.0,
+                                        lng = place.x.toDoubleOrNull() ?: 0.0,
+                                        rating = place.rating  //  CustomMarkerData에 rating 필드가 있어야 함
+                                    )
+                                }
+                            ,
                             onSearch = { query ->
                                 if (query.isNotBlank()) {
                                     viewModel.fetchRestaurantsFromKakao(
@@ -185,7 +197,8 @@ fun RestaurantMapWithCustomDrawer(
                                 viewModel.moveToLocation(marker.lat, marker.lng)
                                 viewModel.setPendingCustomMarkerValue(marker)
                                 scope.launch { drawerState.close() }
-                            }
+                            },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -197,7 +210,8 @@ fun RestaurantMapWithCustomDrawer(
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun RestaurantMapMainScreen(
-    viewModel: MatzipViewModel = viewModel()
+    viewModel: MatzipViewModel = viewModel(),
+    navController: NavController
 ) {
     val permissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
     var drawerOpened by remember { mutableStateOf(false) }
@@ -224,7 +238,8 @@ fun RestaurantMapMainScreen(
         // 지도
         RestaurantKakaoMap(
             modifier = Modifier.fillMaxSize(),
-            viewModel = viewModel
+            viewModel = viewModel,
+            navController = navController   // ← 이 줄 추가
         )
 
         // 햄버거(메뉴) 버튼 - 왼쪽 위!
@@ -300,16 +315,20 @@ fun RestaurantMapMainScreen(
                             .padding(bottom = 8.dp)
                     ) {
                         DrawerContent(
-                            favoriteList = viewModel.favoriteRestaurants.map { place ->
-                                CustomMarkerData(
-                                    id = place.id,
-                                    name = place.place_name,
-                                    desc = place.category_name ?: "",
-                                    tags = place.category_name?.let { listOf(it) } ?: emptyList(),
-                                    lat = place.y.toDoubleOrNull() ?: 0.0,
-                                    lng = place.x.toDoubleOrNull() ?: 0.0
-                                )
-                            },
+                            favoriteList = viewModel.favoriteRestaurants
+                                .sortedByDescending { it.rating }  // ← 정렬 추가
+                                .map { place ->
+                                    CustomMarkerData(
+                                        id = place.id,
+                                        name = place.place_name,
+                                        desc = place.category_name ?: "",
+                                        tags = place.category_name?.let { listOf(it) } ?: emptyList(),
+                                        lat = place.y.toDoubleOrNull() ?: 0.0,
+                                        lng = place.x.toDoubleOrNull() ?: 0.0,
+                                        rating = place.rating  // 🔥 CustomMarkerData에 rating 필드가 있어야 함
+                                    )
+                                }
+                            ,
                             onSearch = { query ->
                                 if (query.isNotBlank()) {
                                     viewModel.fetchRestaurantsFromKakao(
@@ -334,7 +353,8 @@ fun RestaurantMapMainScreen(
                                 viewModel.moveToLocation(marker.lat, marker.lng)
                                 viewModel.setPendingCustomMarkerValue(marker)
                                 scope.launch { drawerState.close() }
-                            }
+                            },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -347,7 +367,8 @@ fun RestaurantMapMainScreen(
 @Composable
 fun RestaurantKakaoMap(
     modifier: Modifier = Modifier,
-    viewModel: MatzipViewModel = viewModel()
+    viewModel: MatzipViewModel = viewModel(),
+    navController: NavController
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -363,6 +384,36 @@ fun RestaurantKakaoMap(
     val selectedCustomMarker = viewModel.selectedCustomMarker
     val cameraMoveTarget = viewModel.cameraMoveTarget
     val pendingCustomMarker = viewModel.pendingCustomMarker
+    var showShareDialog by remember { mutableStateOf(false) }
+    val friends = remember { mutableStateListOf<User>() }   // 친구 리스트
+    val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+    val db = FirebaseFirestore.getInstance()
+
+    LaunchedEffect(currentUid) {
+        if (currentUid != null) {
+            try {
+                val friendSnap = db.collection("user").document(currentUid)
+                    .collection("friends").get().await()
+
+                val friendUids = friendSnap.documents.map { it.id }
+
+                val userList = friendUids.mapNotNull { uid ->
+                    try {
+                        db.collection("user").document(uid).get().await()
+                            .toObject(User::class.java)?.copy(uid = uid)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+
+                friends.clear()
+                friends.addAll(userList)
+
+            } catch (e: Exception) {
+                // 에러 처리 로그 등
+            }
+        }
+    }
 
     // 2. custom_markers Firestore fetch 1회
     LaunchedEffect(Unit) {
@@ -553,9 +604,32 @@ fun RestaurantKakaoMap(
         KakaoPlaceDetailDialog(
             place = place,
             onClose = { viewModel.dismissPlaceDialog() },
-            onFavorite = { viewModel.saveRestaurantToFavorites(place) }
+            isFavorite = viewModel.favoriteRestaurants.any { it.id == place.id },
+            onFavoriteToggle = { selected ->
+                if (viewModel.favoriteRestaurants.any { it.id == selected.id }) {
+                    viewModel.removeRestaurantFromFavorites(selected.id)
+                } else {
+                    viewModel.saveRestaurantToFavorites(selected)
+                }
+            },
+            onShareClick = {
+                showShareDialog = true  //
+            }
         )
     }
+    if (showShareDialog && selectedPlace != null) {
+        ShareToFriendDialog(
+            friends = friends,
+            onDismiss = { showShareDialog = false },
+            onShare = { selectedFriend ->
+                viewModel.sendPlaceToChat(selectedFriend.uid, selectedPlace)
+                showShareDialog = false
+                navController.navigate("chat/${selectedFriend.uid}")
+            }
+        )
+    }
+
+
     selectedCustomMarker?.let { marker ->
         Log.d("MAP", "CustomMarkerDetailDialog 보여짐: ${marker.name}")
         CustomMarkerDetailDialog(
@@ -565,12 +639,16 @@ fun RestaurantKakaoMap(
     }
 }
 
+
 // 카카오 API place 상세 다이얼로그
 @Composable
+
 fun KakaoPlaceDetailDialog(
     place: KakaoPlace,
     onClose: () -> Unit,
-    onFavorite: () -> Unit
+    onFavoriteToggle: (KakaoPlace) -> Unit,
+    isFavorite: Boolean,
+    onShareClick: () -> Unit
 ) {
     val context = LocalContext.current
     AlertDialog(
@@ -587,18 +665,32 @@ fun KakaoPlaceDetailDialog(
                 if (!place.phone.isNullOrBlank()) {
                     Text("☎ ${place.phone}", style = MaterialTheme.typography.bodySmall)
                 }
-                Row {
-                    if (!place.road_address_name.isNullOrBlank()) {
-                        Text(place.road_address_name, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
-                    TextButton(onClick = onFavorite) {
-                        Icon(Icons.Default.Favorite, contentDescription = "찜하기", tint = Color.Red)
+
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // ❤ 찜 토글 버튼
+                    TextButton(onClick = { onFavoriteToggle(place) }) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "찜하기/해제",
+                            tint = if (isFavorite) Color.Red else Color.Gray
+                        )
                         Spacer(Modifier.width(4.dp))
-                        Text("찜하기")
+                        Text(if (isFavorite) "찜 해제" else "찜하기")
                     }
+
+                    //  친구에게 공유 버튼
+                    TextButton(onClick = onShareClick) {
+                        Icon(Icons.Default.Share, contentDescription = "친구에게 공유")
+                        Spacer(Modifier.width(4.dp))
+                        Text("공유")
+                    }
+
+                    //  카카오맵으로 보기
                     TextButton(onClick = {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(place.place_url))
                         context.startActivity(intent)
@@ -608,6 +700,7 @@ fun KakaoPlaceDetailDialog(
                         Text("카카오맵")
                     }
                 }
+
             }
         },
         confirmButton = { TextButton(onClick = onClose) { Text("확인") } }
@@ -652,7 +745,8 @@ fun DrawerContent(
     onSearch: (String) -> Unit,
     nearbyList: List<CustomMarkerData>,
     searchResults: List<CustomMarkerData>,
-    onItemClicked: (CustomMarkerData) -> Unit   // ← 추가!
+    onItemClicked: (CustomMarkerData) -> Unit,   // ← 추가!
+    viewModel: MatzipViewModel
 ) {
     Column(
         modifier = Modifier
@@ -666,29 +760,54 @@ fun DrawerContent(
             Text("아직 찜한 맛집이 없습니다.", color = Color.Gray)
         } else {
             favoriteList.forEach { marker ->
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            Log.d("DrawerDebug", "Row 클릭됨!")
-                            onItemClicked(marker) } // ← 여기!
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(vertical = 4.dp)
                 ) {
-                    Icon(Icons.Default.RestaurantMenu, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text(marker.name, style = MaterialTheme.typography.bodyMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            marker.tags.take(2).forEach { tag ->
-                                Text("#$tag ", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                    // 기존 Row (클릭하면 상세 보기)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                Log.d("DrawerDebug", "Row 클릭됨!")
+                                onItemClicked(marker)
                             }
-                            Spacer(Modifier.width(6.dp))
-                            Text("${marker.rating}★", style = MaterialTheme.typography.labelSmall)
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.RestaurantMenu, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(marker.name, style = MaterialTheme.typography.bodyMedium)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                marker.tags.take(2).forEach { tag ->
+                                    Text("#$tag ", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                                }
+                                Spacer(Modifier.width(6.dp))
+                                Text("${marker.rating}★", style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
+
+                    // 찜 해제 버튼
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 26.dp), // 아이콘 정렬 맞춤용
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { viewModel.removeRestaurantFromFavorites(marker.id) }) {
+                            Icon(Icons.Default.Favorite, contentDescription = "찜 해제", tint = Color.Gray)
+                            Spacer(Modifier.width(4.dp))
+                            Text("찜 해제", color = Color.Gray)
+                        }
+                    }
+
+                    Divider(thickness = 0.5.dp, color = Color.LightGray)
                 }
             }
+
         }
         Spacer(Modifier.height(16.dp))
         Text("주변 맛집", style = MaterialTheme.typography.titleLarge)
@@ -719,6 +838,36 @@ fun DrawerContent(
             }
         }
     }
+}
+@Composable
+fun ShareToFriendDialog(
+    friends: List<User>,
+    onDismiss: () -> Unit,
+    onShare: (User) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("공유할 친구 선택") },
+        text = {
+            LazyColumn {
+                items(friends, key = { it.uid }) { user ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onShare(user) }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(user.name)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
+    )
 }
 
 data class CustomMarkerData(

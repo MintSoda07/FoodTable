@@ -38,5 +38,6 @@ data class KakaoPlace(
     val road_address_name: String,
     val place_url: String,
     val x: String, // 경도(longitude)
-    val y: String  // 위도(latitude)
+    val y: String,  // 위도(latitude)
+    val rating: Double = 0.0
 )
