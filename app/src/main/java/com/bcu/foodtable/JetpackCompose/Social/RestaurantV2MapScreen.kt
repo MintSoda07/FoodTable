@@ -80,11 +80,7 @@ fun RestaurantMapWithCustomDrawer(
     // drawer 오픈 상태 State
     var drawerOpened by remember { mutableStateOf(false) }
 
-    // 최초 데이터 로딩
-    LaunchedEffect(Unit) {
-        viewModel.loadCustomMarkers()
-        viewModel.loadFavoriteRestaurants()
-    }
+
 
     Box(Modifier.fillMaxSize()) {
         // 지도 always 아래 깔림
@@ -181,7 +177,7 @@ fun RestaurantMapWithCustomDrawer(
                                     )
                                 }
                             },
-                            nearbyList = viewModel.customMarkers,
+                            nearbyList = viewModel.customMarkers.values.toList(),
                             searchResults = viewModel.visibleRestaurants.map { place ->
                                 CustomMarkerData(
                                     id = place.id,
@@ -194,9 +190,25 @@ fun RestaurantMapWithCustomDrawer(
                             },
                             // drawer 내부 리스트 클릭시에도 닫기 원하면 아래처럼
                             onItemClicked = { marker ->
+                                // 지도를 해당 위치로 이동
                                 viewModel.moveToLocation(marker.lat, marker.lng)
-                                viewModel.setPendingCustomMarkerValue(marker)
-                                scope.launch { drawerState.close() }
+
+                                // 1) 찜 or 검색결과에서 온 KakaoPlace 인가?
+                                val place = viewModel.favoriteRestaurants.find { it.id == marker.id }
+                                    ?: viewModel.visibleRestaurants.find { it.id == marker.id }
+
+                                if (place != null) {
+                                    //  KakaoPlace 다이얼로그 열기 (찜/공유/카카오맵 버튼 있는 그거!)
+                                    viewModel.onMarkerClicked(place)
+                                    viewModel.dismissCustomMarkerDialog()
+                                } else {
+                                    //  커스텀 마커인 경우
+                                    viewModel.setPendingCustomMarkerValue(marker) // 카메라 이동 후 onCameraMoveEnd에서 열리게 함
+                                    viewModel.dismissPlaceDialog()
+                                }
+
+                                // 이 화면은 AnimatedVisibility로 여닫으니, drawerState 대신 플래그를 닫아야 함
+                                drawerOpened = false
                             },
                             viewModel = viewModel
                         )
@@ -218,11 +230,13 @@ fun RestaurantMapMainScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    // 위치 권한 요청
+    // 위치 권한 요청 + 데이터 로딩
     LaunchedEffect(Unit) {
         if (!permissionState.status.isGranted) {
             permissionState.launchPermissionRequest()
         }
+        viewModel.listenFavoriteRestaurants()
+        viewModel.loadCustomMarkers()
     }
 
 
@@ -338,7 +352,7 @@ fun RestaurantMapMainScreen(
                                     )
                                 }
                             },
-                            nearbyList = viewModel.customMarkers,
+                            nearbyList = viewModel.customMarkers.values.toList(),
                             searchResults = viewModel.visibleRestaurants.map { place ->
                                 CustomMarkerData(
                                     id = place.id,
@@ -350,9 +364,25 @@ fun RestaurantMapMainScreen(
                                 )
                             },
                             onItemClicked = { marker ->
+                                // 지도를 해당 위치로 이동
                                 viewModel.moveToLocation(marker.lat, marker.lng)
-                                viewModel.setPendingCustomMarkerValue(marker)
-                                scope.launch { drawerState.close() }
+
+                                // 1) 찜 or 검색결과에서 온 KakaoPlace 인가?
+                                val place = viewModel.favoriteRestaurants.find { it.id == marker.id }
+                                    ?: viewModel.visibleRestaurants.find { it.id == marker.id }
+
+                                if (place != null) {
+                                    //  KakaoPlace 다이얼로그 열기 (찜/공유/카카오맵 버튼 있는 그거!)
+                                    viewModel.onMarkerClicked(place)
+                                    viewModel.dismissCustomMarkerDialog()
+                                } else {
+                                    //  커스텀 마커인 경우
+                                    viewModel.setPendingCustomMarkerValue(marker) // 카메라 이동 후 onCameraMoveEnd에서 열리게 함
+                                    viewModel.dismissPlaceDialog()
+                                }
+
+                                // 이 화면은 AnimatedVisibility로 여닫으니, drawerState 대신 플래그를 닫아야 함
+                                drawerOpened = false
                             },
                             viewModel = viewModel
                         )
@@ -533,15 +563,19 @@ fun RestaurantKakaoMap(
                                     // 현위치 마커
                                     updateUserMarker(userLocationLatLng)
                                     // 1. 카카오 맛집 마커 (visibleRestaurants)
-                                    viewModel.visibleRestaurants.forEach { place ->
+                                    val allKakaoPlaces = (viewModel.visibleRestaurants + viewModel.favoriteRestaurants)
+                                        .distinctBy { it.id } // ID로 중복 제거
+
+                                    allKakaoPlaces.forEach { place ->
                                         val pos = LatLng.from(place.y.toDoubleOrNull() ?: 0.0, place.x.toDoubleOrNull() ?: 0.0)
                                         val opts = LabelOptions.from("matzip_${place.id}", pos)
                                             .setStyles(R.drawable.user_loc_small)
                                             .setRank(10L)
                                         layer?.addLabel(opts)
-                                        Log.d("MAP", "카카오 맛집 마커 추가: ${place.place_name} at $pos")
+                                        Log.d("MAP", "카카오+찜 맛집 마커 추가: ${place.place_name} at $pos")
                                     }
-                                    // 2. custom_markers
+
+                                    //  2. 커스텀 마커 (사용자가 직접 등록한 것만!)
                                     customMarkers.values.forEach { marker ->
                                         val pos = LatLng.from(marker.lat, marker.lng)
                                         val opts = LabelOptions.from("cust_${marker.id}", pos)
@@ -570,19 +604,27 @@ fun RestaurantKakaoMap(
                                     val id = label.labelId
                                     if (id.startsWith("matzip_")) {
                                         val placeId = id.removePrefix("matzip_")
-                                        val place = viewModel.visibleRestaurants.find { it.id == placeId }
+
+                                        //  visibleRestaurants 에만 찾지 말고, 찜 목록도 함께 탐색
+                                        val place = (viewModel.visibleRestaurants + viewModel.favoriteRestaurants)
+                                            .firstOrNull { it.id == placeId }
+
                                         if (place != null) {
-                                            viewModel.onMarkerClicked(place)    //  ViewModel 상태 업데이트
+                                            viewModel.onMarkerClicked(place)    //  카카오 다이얼로그
                                             viewModel.dismissCustomMarkerDialog()
                                         }
                                     } else if (id.startsWith("cust_")) {
-
                                         customMarkers[id]?.let { marker ->
-                                            viewModel.showCustomMarkerDialog(marker) //  ViewModel 메서드 사용
+                                            viewModel.showCustomMarkerDialog(marker) //  커스텀 다이얼로그
                                         }
                                         viewModel.dismissPlaceDialog()
                                     }
                                     true
+                                }
+
+                                map.setOnMapClickListener { _, latLng, _, _ ->
+                                    Log.d("MAP", "지도 클릭됨: ${latLng.latitude}, ${latLng.longitude}")
+                                    viewModel.showCustomMarkerCreationDialog(latLng.latitude, latLng.longitude)
                                 }
                             }
                         }
@@ -606,10 +648,12 @@ fun RestaurantKakaoMap(
             onClose = { viewModel.dismissPlaceDialog() },
             isFavorite = viewModel.favoriteRestaurants.any { it.id == place.id },
             onFavoriteToggle = { selected ->
-                if (viewModel.favoriteRestaurants.any { it.id == selected.id }) {
-                    viewModel.removeRestaurantFromFavorites(selected.id)
-                } else {
-                    viewModel.saveRestaurantToFavorites(selected)
+                if (!viewModel.isFavoriteInFlight(selected.id) && !viewModel.isUnFavoriteInFlight(selected.id)) {
+                    if (viewModel.favoriteRestaurants.any { it.id == selected.id }) {
+                        viewModel.removeRestaurantFromFavorites(selected.id)
+                    } else {
+                        viewModel.saveRestaurantToFavorites(selected)
+                    }
                 }
             },
             onShareClick = {
@@ -637,8 +681,79 @@ fun RestaurantKakaoMap(
             onClose = { viewModel.dismissCustomMarkerDialog() }
         )
     }
+    viewModel.customMarkerToCreate?.let { latLng ->
+        CustomMarkerAddDialog(
+            latLng = latLng,
+            onConfirm = { name, desc, rating ->
+                viewModel.saveCustomMarker(name, desc, rating, latLng)
+                viewModel.dismissCustomMarkerCreationDialog()
+            },
+            onDismiss = {
+                viewModel.dismissCustomMarkerCreationDialog()
+            }
+        )
+    }
 }
+@Composable
+fun CustomMarkerAddDialog(
+    latLng: LatLng,
+    onConfirm: (String, String, Double) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var desc by remember { mutableStateOf("") }
+    var rating by remember { mutableStateOf(3.0) }
 
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("커스텀 마커 추가") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("가게 이름") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = desc,
+                    onValueChange = { desc = it },
+                    label = { Text("간단한 설명") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("⭐ 별점: ${rating.toInt()}점")
+                Slider(
+                    value = rating.toFloat(),
+                    onValueChange = { rating = it.toDouble() },
+                    valueRange = 0.0f..5.0f,
+                    steps = 4
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        onConfirm(name, desc, rating)
+                    }
+                }
+            ) {
+                Text("저장")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        }
+    )
+}
 
 // 카카오 API place 상세 다이얼로그
 @Composable
