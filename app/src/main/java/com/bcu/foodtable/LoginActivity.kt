@@ -129,7 +129,6 @@ class LoginActivity : ComponentActivity() {
                                 Log.d("Login", "[LOGIN] 자동로그인 정보 삭제됨")
                             }
 
-                            // ✅ User 정보 fetch → FCM 토큰 없는 경우에만 등록
                             fetchUserData(
                                 uid = user!!.uid,
                                 onSuccess = { userData ->
@@ -137,43 +136,43 @@ class LoginActivity : ComponentActivity() {
                                     UserManager.setUser(
                                         userData.name, userData.email, userData.image,
                                         userData.phoneNumber, userData.point,
-                                        userData.uid, userData.rankPoint, userData.description, userData.location, userData.manager,userData.fcmtoken
+                                        userData.uid, userData.rankPoint, userData.description, userData.location, userData.manager, userData.fcmtoken
                                     )
 
-                                    // (1) FCM 토큰 이미 저장되어 있나?
-                                    val existingFcmToken = userData.fcmtoken
-                                    if (existingFcmToken.isNullOrBlank()) {
-                                        Log.d("Login", "[FCM] FCM 토큰 없음 → 새로 요청 및 Firestore 저장")
-                                        FirebaseMessaging.getInstance().token
-                                            .addOnSuccessListener { token ->
-                                                Log.d("Login", "[FCM] 토큰 획득: $token")
-                                                FirebaseFirestore.getInstance().collection("user")
-                                                    .document(userData.uid)
-                                                    .update("fcmToken", token)
-                                                    .addOnSuccessListener {
-                                                        Log.d("Login", "[FCM] Firestore 토큰 저장 성공")
-                                                    }
-                                                    .addOnFailureListener { e ->
-                                                        Log.e("Login", "[FCM] Firestore 토큰 저장 실패: ${e.message}", e)
-                                                    }
-                                            }
-                                            .addOnFailureListener { e ->
-                                                Log.e("Login", "[FCM] 토큰 획득 실패: ${e.message}", e)
-                                            }
-                                    } else {
-                                        Log.d("Login", "[FCM] 이미 FCM 토큰 있음, Firestore 갱신 생략")
-                                    }
+                                    // ✅ 항상 FCM 토큰을 Firestore에 갱신
+                                    FirebaseMessaging.getInstance().token
+                                        .addOnSuccessListener { token ->
+                                            Log.d("Login", "[FCM] 토큰 획득: $token")
+                                            FirebaseFirestore.getInstance().collection("user")
+                                                .document(userData.uid)
+                                                .update("fcmToken", token)
+                                                .addOnSuccessListener {
+                                                    Log.d("Login", "[FCM] Firestore 토큰 갱신 성공")
+                                                }
+                                                .addOnFailureListener { e ->
+                                                    Log.e("Login", "[FCM] Firestore 토큰 저장 실패: ${e.message}", e)
+                                                }
 
-                                    Toast.makeText(this, R.string.login_success, Toast.LENGTH_SHORT).show()
-                                    Log.d("Login", "[LOGIN] HomeActivity 이동")
-                                    ActivityTransition.startStatic(this@LoginActivity, HomeActivity::class.java)
-                                    finish()
+                                            // ✅ 이후 화면 이동 등 나머지 로직 (여기에 위치!)
+                                            Toast.makeText(this, R.string.login_success, Toast.LENGTH_SHORT).show()
+                                            Log.d("Login", "[LOGIN] HomeActivity 이동")
+                                            ActivityTransition.startStatic(this@LoginActivity, HomeActivity::class.java)
+                                            finish()
+                                        }
+                                        .addOnFailureListener { e ->
+                                            Log.e("Login", "[FCM] 토큰 획득 실패: ${e.message}", e)
+                                            // 실패시에도 로그인은 진행 (or 실패 안내)
+                                            Toast.makeText(this, "로그인 성공, FCM 토큰 저장 실패", Toast.LENGTH_SHORT).show()
+                                            ActivityTransition.startStatic(this@LoginActivity, HomeActivity::class.java)
+                                            finish()
+                                        }
                                 },
                                 onFailure = { exception ->
                                     Log.e("Login", "[LOGIN] fetchUserData 실패: ${exception.localizedMessage}", exception)
                                     onResult(getString(R.string.login_failure) + ": " + exception.localizedMessage)
                                 }
                             )
+
                         } else {
                             Log.e("Login", "[LOGIN] 실패: ${task.exception?.localizedMessage}", task.exception)
                             onResult(task.exception?.localizedMessage ?: getString(R.string.login_failure))
