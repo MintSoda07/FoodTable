@@ -6,6 +6,7 @@ import com.google.firebase.messaging.RemoteMessage
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.bcu.foodtable.useful.UserManager
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -18,13 +19,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Log.d("FCM", "onMessageReceived: data=$data, notification=${msg.notification}")
 
-        // 현재 열람 중인 채팅방이면 시스템 알림 생략 → 인앱 이벤트만
+        // 현재 열람 중인 채팅방이면 시스템 알림 생략 -> 인앱 이벤트만
         if (AppState.isAppInForeground() && AppState.currentChatUid.value == chatUid) {
             InAppEvents.emitNewMessage(chatUid, title, body, messageId)
             return
         }
 
-        // 시스템 알림 표시
+        // 시스템 알림
         Notifications.showChatNotification(
             context = applicationContext,
             title = title,
@@ -36,7 +37,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         Log.d("FCM", "새 토큰: $token")
-        val user = com.bcu.foodtable.useful.UserManager.getUser() ?: return
+        val user = UserManager.getUser() ?: return
         val db = FirebaseFirestore.getInstance()
         db.collection("user").document(user.uid)
             .set(mapOf("fcmTokens" to FieldValue.arrayUnion(token)), SetOptions.merge())

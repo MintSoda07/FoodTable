@@ -47,6 +47,9 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.ktx.functions
+import com.google.firebase.ktx.Firebase
 
 @kotlinx.serialization.Serializable
 data class ChatMessage(
@@ -610,4 +613,33 @@ suspend fun sendMessage(
     batch.set(senderMsgRef, message)
     batch.set(receiverMsgRef, message)
     batch.commit().await()
+
+    // ✅ Firestore 저장 완료 후 FCM 발송 함수 호출
+    // 기존 흐름을 따르면 chatUid는 상대방 목록에서 '대화방 식별자'로 fromUid를 사용 중입니다.
+    // 별도의 방 ID가 있다면 그 값을 넣으세요.
+    callSendChat(
+        toUid  = toUid,
+        chatUid = fromUid,              // 방 ID가 따로 있으면 그걸로 교체
+        title  = "새 메시지",
+        body   = message.text
+    )
+}
+private suspend fun callSendChat(
+    toUid: String,
+    chatUid: String,
+    title: String?,
+    body: String?
+) {
+    val fn = Firebase.functions("asia-northeast3") // ✅ 리전 맞춰주기
+    val payload = hashMapOf(
+        "toUid" to toUid,
+        "chatUid" to chatUid,
+        "title" to (title ?: "새 메시지"),
+        "body"  to (body ?: "")
+    )
+
+    val result = fn.getHttpsCallable("sendChat").call(payload).await()
+    // await()의 반환 타입은 HttpsCallableResult → data는 Any? 타입
+    val data = result.getData()
+    android.util.Log.d("sendChat", "ok: $data")
 }
