@@ -67,6 +67,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.items
 import androidx.navigation.NavController
 import com.google.firebase.firestore.FieldValue
+import com.bcu.foodtable.JetpackCompose.Social.CUSTOM_MARKER_MIN_ZOOM
+import com.bcu.foodtable.JetpackCompose.Social.NEARBY_RADIUS_M
 
 private const val TAG = "RestaurantMapScreen"
 
@@ -177,7 +179,7 @@ fun RestaurantMapWithCustomDrawer(
                                     )
                                 }
                             },
-                            nearbyList = viewModel.customMarkers.values.toList(),
+                            nearbyList = viewModel.nearbyCustomMarkers,
                             searchResults = viewModel.visibleRestaurants.map { place ->
                                 CustomMarkerData(
                                     id = place.id,
@@ -352,7 +354,7 @@ fun RestaurantMapMainScreen(
                                     )
                                 }
                             },
-                            nearbyList = viewModel.customMarkers.values.toList(),
+                            nearbyList = viewModel.nearbyCustomMarkers,
                             searchResults = viewModel.visibleRestaurants.map { place ->
                                 CustomMarkerData(
                                     id = place.id,
@@ -558,46 +560,84 @@ fun RestaurantKakaoMap(
 
                                 // 마커 표시 함수
                                 fun showMarkers() {
-                                    Log.d("MAP", "showMarkers 호출, 마커 갯수: visibleRestaurants=${viewModel.visibleRestaurants.size}, customMarkers=${customMarkers.size}")
+                                    val layer = kakaoMap?.labelManager?.layer
+                                    val zoom: Float = kakaoMap?.cameraPosition?.zoomLevel?.toFloat() ?: 0f
+                                    val center = kakaoMap?.cameraPosition?.getPosition() ?: userLocationLatLng
+
                                     layer?.removeAll()
-                                    // 현위치 마커
+
+                                    // 현위치 마커는 항상
                                     updateUserMarker(userLocationLatLng)
-                                    // 1. 카카오 맛집 마커 (visibleRestaurants)
-                                    val allKakaoPlaces = (viewModel.visibleRestaurants + viewModel.favoriteRestaurants)
-                                        .distinctBy { it.id } // ID로 중복 제거
 
-                                    allKakaoPlaces.forEach { place ->
-                                        val pos = LatLng.from(place.y.toDoubleOrNull() ?: 0.0, place.x.toDoubleOrNull() ?: 0.0)
-                                        val opts = LabelOptions.from("matzip_${place.id}", pos)
-                                            .setStyles(R.drawable.user_loc_small)
-                                            .setRank(10L)
-                                        layer?.addLabel(opts)
-                                        Log.d("MAP", "카카오+찜 맛집 마커 추가: ${place.place_name} at $pos")
-                                    }
+                                    // === 줌이 충분할 때만 다른 마커들 표시 ===
+                                    if (zoom >= CUSTOM_MARKER_MIN_ZOOM) {
+                                        // 1) 카카오 + 찜 맛집
+                                        val allKakaoPlaces = (viewModel.visibleRestaurants + viewModel.favoriteRestaurants)
+                                            .distinctBy { it.id }
 
-                                    //  2. 커스텀 마커 (사용자가 직접 등록한 것만!)
-                                    customMarkers.values.forEach { marker ->
-                                        val pos = LatLng.from(marker.lat, marker.lng)
-                                        val opts = LabelOptions.from("cust_${marker.id}", pos)
-                                            .setStyles(R.drawable.user_loc_small)
-                                            .setRank(20L)
-                                        layer?.addLabel(opts)
-                                        Log.d("MAP", "커스텀 마커 추가: ${marker.name} at $pos")
+                                        allKakaoPlaces.forEach { place ->
+                                            val pos = LatLng.from(place.y.toDoubleOrNull() ?: 0.0, place.x.toDoubleOrNull() ?: 0.0)
+                                            val opts = LabelOptions.from("matzip_${place.id}", pos)
+                                                .setStyles(R.drawable.user_loc_small)
+                                                .setRank(10L)
+                                            layer?.addLabel(opts)
+                                        }
+
+                                        // 2) 커스텀 마커
+                                        customMarkers.values.forEach { marker ->
+                                            val pos = LatLng.from(marker.lat, marker.lng)
+                                            val opts = LabelOptions.from("cust_${marker.id}", pos)
+                                                .setStyles(R.drawable.user_loc_small)
+                                                .setRank(20L)
+                                            layer?.addLabel(opts)
+                                        }
                                     }
                                 }
+
+
+
                                 showMarkers()
 
                                 // 카메라 이동 시 카카오맵 API로 음식점 fetch + 마커 갱신
                                 map.setOnCameraMoveEndListener { _, cameraPosition, _ ->
                                     val center = cameraPosition?.getPosition() ?: userLocationLatLng
+                                    val zoom: Float = cameraPosition?.zoomLevel?.toFloat() ?: 0f
+
+                                    if (zoom < CUSTOM_MARKER_MIN_ZOOM) {
+                                        // 줌이 낮으면: 커스텀/카카오 둘 다 숨김(= showMarkers가 현위치만 그림)
+                                        viewModel.nearbyCustomMarkers.clear()
+                                        viewModel.dismissCustomMarkerDialog()
+                                        // (선택) 너무 멀면 카카오 검색도 스킵 → 기존 리스트 유지 or clear 선택
+                                        // viewModel.visibleRestaurants.clear()
+                                        showMarkers()
+                                        return@setOnCameraMoveEndListener
+                                    }
+
+                                    // 줌이 충분할 때만 카카오 fetch
                                     viewModel.fetchRestaurantsFromKakao(center.latitude, center.longitude)
+
+                                    // 주변 커스텀 마커 목록 갱신
+                                    val nearby = customMarkers.values.filter {
+                                        distanceMeters(center.latitude, center.longitude, it.lat, it.lng) <= NEARBY_RADIUS_M
+                                    }.sortedBy {
+                                        distanceMeters(center.latitude, center.longitude, it.lat, it.lng)
+                                    }
+                                    viewModel.nearbyCustomMarkers.apply {
+                                        clear()
+                                        addAll(nearby)
+                                    }
+
+                                    // 마커 다시 그림(이제 카카오/커스텀 모두 보임)
                                     showMarkers()
+
+                                    // 대기 중이던 커스텀 다이얼로그는 줌 충분할 때만
                                     viewModel.pendingCustomMarker?.let { marker ->
-                                        Log.d("MAP", "카메라 이동 종료 → CustomMarkerDetailDialog 표시: ${marker.name}")
                                         viewModel.showCustomMarkerDialog(marker)
                                         viewModel.clearPendingCustomMarker()
                                     }
                                 }
+
+
 
                                 // 마커 클릭 시 상세 다이얼로그 표시
                                 map.setOnLabelClickListener { _, _, label ->
@@ -626,6 +666,42 @@ fun RestaurantKakaoMap(
                                     Log.d("MAP", "지도 클릭됨: ${latLng.latitude}, ${latLng.longitude}")
                                     viewModel.showCustomMarkerCreationDialog(latLng.latitude, latLng.longitude)
                                 }
+
+                                fun refreshByCamera() {
+                                    val cp = kakaoMap?.cameraPosition ?: return
+                                    val center = cp.getPosition() ?: userLocationLatLng
+                                    val zoom: Float = cp.zoomLevel?.toFloat() ?: 0f
+
+                                    if (zoom < CUSTOM_MARKER_MIN_ZOOM) {
+                                        viewModel.nearbyCustomMarkers.clear()
+                                        viewModel.dismissCustomMarkerDialog()
+                                        showMarkers()
+                                        return
+                                    }
+
+                                    viewModel.fetchRestaurantsFromKakao(center.latitude, center.longitude)
+
+                                    val nearby = customMarkers.values.filter {
+                                        distanceMeters(center.latitude, center.longitude, it.lat, it.lng) <= NEARBY_RADIUS_M
+                                    }.sortedBy {
+                                        distanceMeters(center.latitude, center.longitude, it.lat, it.lng)
+                                    }
+
+                                    viewModel.nearbyCustomMarkers.apply {
+                                        clear()
+                                        addAll(nearby)
+                                    }
+
+                                    showMarkers()
+                                }
+
+                                // 리스너 등록
+                                map.setOnCameraMoveEndListener { _, _, _ ->
+                                    refreshByCamera()
+                                }
+
+                                // onMapReady 마지막에 "초기 한 번" 직접 호출
+                                refreshByCamera()
                             }
                         }
                     )
@@ -925,9 +1001,9 @@ fun DrawerContent(
 
         }
         Spacer(Modifier.height(16.dp))
-        Text("주변 맛집", style = MaterialTheme.typography.titleLarge)
+        Text("사용자 추천 맛집", style = MaterialTheme.typography.titleLarge)
         if (nearbyList.isEmpty()) {
-            Text("주변 맛집이 없습니다.", color = Color.Gray)
+            Text("사용자 추천 맛집이 없습니다.", color = Color.Gray)
         } else {
             nearbyList.forEach { marker ->
                 Row(
@@ -984,6 +1060,20 @@ fun ShareToFriendDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
 }
+//  Haversine 거리 함수
+fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val R = 6371000.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = kotlin.math.sin(dLat/2) * kotlin.math.sin(dLat/2) +
+            kotlin.math.cos(Math.toRadians(lat1)) *
+            kotlin.math.cos(Math.toRadians(lat2)) *
+            kotlin.math.sin(dLon/2) * kotlin.math.sin(dLon/2)
+    val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1-a))
+    return R * c
+}
+
+
 
 data class CustomMarkerData(
     val id: String = "",

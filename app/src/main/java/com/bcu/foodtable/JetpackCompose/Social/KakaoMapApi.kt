@@ -10,11 +10,14 @@ import retrofit2.http.Query
 interface KakaoMapApi {
     @GET("v2/local/search/keyword.json")
     suspend fun searchPlace(
-        @Header("Authorization") apiKey: String, // "KakaoAK {REST_API_KEY}"
+        @Header("Authorization") apiKey: String,
         @Query("query") query: String,
         @Query("x") longitude: Double? = null,
         @Query("y") latitude: Double? = null,
-        @Query("page") page: Int? = null
+        @Query("page") page: Int? = null,
+        @Query("size") size: Int? = null,     // ← 추가 (최대 15)
+        @Query("rect") rect: String? = null,  // ← 선택: 화면 bounds로 쿼리하고 싶을 때
+        @Query("radius") radius: Int? = null  // ← 선택
     ): KakaoPlaceResponse
 }
 
@@ -22,7 +25,14 @@ interface KakaoMapApi {
  * 카카오맵 장소 검색 결과(루트 응답)
  */
 data class KakaoPlaceResponse(
+    val meta: KakaoMeta,
     val documents: List<KakaoPlace>
+)
+
+data class KakaoMeta(
+    val total_count: Int,
+    val pageable_count: Int,
+    val is_end: Boolean
 )
 
 /**

@@ -14,6 +14,10 @@ import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
+// 줌 레벨 15 설정
+const val CUSTOM_MARKER_MIN_ZOOM: Float = 14f
+const val NEARBY_RADIUS_M: Double = 1500.0
+
 class MatzipViewModel : ViewModel() {
     // 1. 커스텀 마커는 기존처럼 Firestore에서 불러와서 지도에 표시
     var customMarkers = mutableStateMapOf<String, CustomMarkerData>()
@@ -30,6 +34,11 @@ class MatzipViewModel : ViewModel() {
 
     // 4. (옵션) 사용자가 찜한 맛집 목록(Firestore에 저장된 것)
     var favoriteRestaurants = mutableStateListOf<KakaoPlace>()
+        private set
+
+
+    // 지도 기준으로 뽑아낸 "주변 커스텀 마커" 목록 (Drawer에 표시용)
+    var nearbyCustomMarkers = mutableStateListOf<CustomMarkerData>()
         private set
 
     var cameraMoveTarget by mutableStateOf<LatLng?>(null)
@@ -130,20 +139,28 @@ class MatzipViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             val kakaoKey = getKakaoRestApiKey() ?: return@launch
-            try {
-                val response = kakaoMapApi.searchPlace(
+            val all = mutableListOf<KakaoPlace>()
+            var page = 1
+            val pageSize = 15
+            while (page <= 3) { // 15 * 3 = 45
+                val res = kakaoMapApi.searchPlace(
                     apiKey = "KakaoAK $kakaoKey",
                     query = keyword,
                     longitude = centerLng,
-                    latitude = centerLat
+                    latitude = centerLat,
+                    page = page,
+                    size = pageSize
                 )
-                visibleRestaurants.clear()
-                visibleRestaurants.addAll(response.documents)
-            } catch (e: Exception) {
-                Log.e("카카오API", "지도 영역 맛집 불러오기 실패", e)
+                all += res.documents
+                if (res.meta.is_end) break
+                page++
             }
+            // ID 중복 제거 후 반영
+            visibleRestaurants.clear()
+            visibleRestaurants.addAll(all.distinctBy { it.id })
         }
     }
+
 
     /** 마커 클릭시 상세보기용 데이터 세팅 */
     fun onMarkerClicked(place: KakaoPlace) {
