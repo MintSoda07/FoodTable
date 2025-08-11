@@ -32,8 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.bcu.foodtable.AppState
+import com.bcu.foodtable.InAppEvents
 import com.bcu.foodtable.R
-import com.bcu.foodtable.useful.User
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FieldValue
@@ -47,7 +48,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
 
-// ─── 데이터 클래스 (변경 없음) ──────────────────────────────────────────────────
 @kotlinx.serialization.Serializable
 data class ChatMessage(
     val id: String = "",
@@ -64,16 +64,15 @@ data class ChatMessage(
     val placeUrl: String? = null
 )
 
-// ─── 테마 정의 ────────────────────────────────────────────────────────────
 private val ChatColorScheme = lightColorScheme(
     primary = Color(0xFFF57C00),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFFFE0B2),
     secondary = Color(0xFF4CAF50),
-    background = Color(0xFFFFF3E0), // 채팅방 배경색
+    background = Color(0xFFFFF3E0),
     surface = Color.White,
     onSurface = Color(0xFF4E4539),
-    surfaceVariant = Color(0xFFECEFF1), // 상대방 말풍선 색
+    surfaceVariant = Color(0xFFECEFF1),
     onSurfaceVariant = Color(0xFF37474F),
 )
 
@@ -89,7 +88,6 @@ fun ChatTheme(content: @Composable () -> Unit) {
         content = content
     )
 }
-// ────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -104,6 +102,11 @@ fun DetailedChatScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    // 현재 방 트래킹 (FCM 억제)
+    DisposableEffect(targetUid) {
+        AppState.setCurrentChat(targetUid)
+        onDispose { AppState.setCurrentChat(null) }
+    }
 
     var friendName by remember { mutableStateOf("친구") }
     var friendProfileUrl by remember { mutableStateOf<String?>(null) }
@@ -121,60 +124,77 @@ fun DetailedChatScreen(
     var showTransferDialog by remember { mutableStateOf(false) }
 
     val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
-        uri?.let {
-            val ref = storage.child("chatImages/${UUID.randomUUID()}")
-            scope.launch {
-                Toast.makeText(context, "이미지 업로드 중...", Toast.LENGTH_SHORT).show()
-                try {
-                    ref.putFile(it).await()
-                    val url = ref.downloadUrl.await().toString()
-                    sendMessage(db, currentUid, targetUid, ChatMessage(senderUid = currentUid, imageUrl = url))
-                } catch (e: Exception) {
-                    Toast.makeText(context, "이미지 전송 실패", Toast.LENGTH_SHORT).show()
-                }
+        uri ?: return@rememberLauncherForActivityResult
+        val filename = "${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
+        val ref = storage.child("chatImages/$currentUid/$filename")
+        scope.launch {
+            Toast.makeText(context, "이미지 업로드 중...", Toast.LENGTH_SHORT).show()
+            runCatching {
+                ref.putFile(uri).await()
+                val url = ref.downloadUrl.await().toString()
+                sendMessage(
+                    db, currentUid, targetUid,
+                    ChatMessage(senderUid = currentUid, imageUrl = url, timestamp = System.currentTimeMillis())
+                )
+            }.onFailure {
+                Toast.makeText(context, "이미지 전송 실패", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
+    // 방 전환 시 메시지 초기화
+    LaunchedEffect(targetUid) { messages.clear() }
+
     DisposableEffect(targetUid) {
-        val listener = db.collection("user").document(currentUid)
+        val query = db.collection("user").document(currentUid)
             .collection("chats").document(targetUid)
-            .collection("messages").orderBy("timestamp", Query.Direction.ASCENDING)
-            .addSnapshotListener { snap, e ->
-                if (e != null) { loading = false; return@addSnapshotListener }
+            .collection("messages")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
 
-                snap?.documentChanges?.forEach { dc ->
-                    val doc = dc.document
-                    val msg = doc.toObject(ChatMessage::class.java).copy(id = doc.id)
-                    when (dc.type) {
-                        DocumentChange.Type.ADDED -> if (messages.none { it.id == msg.id }) messages.add(msg)
-                        DocumentChange.Type.MODIFIED -> {
-                            val idx = messages.indexOfFirst { it.id == msg.id }
-                            if (idx != -1) messages[idx] = msg
-                        }
-                        else -> {}
+        val listener = query.addSnapshotListener { snap, e ->
+            if (e != null) { loading = false; return@addSnapshotListener }
+            if (snap == null) { loading = false; return@addSnapshotListener }
+
+            for (dc in snap.documentChanges) {
+                val doc = dc.document
+                val msg = doc.toObject(ChatMessage::class.java).copy(id = doc.id)
+                when (dc.type) {
+                    DocumentChange.Type.ADDED -> if (messages.none { it.id == msg.id }) messages.add(msg)
+                    DocumentChange.Type.MODIFIED -> {
+                        val idx = messages.indexOfFirst { it.id == msg.id }
+                        if (idx >= 0) messages[idx] = msg
                     }
+                    DocumentChange.Type.REMOVED -> { /* 필요 시 삭제 반영 */ }
                 }
-
-                // 읽음 처리 로직
-                snap?.documents
-                    ?.filter { it.getString("senderUid") == targetUid && it.getBoolean("read") != true }
-                    ?.forEach { doc ->
-                        doc.reference.update("read", true)
-                        db.collection("user").document(targetUid)
-                            .collection("chats").document(currentUid)
-                            .collection("messages").document(doc.id).update("read", true)
-                    }
-
-                loading = false
             }
+
+            // 읽음 처리: 내/상대 문서 동시 업데이트
+            val unreadDocs = snap.documents.filter {
+                it.getString("senderUid") == targetUid && it.getBoolean("read") != true
+            }
+            if (unreadDocs.isNotEmpty()) {
+                val batch = db.batch()
+                unreadDocs.forEach { myDoc ->
+                    batch.update(myDoc.reference, "read", true)
+                    val friendRef = db.collection("user").document(targetUid)
+                        .collection("chats").document(currentUid)
+                        .collection("messages").document(myDoc.id)
+                    batch.update(friendRef, "read", true)
+                }
+                batch.commit()
+            }
+
+            loading = false
+        }
         onDispose { listener.remove() }
     }
 
-    // 새 메시지 도착 시 자동 스크롤
+    // 새 메시지 자동 스크롤(하단 근처일 때만)
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
+            val lastIndex = messages.lastIndex
+            val atBottom = listState.firstVisibleItemIndex >= lastIndex - 2
+            if (atBottom) listState.animateScrollToItem(lastIndex)
         }
     }
 
@@ -203,14 +223,19 @@ fun DetailedChatScreen(
                             Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    )
                 )
             },
             bottomBar = {
                 ChatInputBar(
                     onSendMessage = { text ->
                         scope.launch {
-                            sendMessage(db, currentUid, targetUid, ChatMessage(senderUid = currentUid, text = text))
+                            sendMessage(
+                                db, currentUid, targetUid,
+                                ChatMessage(senderUid = currentUid, text = text, timestamp = System.currentTimeMillis())
+                            )
                         }
                     },
                     onSendImage = { pickImageLauncher.launch("image/*") },
@@ -231,15 +256,10 @@ fun DetailedChatScreen(
                     ) {
                         items(messages, key = { it.id }) { msg ->
                             val isMe = msg.senderUid == currentUid
-
                             when {
                                 msg.type == "place" -> {
-                                    SharedPlaceMessageBubble(
-                                        message = msg,
-                                        isMe = isMe
-                                    )
+                                    SharedPlaceMessageBubble(message = msg, isMe = isMe)
                                 }
-
                                 else -> {
                                     ChatMessageBubble(
                                         message = msg,
@@ -251,9 +271,6 @@ fun DetailedChatScreen(
                                 }
                             }
                         }
-
-
-
                     }
                 }
             }
@@ -265,13 +282,17 @@ fun DetailedChatScreen(
             onDismiss = { showTransferDialog = false },
             onConfirm = { amount ->
                 scope.launch {
-                    sendMessage(db, currentUid, targetUid, ChatMessage(senderUid = currentUid, amount = amount))
+                    sendMessage(
+                        db, currentUid, targetUid,
+                        ChatMessage(senderUid = currentUid, amount = amount, timestamp = System.currentTimeMillis())
+                    )
                 }
                 showTransferDialog = false
             }
         )
     }
 }
+
 @Composable
 fun SharedPlaceMessageBubble(
     message: ChatMessage,
@@ -310,8 +331,14 @@ fun SharedPlaceMessageBubble(
                 Text("🗂 ${message.category}", color = textColor)
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(message.placeUrl))
-                    context.startActivity(intent)
+                    message.placeUrl?.let { url ->
+                        runCatching {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            context.startActivity(intent)
+                        }.onFailure {
+                            Toast.makeText(context, "지도를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
+                        }
+                    } ?: Toast.makeText(context, "주소가 없습니다.", Toast.LENGTH_SHORT).show()
                 }) {
                     Text("카카오맵으로 보기")
                 }
@@ -323,7 +350,6 @@ fun SharedPlaceMessageBubble(
         }
     }
 }
-
 
 @Composable
 fun ChatInputBar(
@@ -351,7 +377,9 @@ fun ChatInputBar(
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { showExtraOptions = !showExtraOptions }) {
@@ -380,9 +408,9 @@ fun ChatInputBar(
                         input = TextFieldValue("")
                     },
                     enabled = isSendEnabled,
-                    modifier = Modifier.clip(CircleShape).background(
-                        if (isSendEnabled) MaterialTheme.colorScheme.primary else Color.LightGray
-                    )
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (isSendEnabled) MaterialTheme.colorScheme.primary else Color.LightGray)
                 ) {
                     Icon(Icons.Default.Send, contentDescription = "전송", tint = Color.White)
                 }
@@ -427,9 +455,7 @@ fun ChatMessageBubble(
     ) {
         if (isMe) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
-                if (message.read) {
-                    Text("읽음", fontSize = 10.sp, color = Color.Gray)
-                }
+                if (message.read) Text("읽음", fontSize = 10.sp, color = Color.Gray)
                 Text(timeText, fontSize = 10.sp, color = Color.Gray)
             }
         }
@@ -448,9 +474,7 @@ fun ChatMessageBubble(
                             .clip(shape)
                             .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
                             .clickable {
-                                Toast
-                                    .makeText(context, "이미지 상세보기(미구현)", Toast.LENGTH_SHORT)
-                                    .show()
+                                Toast.makeText(context, "이미지 상세보기(미구현)", Toast.LENGTH_SHORT).show()
                             }
                     )
                 }
@@ -513,21 +537,15 @@ fun MoneyTransferDialog(
         confirmButton = {
             Button(onClick = {
                 val amountInt = amount.toIntOrNull()
-                if (amountInt != null && amountInt > 0) {
-                    onConfirm(amountInt)
-                }
-            }) {
-                Text("보내기")
-            }
+                if (amountInt != null && amountInt > 0) onConfirm(amountInt)
+            }) { Text("보내기") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } }
     )
 }
 
+// ==== 백엔드 유틸 ====
 
-// ─── 백엔드 로직 (변경 없음) ──────────────────────────────────────────────────
 fun claimPoint(
     db: FirebaseFirestore,
     scope: CoroutineScope,
@@ -538,17 +556,19 @@ fun claimPoint(
 ) {
     val senderRef = db.collection("user").document(msg.senderUid)
     val receiverRef = db.collection("user").document(currentUid)
-    val myChatMsg_ref    = db.collection("user").document(currentUid) // 변수 이름은 myChatMsgRef 입니다.
+    val myChatMsgRef = db.collection("user").document(currentUid)
         .collection("chats").document(targetUid)
         .collection("messages").document(msg.id)
-    val friendChatMsgRef = db.collection("user").document(targetUid).collection("chats").document(currentUid).collection("messages").document(msg.id)
+    val friendChatMsgRef = db.collection("user").document(targetUid)
+        .collection("chats").document(currentUid)
+        .collection("messages").document(msg.id)
 
     scope.launch {
         try {
             db.runTransaction { transaction ->
                 val senderDoc = transaction.get(senderRef)
                 val receiverDoc = transaction.get(receiverRef)
-                val chatDoc = transaction.get(myChatMsg_ref)
+                val chatDoc = transaction.get(myChatMsgRef)
 
                 val senderPoints = senderDoc.getLong("point") ?: 0
                 val amount = msg.amount ?: 0
@@ -556,14 +576,13 @@ fun claimPoint(
                 if (chatDoc.getBoolean("claimed") == true) {
                     throw IllegalStateException("이미 수령한 포인트입니다.")
                 }
-
                 if (senderPoints < amount) {
                     throw IllegalStateException("보내는 사람의 포인트가 부족합니다.")
                 }
 
                 transaction.update(senderRef, "point", senderPoints - amount)
                 transaction.update(receiverRef, "point", FieldValue.increment(amount.toLong()))
-                transaction.update(myChatMsg_ref, "claimed", true)
+                transaction.update(myChatMsgRef, "claimed", true)
                 transaction.update(friendChatMsgRef, "claimed", true)
                 null
             }.await()
@@ -581,11 +600,14 @@ suspend fun sendMessage(
     message: ChatMessage
 ) {
     val batch = db.batch()
-    val senderMsgRef = db.collection("user").document(fromUid).collection("chats").document(toUid).collection("messages").document()
-    val receiverMsgRef = db.collection("user").document(toUid).collection("chats").document(fromUid).collection("messages").document(senderMsgRef.id)
+    val senderMsgRef = db.collection("user").document(fromUid)
+        .collection("chats").document(toUid)
+        .collection("messages").document()
+    val receiverMsgRef = db.collection("user").document(toUid)
+        .collection("chats").document(fromUid)
+        .collection("messages").document(senderMsgRef.id)
 
     batch.set(senderMsgRef, message)
     batch.set(receiverMsgRef, message)
-
     batch.commit().await()
 }

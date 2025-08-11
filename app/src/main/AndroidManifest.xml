@@ -2,101 +2,78 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.bcu.foodtable">
-    <!-- 인터넷 권한 -->
+
+    <!-- 네트워크/알림/진동 -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- 진동 권한 -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- 알림 권한 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+
+    <!-- 미디어(이미지) 읽기: Android 13+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-
-    <uses-permission android:name="android.permission.WAKE_LOCK" />   <!-- 폰 깨우기 권한 -->
-    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" /> <!-- 알람 받기 권한 -->
-    <uses-permission android:name="android.permission.health.READ_STEPS" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_HEART_RATE" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_STEPS" /> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_EXERCISE"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-    <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED"/> <!-- 헬스 커넥트 권한-->
-
-    <!-- 내위치 불러오기 -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-
-    <uses-permission android:name="android.permission.RECORD_AUDIO" /> <!-- 녹음 권한-->
-<!--    <queries>-->
-<!--        <package android:name="com.google.android.apps.healthdata" />-->
-<!--    </queries>-->
-
-    <!--결제대행사 관련 앱 스킴-->
-    <queries>
-        <package android:name="com.google.android.apps.healthdata" />
-        <!-- 간편결제 -->
-        <package android:name="com.kftc.bankpay.android" /> <!-- 뱅크페이 -->
-<!--        <package android:name="com.nhnent.payapp" /> &lt;!&ndash; 페이코 &ndash;&gt;-->
-        <package android:name="com.lottemembers.android" /> <!-- LPAY -->
-        <package android:name="com.ssg.serviceapp.android.egiftcertificate" /> <!-- SSGPAY -->
-        <package android:name="com.inicis.kpay" /> <!-- KPAY -->
-        <package android:name="com.tmoney.tmpay" /> <!-- 티머니페이 -->
-        <package android:name="viva.republica.toss" /> <!-- 토스페이 -->
-        <package android:name="com.samsung.android.spay" /> <!-- 삼성페이 -->
-        <package android:name="com.kakao.talk" /> <!-- 카카오페이 -->
-        <package android:name="com.nhn.android.search" /> <!-- 네이버 -->
-        <package android:name="com.mysmilepay.app" /> <!-- 스마일페이 -->
-        <!-- 카드 -->
-        <package android:name="kvp.jjy.MispAndroid320" /> <!-- ISP페이북 -->
-        <package android:name="com.kbcard.cxh.appcard" /> <!-- KBPay -->
-        <package android:name="com.kbstar.reboot" /> <!-- liiv -->
-        <package android:name="com.kbstar.kbbank" /> <!-- liiv -->
-        <package android:name="com.samsung.android.spaylite" /> <!-- 삼성페이니 -->
-        <package android:name="com.nhnent.payapp" /> <!-- 페이코 -->
-        <package android:name="com.lge.lgpay" /> <!-- 엘지페이 -->
-        <package android:name="com.hanaskcard.paycla" /> <!-- 하나 -->
-        <package android:name="kr.co.hanamembers.hmscustomer" /> <!-- 하나멤버스 -->
-        <package android:name="com.hanaskcard.rocomo.potal" /> <!-- 하나공인인증 -->
-        <package android:name="kr.co.citibank.citimobile" /> <!-- 씨티모바일 -->
-        <package android:name="com.lcacApp" /> <!-- 롯데 -->
-        <package android:name="kr.co.samsungcard.mpocket" /> <!-- 삼성 -->
-        <package android:name="com.shcard.smartpay" /> <!-- 신한 -->
-        <package android:name="com.shinhancard.smartshinhan" /> <!-- 신한(ARS/일반/smart) -->
-        <package android:name="com.shinhan.smartcaremgr" /> <!-- 신한 SOL -->
-        <package android:name="com.hyundaicard.appcard" /> <!-- 현대 -->
-        <package android:name="nh.smart.nhallonepay" /> <!-- 농협 -->
-        <package android:name="nh.smart.card" /> <!-- 농협 -->
-        <package android:name="net.ib.android.smcard" /> <!-- 삼성 모니모 -->
-<!--        <package android:name="kr.co.citibank.citimobile" /> 씨티 -->
-        <package android:name="com.wooricard.smartapp" /> <!-- 우리WON카드 -->
-        <package android:name="com.wooribank.smart.npib" /> <!-- 우리WON뱅킹 -->
-        <!-- 백신 -->
-        <package android:name="com.TouchEn.mVaccine.webs" /> <!-- TouchEn -->
-        <package android:name="com.ahnlab.v3mobileplus" /> <!-- V3 -->
-        <package android:name="kr.co.shiftworks.vguardweb" /> <!-- vguard -->
-        <!-- 신용카드 공인인증 -->
-<!--        <package android:name="com.hanaskcard.rocomo.potal" />  하나 -->
-        <package android:name="com.lumensoft.touchenappfree" /> <!-- 현대 -->
-        <!-- 계좌이체 -->
-        <package android:name="com.kftc.bankpay.android" /> <!-- 뱅크페이 -->
-        <package android:name="kr.co.kfcc.mobilebank" /> <!-- MG 새마을금고 -->
-        <package android:name="com.nh.cashcardapp" /> <!-- 뱅크페이 -->
-        <package android:name="com.knb.psb" /> <!-- BNK경남은행 -->
-        <package android:name="com.lguplus.paynow" /> <!-- 페이나우 -->
-        <package android:name="com.kbankwith.smartbank" /> <!-- 케이뱅크 -->
-        <!-- 해외결제 -->
-        <package android:name="com.eg.android.AlipayGphone" /> <!-- 페이나우 -->
-        <!-- 기타 -->
-        <package android:name="com.sktelecom.tauth" /> <!-- PASS -->
-        <package android:name="com.lguplus.smartotp" /> <!-- PASS -->
-        <package android:name="com.kt.ktauth" /> <!-- PASS -->
-        <package android:name="kr.danal.app.damoum" /> <!-- 다날 다모음 -->
-    </queries>
-
-
+    <!-- 구형 기기 호환: 가능하면 지우는 걸 권장 -->
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+
+    <!-- 위치/오디오(앱 사용에 필요한 경우만 유지) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- (필요 앱만 남기세요) 결제/기타 앱 쿼리 -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <package android:name="com.kftc.bankpay.android" />
+        <package android:name="com.lottemembers.android" />
+        <package android:name="com.ssg.serviceapp.android.egiftcertificate" />
+        <package android:name="com.inicis.kpay" />
+        <package android:name="com.tmoney.tmpay" />
+        <package android:name="viva.republica.toss" />
+        <package android:name="com.samsung.android.spay" />
+        <package android:name="com.kakao.talk" />
+        <package android:name="com.nhn.android.search" />
+        <package android:name="com.mysmilepay.app" />
+        <package android:name="kvp.jjy.MispAndroid320" />
+        <package android:name="com.kbcard.cxh.appcard" />
+        <package android:name="com.kbstar.reboot" />
+        <package android:name="com.kbstar.kbbank" />
+        <package android:name="com.samsung.android.spaylite" />
+        <package android:name="com.nhnent.payapp" />
+        <package android:name="com.lge.lgpay" />
+        <package android:name="com.hanaskcard.paycla" />
+        <package android:name="kr.co.hanamembers.hmscustomer" />
+        <package android:name="com.hanaskcard.rocomo.potal" />
+        <package android:name="kr.co.citibank.citimobile" />
+        <package android:name="com.lcacApp" />
+        <package android:name="kr.co.samsungcard.mpocket" />
+        <package android:name="com.shcard.smartpay" />
+        <package android:name="com.shinhancard.smartshinhan" />
+        <package android:name="com.shinhan.smartcaremgr" />
+        <package android:name="com.hyundaicard.appcard" />
+        <package android:name="nh.smart.nhallonepay" />
+        <package android:name="nh.smart.card" />
+        <package android:name="net.ib.android.smcard" />
+        <package android:name="com.wooricard.smartapp" />
+        <package android:name="com.wooribank.smart.npib" />
+        <package android:name="com.TouchEn.mVaccine.webs" />
+        <package android:name="com.ahnlab.v3mobileplus" />
+        <package android:name="kr.co.shiftworks.vguardweb" />
+        <package android:name="com.lumensoft.touchenappfree" />
+        <package android:name="kr.co.kfcc.mobilebank" />
+        <package android:name="com.nh.cashcardapp" />
+        <package android:name="com.knb.psb" />
+        <package android:name="com.lguplus.paynow" />
+        <package android:name="com.kbankwith.smartbank" />
+        <package android:name="com.eg.android.AlipayGphone" />
+        <package android:name="com.sktelecom.tauth" />
+        <package android:name="com.lguplus.smartotp" />
+        <package android:name="com.kt.ktauth" />
+        <package android:name="kr.danal.app.damoum" />
+    </queries>
 
     <application
         android:name="com.bcu.foodtable.FoodTableApplication"
@@ -111,61 +88,43 @@
         android:theme="@style/Theme.FoodTable"
         android:networkSecurityConfig="@xml/network_security_config"
         tools:ignore="DiscouragedApi"
-        tools:targetApi="35"
-        >
+        tools:targetApi="35">
+
+        <!-- (선택) Privacy Sandbox Ads config -->
         <property
             android:name="android.adservices.AD_SERVICES_CONFIG"
             android:resource="@xml/gma_ad_services_config"
             tools:replace="android:resource" />
-        <activity android:name="com.bcu.foodtable.JetpackCompose.AI.AiMainActivity" />
-        <activity
-            android:name=".PurchaseConfirmActivity"
-            android:exported="false" />
-        <activity
-            android:name=".PuchasePage"
-            android:exported="false" />
-        <activity
-            android:name=".SignUpActivity"
-            android:exported="false" />
-        <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity"
-            android:exported="false"/>
-        <activity
-            android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity"
-            android:exported="false" />
-        <activity
-            android:name="com.bcu.foodtable.model.ChallengeDetailActivity"
-            android:exported="false" />
-        <activity android:name=".JetpackCompose.HomeChannelDatil.RecipeCookingActivity" />
-        <activity android:name=".HomeActivity" />
 
-        <activity android:name=".JetpackCompose.Mypage.ProfileActivity"
-            android:exported="false"/>
-
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false"
-            android:windowSoftInputMode="adjustPan" />
-        <activity android:name=".JetpackCompose.Subscribe.SubscribeActivity" />
-        <activity
-            android:name=".JetpackCompose.MultiShopPriceSearchActivity"
-            android:exported="false" />
+        <!-- ★ 런처 액티비티: 알림 딥링크 재사용 위해 singleTop -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".ui.ChallengeActivity"
-            android:exported="false"
-            android:theme="@style/Theme.AppCompat.NoActionBar" />
-        <activity
-            android:name=".ui.ChallengeHistoryActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+
+        <!-- 나머지 액티비티는 기본 그대로 (필요시 exported=false 권장) -->
+        <activity android:name=".HomeActivity" />
+        <activity android:name=".LoginActivity" android:exported="false" android:windowSoftInputMode="adjustPan" />
+        <activity android:name=".SignUpActivity" android:exported="false" />
+        <activity android:name=".PuchasePage" android:exported="false" />
+        <activity android:name=".PurchaseConfirmActivity" android:exported="false" />
+        <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity" android:exported="false" />
+        <activity android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity" android:exported="false" />
+        <activity android:name="com.bcu.foodtable.model.ChallengeDetailActivity" android:exported="false" />
+        <activity android:name=".JetpackCompose.HomeChannelDatil.RecipeCookingActivity" />
+        <activity android:name=".JetpackCompose.Mypage.ProfileActivity" android:exported="false" />
+        <activity android:name=".JetpackCompose.Subscribe.SubscribeActivity" />
+        <activity android:name=".JetpackCompose.MultiShopPriceSearchActivity" android:exported="false" />
+        <activity android:name=".ui.ChallengeActivity" android:exported="false" android:theme="@style/Theme.AppCompat.NoActionBar" />
+        <activity android:name=".ui.ChallengeHistoryActivity" android:exported="false" android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
+        <activity android:name="com.bcu.foodtable.JetpackCompose.AI.AiMainActivity" />
+
+        <!-- ★ FCM 메시징 서비스 -->
         <service
             android:name=".MyFirebaseMessagingService"
             android:exported="false">
@@ -173,7 +132,6 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
     </application>
-
-
 </manifest>
