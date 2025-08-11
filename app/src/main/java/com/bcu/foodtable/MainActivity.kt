@@ -1,9 +1,12 @@
 package com.bcu.foodtable
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -27,31 +30,56 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
-import com.bcu.foodtable.R
-import com.bcu.foodtable.useful.ActivityTransition
+import com.bcu.foodtable.useful.ActivityTransition // 있으면 사용, 없으면 지워도 됨
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
+
+    private val requestPostNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* granted/denied */ }
+
+    private var pendingChatUid: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPostNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        pendingChatUid = intent?.getStringExtra("chatUid")
 
         setContent {
             MaterialTheme(colorScheme = warmLightColorScheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     MainLoginScreen(
                         onLoginClick = {
-                            ActivityTransition.startStatic(this@MainActivity, LoginActivity::class.java)
+                            val i = Intent(this@MainActivity, LoginActivity::class.java).apply {
+                                pendingChatUid?.let { putExtra("chatUid", it) }
+                            }
+                            startActivity(i) // ← 표준 호출 (오류 없음)
+                            // ActivityTransition.startStatic(this@MainActivity, i) // 오버로드 추가했다면 이걸로
                         },
                         onSignUpClick = {
-                            ActivityTransition.startStatic(this@MainActivity, SignUpActivity::class.java)
+                            val i = Intent(this@MainActivity, SignUpActivity::class.java).apply {
+                                pendingChatUid?.let { putExtra("chatUid", it) }
+                            }
+                            startActivity(i)
+                            // ActivityTransition.startStatic(this@MainActivity, i)
                         }
                     )
                 }
             }
         }
+    }
+
+    // ✅ nullable 아님
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingChatUid = intent.getStringExtra("chatUid")
     }
 }
 
@@ -94,16 +122,12 @@ fun MainLoginScreen(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-
-        // 🔳 배경 이미지
         Image(
             painter = painterResource(id = R.drawable.login_background),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
-
-        // 🌫️ 블러/그라데이션 오버레이
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -115,22 +139,17 @@ fun MainLoginScreen(
                     )
                 )
         )
-
-        // ✨ Lottie 애니메이션 (반짝이 효과)
         LottieAnimation(
             composition = lottieComposition,
             progress = { progress },
             modifier = Modifier.fillMaxSize()
         )
-
-        // 🧱 메인 콘텐츠
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 28.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 🧾 타이틀
             Column(modifier = Modifier.padding(top = 100.dp)) {
                 Text(
                     text = stringResource(id = R.string.app_name),
@@ -149,8 +168,6 @@ fun MainLoginScreen(
                         .alpha(subtitleAlpha)
                 )
             }
-
-            // 🔘 로그인 & 회원가입 버튼
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -172,7 +189,6 @@ fun MainLoginScreen(
                 ) {
                     Text(text = stringResource(id = R.string.login_button), fontSize = 17.sp)
                 }
-
                 OutlinedButton(
                     onClick = onSignUpClick,
                     modifier = Modifier
@@ -190,4 +206,3 @@ fun MainLoginScreen(
         }
     }
 }
-

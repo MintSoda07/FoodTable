@@ -23,7 +23,7 @@ class FoodTableApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-
+        AppState.init(this)
         // 보안 공급자 설치/업데이트 시도 (App Check 및 기타 Firebase 서비스 안정성 향상)
         installSecurityProvider()
 
