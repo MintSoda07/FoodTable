@@ -16,8 +16,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class MatzipViewModel : ViewModel() {
     // 1. 커스텀 마커는 기존처럼 Firestore에서 불러와서 지도에 표시
-    var customMarkers = mutableStateListOf<CustomMarkerData>()
+    var customMarkers = mutableStateMapOf<String, CustomMarkerData>()
         private set
+
 
     // 2. 카카오맵 API에서 지도 중심/영역 기준 실시간으로 불러온 음식점들
     var visibleRestaurants = mutableStateListOf<KakaoPlace>()
@@ -40,6 +41,19 @@ class MatzipViewModel : ViewModel() {
 
     private var customMarkersListener: ListenerRegistration? = null
 
+    private var favoritesListener: ListenerRegistration? = null
+
+    var customMarkerToCreate by mutableStateOf<LatLng?>(null)
+        private set
+
+    fun showCustomMarkerCreationDialog(lat: Double, lng: Double) {
+        customMarkerToCreate = LatLng.from(lat, lng)
+    }
+
+    fun dismissCustomMarkerCreationDialog() {
+        customMarkerToCreate = null
+    }
+
     fun moveToLocation(lat: Double, lng: Double) {
         cameraMoveTarget = LatLng.from(lat, lng)
     }
@@ -53,6 +67,11 @@ class MatzipViewModel : ViewModel() {
     }
     fun dismissCustomMarkerDialog() { selectedCustomMarker = null }
 
+    private val favoriteInFlight = mutableStateMapOf<String, Boolean>()
+    private val unFavoriteInFlight = mutableStateMapOf<String, Boolean>()
+
+    fun isFavoriteInFlight(id: String) = favoriteInFlight.containsKey(id)
+    fun isUnFavoriteInFlight(id: String) = unFavoriteInFlight.containsKey(id)
     // 카카오맵 API 연동 객체
     private val kakaoMapApi by lazy {
         Retrofit.Builder()
@@ -83,17 +102,22 @@ class MatzipViewModel : ViewModel() {
                     Log.e("Firestore", "custom_markers 실시간 로딩 실패", e)
                     return@addSnapshotListener
                 }
-                customMarkers.clear()
+
+                customMarkers.clear() // 기존 마커 초기화
+
                 for (doc in snap.documents) {
                     val marker = doc.toObject(CustomMarkerData::class.java)
-                    if (marker != null) customMarkers.add(marker)
+                    if (marker != null) {
+                        //  key-value 구조로 추가
+                        customMarkers["cust_${marker.id}"] = marker
+                    }
                 }
+
+                Log.d("Firestore", "커스텀 마커 ${customMarkers.size}개 로드 완료")
             }
     }
-    override fun onCleared() {
-        super.onCleared()
-        customMarkersListener?.remove() // 리스너 정리
-    }
+
+
 
     /**
      * 지도 드래그/이동/줌 등에서 호출:
@@ -137,13 +161,19 @@ class MatzipViewModel : ViewModel() {
     fun saveRestaurantToFavorites(place: KakaoPlace) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
-
         val userMatzipRef = db.collection("user").document(userId).collection("matzip")
-        val globalMatzipRef = db.collection("matzip_info") // ← 전체 사용자용
+        val globalMatzipRef = db.collection("matzip_info")
 
-        // 중복 저장 방지 (로컬 state 기준)
+        //  중복 클릭/중복 호출 가드
+        if (favoriteInFlight.containsKey(place.id)) {
+            Log.i("찜저장", "이미 진행중: ${place.id}")
+            return
+        }
+        favoriteInFlight[place.id] = true
+
+        // 이미 찜되어 있으면 바로 종료
         if (favoriteRestaurants.any { it.id == place.id }) {
-            Log.i("찜중복", "${place.place_name} 이미 찜함")
+            favoriteInFlight.remove(place.id)
             return
         }
 
@@ -160,35 +190,64 @@ class MatzipViewModel : ViewModel() {
             "category_name" to (place.category_name ?: "")
         )
 
-        // 🔹 1. 사용자 개인 matzip 하위 컬렉션 저장
-        userMatzipRef
-            .document(place.id)
-            .set(doc)
-            .addOnSuccessListener {
-                favoriteRestaurants.add(place)
-                Log.i("찜저장", "user/$userId/matzip 저장 완료")
-            }
+        userMatzipRef.document(place.id).set(doc)
+            .addOnSuccessListener { Log.i("찜저장", "user/$userId/matzip 저장 완료") }
+            .addOnCompleteListener { favoriteInFlight.remove(place.id) }  // ✅ 해제
 
-        // 🔹 2. 전체 사용자 공용 matzip_info 저장 (이미 있다면 덮어씀)
-        globalMatzipRef
-            .document(place.id)
-            .set(doc)
-            .addOnSuccessListener {
-                Log.i("공용찜저장", "matzip_info에도 저장됨")
+        globalMatzipRef.document(place.id).set(doc)
+            .addOnSuccessListener { Log.i("공용찜저장", "matzip_info에도 저장됨") }
+    }
+
+
+    fun saveCustomMarker(name: String, desc: String, rating: Double, latLng: LatLng) {
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        val userId = user.uid
+        val db = FirebaseFirestore.getInstance()
+        val id = "${System.currentTimeMillis()}"
+
+        db.collection("user").document(userId).get()
+            .addOnSuccessListener { snapshot ->
+                val userName = snapshot.getString("name") ?: "익명"
+
+                val marker = CustomMarkerData(
+                    id = id,
+                    name = name,
+                    desc = desc,
+                    rating = rating,
+                    lat = latLng.latitude,
+                    lng = latLng.longitude,
+                    userName = userName
+                )
+
+                db.collection("custom_markers")
+                    .document(id)
+                    .set(marker)
+                    .addOnSuccessListener {
+                        Log.i("커스텀 마커", "저장 완료: $name")
+
+                        // ✅ 즉시 지도에 반영되도록 직접 추가
+                        customMarkers["cust_$id"] = marker
+
+                        // ❌ showMarkers()는 자동 호출 안 되지만,
+                        // 지도는 customMarkers 가 바뀌면 recomposition 으로 다시 그림
+                    }
             }
     }
 
 
+
+
     /** Firestore에 저장된 찜한 음식점(추후 필요시 사용) */
-    fun loadFavoriteRestaurants() {
+    fun listenFavoriteRestaurants() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
 
-        db.collection("user").document(userId).collection("matzip")
-            .get()
-            .addOnSuccessListener { snap ->
+        favoritesListener?.remove()
+        favoritesListener = db.collection("user").document(userId).collection("matzip")
+            .addSnapshotListener { snap, e ->
+                if (e != null || snap == null) return@addSnapshotListener
                 favoriteRestaurants.clear()
-                snap.documents.forEach { doc ->
+                for (doc in snap.documents) {
                     val place = KakaoPlace(
                         id = doc.getString("placeId") ?: doc.id,
                         place_name = doc.getString("name") ?: "",
@@ -206,19 +265,29 @@ class MatzipViewModel : ViewModel() {
             }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        favoritesListener?.remove()
+        customMarkersListener?.remove()
+    }
+
     fun removeRestaurantFromFavorites(placeId: String) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseFirestore.getInstance()
 
+        if (unFavoriteInFlight.containsKey(placeId)) {
+            Log.i("찜해제", "이미 진행중: $placeId")
+            return
+        }
+        unFavoriteInFlight[placeId] = true
+
         db.collection("user").document(userId).collection("matzip")
             .document(placeId)
             .delete()
-            .addOnSuccessListener {
-                favoriteRestaurants.removeAll { it.id == placeId }
-                Log.i("찜해제", "$placeId 해제됨")
-            }
-            .addOnFailureListener { e -> Log.e("찜해제실패", e.toString()) }
+            .addOnSuccessListener { Log.i("찜해제", "$placeId 해제됨") }
+            .addOnCompleteListener { unFavoriteInFlight.remove(placeId) }  //
     }
+
     // 메시지 전송
     fun sendPlaceToChat(friendUid: String, place: KakaoPlace) {
         val myUid = FirebaseAuth.getInstance().currentUser?.uid ?: return
