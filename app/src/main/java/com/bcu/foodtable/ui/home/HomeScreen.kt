@@ -1704,7 +1704,6 @@ fun MoreButton(onClick: () -> Unit) {
 }
 
 
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeContent(
@@ -1716,7 +1715,6 @@ fun HomeContent(
     listState: LazyListState,
     nav: NavController
 ) {
-
     var selectedCuisine by remember { mutableStateOf<String?>(null) }
     var selectedDifficulty by remember { mutableStateOf<String?>(null) }
     var selectedPrepTime by remember { mutableStateOf<String?>(null) }
@@ -1733,18 +1731,14 @@ fun HomeContent(
             .document(uid)
             .collection("purchased")
             .addSnapshotListener { snap, _ ->
-                if (snap != null) {
-                    purchasedIds = snap.documents.map { it.id }.toSet()
-                }
+                if (snap != null) purchasedIds = snap.documents.map { it.id }.toSet()
             }
     }
 
-
-
     val filteredRecipes = recipes.filter { recipe ->
         val matchesSearch = searchQuery.text.isEmpty() ||
-                recipe.name.contains(searchQuery.text, ignoreCase = true) ||
-                recipe.description.contains(searchQuery.text, ignoreCase = true)
+                recipe.name.contains(searchQuery.text, true) ||
+                recipe.description.contains(searchQuery.text, true)
         val matchesCuisine = selectedCuisine == null || recipe.C_categories.getOrNull(0) == selectedCuisine
         val matchesDifficulty = selectedDifficulty == null || recipe.C_categories.getOrNull(1) == selectedDifficulty
         val d = recipe.duration
@@ -1755,9 +1749,9 @@ fun HomeContent(
             "1시간 이상" -> d > 60
             else -> true
         }
-
         matchesSearch && matchesCuisine && matchesDifficulty && matchesPrepTime
     }
+
     var sectionOrder by remember {
         mutableStateOf(
             mutableListOf(
@@ -1765,13 +1759,12 @@ fun HomeContent(
                 HomeSection.RecommendRecipes,
                 HomeSection.Categories,
                 HomeSection.SearchBar,
-                HomeSection.RecipeList
+                HomeSection.RecipeList // 끝에 고정
             )
         )
     }
     val topClickedRecipes by homeViewModel.topClickedRecipes.collectAsState()
     val recommendedRecipes by homeViewModel.recommendedRecipes.collectAsState()
-
 
     var draggedIndex by remember { mutableStateOf<Int?>(null) }
     var offsetY by remember { mutableStateOf(0f) }
@@ -1782,13 +1775,14 @@ fun HomeContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface),
         contentPadding = PaddingValues(
-            top = 0.dp,  // 무조건 0으로
+            top = 0.dp,
             start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
             end = paddingValues.calculateEndPadding(LayoutDirection.Ltr),
             bottom = paddingValues.calculateBottomPadding()
         ),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 배너
         item {
             PromoBannerPagerFromFirestore(
                 modifier = Modifier
@@ -1797,80 +1791,49 @@ fun HomeContent(
             )
         }
 
-        itemsIndexed(sectionOrder) { index, section ->
-            val isDragging = draggedIndex == index
-            val isRecipeList = section is HomeSection.RecipeList
-            val isSearchBar = section is HomeSection.SearchBar
+        // ✅ 섹션(RecipeList 제외)을 item{}로 추가
+        sectionOrder.forEachIndexed { index, section ->
+            if (section is HomeSection.RecipeList) return@forEachIndexed
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        if (isDragging) translationY = offsetY
-                    }
-                    .pointerInput(section) {
-                        if (!isRecipeList && !isSearchBar) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = {
-                                    draggedIndex = index
-                                },
-                                onDragEnd = {
-                                    draggedIndex = null
-                                    offsetY = 0f
-                                },
-                                onDrag = { change, dragAmount ->
-                                    offsetY += dragAmount.y
-                                    val targetIndex = (index + (offsetY / 150).toInt()).coerceIn(
-                                        0, sectionOrder.lastIndex - 1
-                                    )
-                                    if (targetIndex != index &&
-                                        targetIndex != sectionOrder.lastIndex &&
-                                        sectionOrder.getOrNull(targetIndex) !is HomeSection.RecipeList
-                                    ) {
-                                        sectionOrder = sectionOrder.toMutableList().apply {
-                                            add(targetIndex, removeAt(index))
+            item {
+                val isDragging = draggedIndex == index
+                val isSearchBar = section is HomeSection.SearchBar
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer { if (isDragging) translationY = offsetY }
+                        .then(
+                            if (!isSearchBar)
+                                Modifier.pointerInput(section) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = { draggedIndex = index },
+                                        onDragEnd = { draggedIndex = null; offsetY = 0f },
+                                        onDragCancel = { draggedIndex = null; offsetY = 0f },
+                                        onDrag = { change, dragAmount ->
+                                            change.consume()
+                                            offsetY += dragAmount.y
+                                            val targetIndex = (index + (offsetY / 150).toInt())
+                                                .coerceIn(0, sectionOrder.lastIndex - 1) // 마지막(RecipeList) 앞까지만
+                                            if (targetIndex != index &&
+                                                sectionOrder.getOrNull(targetIndex) !is HomeSection.RecipeList
+                                            ) {
+                                                sectionOrder = sectionOrder.toMutableList().apply {
+                                                    add(targetIndex, removeAt(index))
+                                                }
+                                                draggedIndex = targetIndex
+                                                offsetY = 0f
+                                            }
                                         }
-                                        draggedIndex = targetIndex
-                                        offsetY = 0f
-                                    }
+                                    )
                                 }
-                            )
-                        }
-                    }
-                    .background(if (isDragging) Color.LightGray else Color.Transparent)
-            ) {
-                Column {
-                    when (section) {
-                        is HomeSection.SearchBar -> {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "레시피 둘러보기",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Divider(
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                    thickness = 1.dp
-                                )
-                            }
-                            ModernSearchBar(
-                                searchQuery = searchQuery,
-                                onSearchQueryChange = onSearchQueryChange
-                            )
-                        }
-
-                        is HomeSection.TrendRecipes, is HomeSection.RecommendRecipes, is HomeSection.RecipeList -> {
-                            Column {
-                                // 제목 + 드래그 핸들
+                            else Modifier
+                        )
+                        .background(if (isDragging) Color.LightGray else Color.Transparent)
+                ) {
+                    Column {
+                        when (section) {
+                            is HomeSection.SearchBar -> {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1878,279 +1841,294 @@ fun HomeContent(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    if(!isRecipeList){
                                     Text(
-                                        text = when (section) {
-                                            is HomeSection.TrendRecipes -> "인기 레시피"
-                                            is HomeSection.RecommendRecipes -> "추천 레시피"
-                                            else -> ""
-                                        },
+                                        text = "레시피 둘러보기",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.primary
                                     )
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
+                                    Spacer(Modifier.height(4.dp))
                                     Divider(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                                         thickness = 1.dp
-                                    )}
+                                    )
                                 }
+                                ModernSearchBar(
+                                    searchQuery = searchQuery,
+                                    onSearchQueryChange = onSearchQueryChange
+                                )
+                            }
 
-                                // 내용물
-                                when (section) {
-                                    is HomeSection.TrendRecipes -> {
-                                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-
-                                            Spacer(modifier = Modifier.height(8.dp))
-
-                                            if (topClickedRecipes.isEmpty()) {
-                                                Text(
-                                                    text = "불러오는 중...",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            } else {
-                                                val context = LocalContext.current
-                                                LazyRow(
-                                                    contentPadding = PaddingValues(horizontal = 0.dp),
-                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                                ) {
-                                                    items(topClickedRecipes) { recipe ->
-                                                        RecipePreviewCard(
-                                                            recipe = recipe, onClick = { recipeID ->
-                                                            },
-                                                            homeViewModel = homeViewModel
-                                                        )
-                                                    }
-                                                    item {
-                                                        MoreButton {
-                                                            nav.navigate("TrendRecipes")
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
+                            is HomeSection.TrendRecipes -> {
+                                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("인기 레시피",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Divider(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                            thickness = 1.dp
+                                        )
                                     }
-                                    is HomeSection.RecommendRecipes -> {
+                                    Spacer(Modifier.height(8.dp))
+                                    if (topClickedRecipes.isEmpty()) {
+                                        Text(
+                                            text = "불러오는 중...",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
                                         LazyRow(
-                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                            contentPadding = PaddingValues(horizontal = 0.dp),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            items(recommendedRecipes) { recipe ->
+                                            items(topClickedRecipes) { recipe ->
                                                 RecipePreviewCard(
                                                     recipe = recipe,
-                                                    homeViewModel = homeViewModel,
-                                                    onClick = { recipeId ->
-                                                        // 선택 시 추가 동작
-                                                    }
+                                                    onClick = { /* no-op */ },
+                                                    homeViewModel = homeViewModel
                                                 )
                                             }
                                             item {
-                                                MoreButton {
-                                                    nav.navigate("RecommendRecipes")
-                                                }
+                                                MoreButton { nav.navigate("trendRecipes") }
                                             }
                                         }
                                     }
-                                    is HomeSection.RecipeList -> {
-                                        if (filteredRecipes.isEmpty()) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillParentMaxWidth()
-                                                    .padding(vertical = 60.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    "조건에 맞는 레시피가 없어요.\n검색어나 필터를 조정해보세요!",
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    textAlign = TextAlign.Center,
-                                                    modifier = Modifier.padding(16.dp)
-                                                )
-                                            }
-                                        } else {
-                                            this@LazyColumn.items(
-                                                items = filteredRecipes,
-                                                key = { recipe -> recipe.id.ifBlank { recipe.name + recipe.hashCode() } }
-                                            ) { recipe ->
-                                                var isVisible by remember { mutableStateOf(false) }
-                                                val isPurchasedFlag = purchasedIds.contains(recipe.id)
-                                                val context = LocalContext.current
-                                                val scope = rememberCoroutineScope()
-
-                                                var showPurchaseDialog by remember { mutableStateOf(false) }
-                                                var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
-
-                                                val estimatedCal = calorieVm.caloriesMap[recipe.id]
-
-                                                LaunchedEffect(recipe.id) {
-                                                    try {
-                                                        isVisible = true
-                                                        calorieVm.loadOrEstimateCalories(recipe)
-                                                    } catch (e: Exception) {
-                                                        e.printStackTrace()
-                                                    }
-                                                }
-
-                                                AnimatedVisibility(
-                                                    visible = isVisible,
-                                                    enter = slideInVertically(
-                                                        initialOffsetY = { it / 2 },
-                                                        animationSpec = tween(500, delayMillis = 50)
-                                                    ) + fadeIn(animationSpec = tween(400))
-                                                ) {
-                                                    val cardModifier = Modifier.animateItemPlacement(tween(300))
-
-                                                    ModernRecipeCard(
-                                                        recipe = recipe.copy(isPurchased = isPurchasedFlag),
-                                                        estimatedCal = estimatedCal,
-                                                        onCardClick = {
-                                                            scope.launch {
-                                                                try {
-                                                                    val uid = UserManager.getUser()?.uid
-                                                                    if (uid == null) {
-                                                                        Toast.makeText(context, "유저 정보가 없습니다.", Toast.LENGTH_SHORT).show()
-                                                                        return@launch
-                                                                    }
-
-                                                                    val docSnapshot = db.collection("user")
-                                                                        .document(uid)
-                                                                        .collection("purchased")
-                                                                        .document(recipe.id)
-                                                                        .get()
-                                                                        .await()
-
-                                                                    if (!isActive) return@launch
-
-                                                                    if (docSnapshot.exists()) {
-                                                                        homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
-
-                                                                        if (context.isActivity()) {
-                                                                            val intent = Intent(context, RecipeCookingActivity::class.java)
-                                                                            intent.putExtra("recipe_id", recipe.id)
-                                                                            context.startActivity(intent)
-                                                                        }
-                                                                    } else {
-                                                                        selectedRecipe = recipe
-                                                                        showPurchaseDialog = true
-                                                                    }
-                                                                } catch (e: Exception) {
-                                                                    e.printStackTrace()
-                                                                    Toast.makeText(context, "레시피 확인 중 오류 발생", Toast.LENGTH_SHORT).show()
-                                                                }
-                                                            }
-                                                        },
-                                                        modifier = cardModifier
-                                                    )
-
-                                                    if (showPurchaseDialog && selectedRecipe != null) {
-                                                        PurchaseDialog(
-                                                            recipeName = selectedRecipe!!.name,
-                                                            cost = selectedRecipe!!.cost,
-                                                            onConfirm = {
-                                                                showPurchaseDialog = false
-                                                                scope.launch {
-                                                                    try {
-                                                                        val uid = UserManager.getUser()?.uid
-                                                                        if (uid == null) {
-                                                                            Toast.makeText(context, "유저 정보가 없습니다.", Toast.LENGTH_SHORT).show()
-                                                                            return@launch
-                                                                        }
-
-                                                                        val userRef = db.collection("user").document(uid)
-                                                                        val document = userRef.get().await()
-                                                                        val currentPoint = document.getLong("point")?.toInt() ?: 0
-
-                                                                        if (currentPoint >= selectedRecipe!!.cost) {
-                                                                            userRef.update("point", currentPoint - selectedRecipe!!.cost).await()
-                                                                            userRef.collection("purchased")
-                                                                                .document(selectedRecipe!!.id)
-                                                                                .set(mapOf("purchased" to true))
-                                                                                .await()
-
-                                                                            homeViewModel.markRecipeAsPurchased(selectedRecipe!!.id)
-
-                                                                            Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
-
-                                                                            if (context.isActivity()) {
-                                                                                val intent = Intent(context, RecipeCookingActivity::class.java)
-                                                                                intent.putExtra("recipe_id", selectedRecipe!!.id)
-                                                                                context.startActivity(intent)
-                                                                            }
-                                                                        } else {
-                                                                            Toast.makeText(
-                                                                                context,
-                                                                                "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
-                                                                                Toast.LENGTH_LONG
-                                                                            ).show()
-                                                                        }
-                                                                    } catch (e: Exception) {
-                                                                        e.printStackTrace()
-                                                                        Toast.makeText(context, "구매 처리 중 오류 발생", Toast.LENGTH_SHORT).show()
-                                                                    }
-                                                                }
-                                                            },
-                                                            onDismiss = { showPurchaseDialog = false }
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                    }
-                                    else -> {}
                                 }
                             }
-                        }
 
-                        is HomeSection.Categories -> {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "카테고리",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.primary
+                            is HomeSection.RecommendRecipes -> {
+                                Column {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("추천 레시피",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Divider(
+                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                            thickness = 1.dp
+                                        )
+                                    }
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(recommendedRecipes) { recipe ->
+                                            RecipePreviewCard(
+                                                recipe = recipe,
+                                                homeViewModel = homeViewModel,
+                                                onClick = { /* 선택 시 추가 동작 */ }
+                                            )
+                                        }
+                                        item {
+                                            MoreButton { nav.navigate("recommendRecipes") } // ✅ 소문자
+                                        }
+                                    }
+                                }
+                            }
+
+                            is HomeSection.Categories -> {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "카테고리",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Divider(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                                        thickness = 1.dp
+                                    )
+                                }
+                                val categoryList = listOf(
+                                    "한식" to Icons.Default.RiceBowl,
+                                    "중식" to Icons.Default.RamenDining,
+                                    "양식" to Icons.Default.LunchDining,
+                                    "일식" to Icons.Default.SetMeal,
+                                    "디저트" to Icons.Default.Cake,
+                                    "분식" to Icons.Default.Fastfood,
+                                    "샐러드" to Icons.Default.EmojiNature,
+                                    "패스트푸드" to Icons.Default.LocalPizza,
+                                    "야식" to Icons.Default.NightShelter,
+                                    "브런치" to Icons.Default.BrunchDining,
+                                    "음료" to Icons.Default.LocalCafe,
+                                    "채식" to Icons.Default.Eco
                                 )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Divider(
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                    thickness = 1.dp
+                                var selectedCategory by remember { mutableStateOf<String?>(null) }
+                                CategoryGrid(
+                                    categories = categoryList,
+                                    selectedCategory = selectedCategory,
+                                    navController = nav
                                 )
                             }
-                            val categoryList = listOf(
-                                "한식" to Icons.Default.RiceBowl,
-                                "중식" to Icons.Default.RamenDining,
-                                "양식" to Icons.Default.LunchDining,
-                                "일식" to Icons.Default.SetMeal,
-                                "디저트" to Icons.Default.Cake,
-                                "분식" to Icons.Default.Fastfood,
-                                "샐러드" to Icons.Default.EmojiNature,
-                                "패스트푸드" to Icons.Default.LocalPizza,
-                                "야식" to Icons.Default.NightShelter,
-                                "브런치" to Icons.Default.BrunchDining,
-                                "음료" to Icons.Default.LocalCafe,
-                                "채식" to Icons.Default.Eco
-                            )
 
-                            var selectedCategory by remember { mutableStateOf<String?>(null) }
-
-                            CategoryGrid(
-                                categories = categoryList,
-                                selectedCategory = selectedCategory,
-                                navController =  nav
-                            )
+                            else -> Unit
                         }
                     }
+                }
+            }
+        }
 
+        // ✅ RecipeList: 여기서만 Lazy 아이템으로 렌더
+        if (filteredRecipes.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 60.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "조건에 맞는 레시피가 없어요.\n검색어나 필터를 조정해보세요!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        } else {
+            itemsIndexed(
+                items = filteredRecipes,
+                key = { idx, recipe ->
+                    recipe.id.takeIf { it.isNotBlank() } ?: "recipe-$idx-${recipe.name}"
+                }
+            ) { _, recipe ->
+                var isVisible by remember { mutableStateOf(false) }
+                val isPurchasedFlag = purchasedIds.contains(recipe.id)
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
 
+                var showPurchaseDialog by remember { mutableStateOf(false) }
+                var selectedRecipe by remember { mutableStateOf<RecipeItem?>(null) }
+
+                val estimatedCal = calorieVm.caloriesMap[recipe.id]
+
+                LaunchedEffect(recipe.id) {
+                    try {
+                        isVisible = true
+                        calorieVm.loadOrEstimateCalories(recipe)
+                    } catch (_: Exception) { }
+                }
+
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = slideInVertically(
+                        initialOffsetY = { it / 2 },
+                        animationSpec = tween(500, delayMillis = 50)
+                    ) + fadeIn(animationSpec = tween(400))
+                ) {
+                    val cardModifier = Modifier.animateItemPlacement(tween(300))
+
+                    ModernRecipeCard(
+                        recipe = recipe.copy(isPurchased = isPurchasedFlag),
+                        estimatedCal = estimatedCal,
+                        onCardClick = {
+                            scope.launch {
+                                try {
+                                    val uid2 = UserManager.getUser()?.uid
+                                    if (uid2 == null) {
+                                        Toast.makeText(context, "유저 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+                                        return@launch
+                                    }
+
+                                    val docSnapshot = db.collection("user")
+                                        .document(uid2)
+                                        .collection("purchased")
+                                        .document(recipe.id)
+                                        .get()
+                                        .await()
+
+                                    if (!isActive) return@launch
+
+                                    if (docSnapshot.exists()) {
+                                        homeViewModel.trackRecipeView(recipe.id, recipe.C_categories)
+                                        if (context.isActivity()) {
+                                            val intent = Intent(context, RecipeCookingActivity::class.java)
+                                            intent.putExtra("recipe_id", recipe.id)
+                                            context.startActivity(intent)
+                                        }
+                                    } else {
+                                        selectedRecipe = recipe
+                                        showPurchaseDialog = true
+                                    }
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "레시피 확인 중 오류 발생", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        modifier = cardModifier
+                    )
+
+                    if (showPurchaseDialog && selectedRecipe != null) {
+                        PurchaseDialog(
+                            recipeName = selectedRecipe!!.name,
+                            cost = selectedRecipe!!.cost,
+                            onConfirm = {
+                                showPurchaseDialog = false
+                                scope.launch {
+                                    try {
+                                        val uid2 = UserManager.getUser()?.uid
+                                        if (uid2 == null) {
+                                            Toast.makeText(context, "유저 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+                                            return@launch
+                                        }
+
+                                        val userRef = db.collection("user").document(uid2)
+                                        val document = userRef.get().await()
+                                        val currentPoint = document.getLong("point")?.toInt() ?: 0
+
+                                        if (currentPoint >= selectedRecipe!!.cost) {
+                                            userRef.update("point", currentPoint - selectedRecipe!!.cost).await()
+                                            userRef.collection("purchased")
+                                                .document(selectedRecipe!!.id)
+                                                .set(mapOf("purchased" to true))
+                                                .await()
+
+                                            homeViewModel.markRecipeAsPurchased(selectedRecipe!!.id)
+
+                                            Toast.makeText(context, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
+
+                                            if (context.isActivity()) {
+                                                val intent = Intent(context, RecipeCookingActivity::class.java)
+                                                intent.putExtra("recipe_id", selectedRecipe!!.id)
+                                                context.startActivity(intent)
+                                            }
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                "소금이 부족합니다! (${currentPoint} / ${selectedRecipe!!.cost})",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    } catch (_: Exception) {
+                                        Toast.makeText(context, "구매 처리 중 오류 발생", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            onDismiss = { showPurchaseDialog = false }
+                        )
+                    }
                 }
             }
         }
