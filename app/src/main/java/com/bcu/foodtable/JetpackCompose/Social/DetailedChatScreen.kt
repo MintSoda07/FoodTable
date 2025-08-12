@@ -5,6 +5,15 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -78,6 +87,18 @@ private val ChatColorScheme = lightColorScheme(
     surfaceVariant = Color(0xFFECEFF1),
     onSurfaceVariant = Color(0xFF37474F),
 )
+// === 유틸: 리스트가 하단 근처인지 판단 ===
+@Composable
+private fun rememberIsAtBottom(listState: LazyListState, tolerance: Int = 1): State<Boolean> {
+    return remember(listState) {
+        derivedStateOf {
+            val layout = listState.layoutInfo
+            if (layout.totalItemsCount == 0) return@derivedStateOf true
+            val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisible >= (layout.totalItemsCount - 1 - tolerance)
+        }
+    }
+}
 
 @Composable
 fun ChatTheme(content: @Composable () -> Unit) {
@@ -92,7 +113,8 @@ fun ChatTheme(content: @Composable () -> Unit) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DetailedChatScreen(
     navController: NavHostController,
@@ -124,6 +146,9 @@ fun DetailedChatScreen(
     var loading by remember { mutableStateOf(true) }
     val listState = rememberLazyListState()
 
+    val isAtBottom by rememberIsAtBottom(listState)
+    var initialScrolled by remember { mutableStateOf(false) }
+
     var showTransferDialog by remember { mutableStateOf(false) }
 
     val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
@@ -148,6 +173,15 @@ fun DetailedChatScreen(
     // 방 전환 시 메시지 초기화
     LaunchedEffect(targetUid) { messages.clear() }
 
+    // 최초 로딩 완료 & 기존 메시지 있을 때 한 번만 맨 아래로 즉시 스크롤
+    LaunchedEffect(loading, messages.size) {
+        if (!loading && messages.isNotEmpty() && !initialScrolled) {
+            listState.scrollToItem(messages.lastIndex)
+            initialScrolled = true
+        }
+    }
+
+    // 스냅샷 리스너
     DisposableEffect(targetUid) {
         val query = db.collection("user").document(currentUid)
             .collection("chats").document(targetUid)
@@ -162,7 +196,8 @@ fun DetailedChatScreen(
                 val doc = dc.document
                 val msg = doc.toObject(ChatMessage::class.java).copy(id = doc.id)
                 when (dc.type) {
-                    DocumentChange.Type.ADDED -> if (messages.none { it.id == msg.id }) messages.add(msg)
+                    DocumentChange.Type.ADDED ->
+                        if (messages.none { it.id == msg.id }) messages.add(msg)
                     DocumentChange.Type.MODIFIED -> {
                         val idx = messages.indexOfFirst { it.id == msg.id }
                         if (idx >= 0) messages[idx] = msg
@@ -192,12 +227,10 @@ fun DetailedChatScreen(
         onDispose { listener.remove() }
     }
 
-    // 새 메시지 자동 스크롤(하단 근처일 때만)
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            val lastIndex = messages.lastIndex
-            val atBottom = listState.firstVisibleItemIndex >= lastIndex - 2
-            if (atBottom) listState.animateScrollToItem(lastIndex)
+    // 새 메시지 자동 스크롤(하단 근처일 때만 부드럽게)
+    LaunchedEffect(messages.size, isAtBottom) {
+        if (messages.isNotEmpty() && isAtBottom) {
+            listState.animateScrollToItem(messages.lastIndex)
         }
     }
 
@@ -259,21 +292,54 @@ fun DetailedChatScreen(
                     ) {
                         items(messages, key = { it.id }) { msg ->
                             val isMe = msg.senderUid == currentUid
-                            when {
-                                msg.type == "place" -> {
-                                    SharedPlaceMessageBubble(message = msg, isMe = isMe)
-                                }
-                                else -> {
-                                    ChatMessageBubble(
-                                        message = msg,
-                                        isMe = isMe,
-                                        onClaim = {
-                                            claimPoint(db, scope, context, currentUid, targetUid, msg)
-                                        }
-                                    )
+
+                            // 등장 애니메이션 + 자연스러운 자리 이동
+                            AnimatedVisibility(
+                                visible = true,
+                                enter = fadeIn(animationSpec = tween(220, delayMillis = 20)) +
+                                        slideInVertically(initialOffsetY = { it / 3 }, animationSpec = tween(220)),
+                                exit = fadeOut() + shrinkVertically(),
+                                modifier = Modifier.animateItemPlacement()
+                            ) {
+                                when {
+                                    msg.type == "place" -> {
+                                        SharedPlaceMessageBubble(message = msg, isMe = isMe)
+                                    }
+                                    else -> {
+                                        ChatMessageBubble(
+                                            message = msg,
+                                            isMe = isMe,
+                                            onClaim = {
+                                                claimPoint(db, scope, context, currentUid, targetUid, msg)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+
+                // 하단 점프 FAB (맨 아래가 아닐 때 노출)
+                AnimatedVisibility(
+                    visible = !isAtBottom,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                    exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                ) {
+                    FloatingActionButton(
+                        onClick = {
+                            scope.launch {
+                                if (messages.isNotEmpty()) {
+                                    listState.animateScrollToItem(messages.lastIndex)
+                                }
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "맨 아래로")
                     }
                 }
             }
