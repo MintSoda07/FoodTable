@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -506,16 +507,18 @@ fun ChatMessageBubble(
     onClaim: () -> Unit
 ) {
     val context = LocalContext.current
-    val bubbleColor = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-    val textColor = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val bubbleColor =
+        if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val textColor =
+        if (isMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
     val shape = if (isMe) {
         RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
     } else {
         RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
     }
 
-    val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.KOREA) }
-    val timeText = timeFormatter.format(Date(message.timestamp))
+    val timeFormatter = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.KOREA) }
+    val timeText = timeFormatter.format(java.util.Date(message.timestamp))
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -524,36 +527,78 @@ fun ChatMessageBubble(
     ) {
         if (isMe) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
-                if (message.read) Text("읽음", fontSize = 10.sp, color = Color.Gray)
+                // ✅ 읽음 표시 애니메이션 (읽기 전: '1' 배지, 읽은 후: "읽음")
+                AnimatedContent(
+                    targetState = message.read,
+                    transitionSpec = {
+                        (fadeIn(tween(150)) + slideInVertically { it / 2 }) togetherWith
+                                (fadeOut(tween(150)) + slideOutVertically { -it / 2 })
+                    },
+                    label = "readReceipt"
+                ) { read ->
+                    if (read) {
+                        Text("읽음", fontSize = 10.sp, color = Color.Gray)
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                "1",
+                                fontSize = 10.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
                 Text(timeText, fontSize = 10.sp, color = Color.Gray)
             }
         }
 
         Box(modifier = Modifier.widthIn(max = 280.dp)) {
             Surface(color = bubbleColor, shape = shape) {
-                if (message.text != null) {
-                    Text(message.text, modifier = Modifier.padding(12.dp), color = textColor)
-                }
-                if (message.imageUrl != null) {
-                    AsyncImage(
-                        model = message.imageUrl,
-                        contentDescription = "Chat Image",
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .clip(shape)
-                            .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
-                            .clickable {
-                                Toast.makeText(context, "이미지 상세보기(미구현)", Toast.LENGTH_SHORT).show()
-                            }
-                    )
-                }
-                if (message.amount != null) {
-                    MoneyTransferContent(
-                        amount = message.amount,
-                        isMe = isMe,
-                        isClaimed = message.claimed,
-                        onClaim = onClaim
-                    )
+                Column {
+                    if (message.text != null) {
+                        Text(message.text, modifier = Modifier.padding(12.dp), color = textColor)
+                    }
+                    if (message.imageUrl != null) {
+                        // ✅ 이미지 팝인 애니메이션
+                        val scale by animateFloatAsState(
+                            targetValue = 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            ),
+                            label = "imagePop"
+                        )
+                        AsyncImage(
+                            model = message.imageUrl,
+                            contentDescription = "Chat Image",
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .clip(shape)
+                                .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
+                                .graphicsLayer(scaleX = scale, scaleY = scale)
+                                .clickable {
+                                    Toast.makeText(
+                                        context,
+                                        "이미지 상세보기(미구현)",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                        )
+                    }
+                    if (message.amount != null) {
+                        MoneyTransferContent(
+                            amount = message.amount,
+                            isMe = isMe,
+                            isClaimed = message.claimed,
+                            onClaim = onClaim
+                        )
+                    }
                 }
             }
         }
@@ -563,6 +608,7 @@ fun ChatMessageBubble(
         }
     }
 }
+
 
 @Composable
 fun MoneyTransferContent(
