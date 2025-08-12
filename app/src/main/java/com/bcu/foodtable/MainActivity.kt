@@ -2,6 +2,7 @@ package com.bcu.foodtable
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,6 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.airbnb.lottie.compose.*
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -47,11 +49,7 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
             // 다음 권한 진행
             currentPermissionIndex++
-            if (currentPermissionIndex < permissionsToRequest.size) {
-                showReasonDialog = true
-            } else {
-                showReasonDialog = false
-            }
+            showReasonDialog = currentPermissionIndex < permissionsToRequest.size
         }
 
     private var pendingChatUid: String? = null
@@ -62,43 +60,15 @@ class MainActivity : ComponentActivity() {
 
         pendingChatUid = intent?.getStringExtra("chatUid")
 
-        // 요청할 권한 목록 준비
+        // ✅ 이미 허용된 권한은 제외하고, 남은 것만 요청 리스트에 담기
         permissionsToRequest.clear()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsToRequest.add(
-                AppPermission(
-                    Manifest.permission.POST_NOTIFICATIONS,
-                    "알림 권한 → 레시피 알림과 앱 소식을 받기 위해 필요해요."
-                )
-            )
-        }
-        permissionsToRequest.addAll(
-            listOf(
-                AppPermission(
-                    Manifest.permission.READ_MEDIA_IMAGES,
-                    "사진 기능 → 레시피 조리 과정을 도와드리기 위해 필요해요."
-                ),
-                AppPermission(
-                    Manifest.permission.RECORD_AUDIO,
-                    "마이크 기능 → 조리 중 음성 도우미 서비스를 위해 필요해요."
-                ),
-                AppPermission(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    "위치 기능 → 주변 맛집 찾기 기능을 위해 필요해요."
-                ),
-                AppPermission(
-                    "android.permission.health.READ_STEPS",
-                    "헬스 커넥트 → 건강정보 관리를 위해 필요해요."
-                )
-            )
-        )
+        permissionsToRequest.addAll(pendingNormalPermissions())
 
         setContent {
             MaterialTheme(colorScheme = warmLightColorScheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var introFinished by remember { mutableStateOf(false) }
 
-                    // 인트로 + 로그인 화면
                     Box(Modifier.fillMaxSize()) {
                         MainLoginScreen(
                             onLoginClick = {
@@ -115,10 +85,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onIntroEnd = {
                                 introFinished = true
-                                if (permissionsToRequest.isNotEmpty()) {
-                                    currentPermissionIndex = 0
-                                    showReasonDialog = true
-                                }
+                                // ✅ 남은 권한이 있을 때만 안내 다이얼로그 시작
+                                currentPermissionIndex = 0
+                                showReasonDialog = permissionsToRequest.isNotEmpty()
                             }
                         )
 
@@ -130,11 +99,7 @@ class MainActivity : ComponentActivity() {
                                 onConfirm = { permissionLauncher.launch(current.permission) },
                                 onDismiss = {
                                     currentPermissionIndex++
-                                    if (currentPermissionIndex < permissionsToRequest.size) {
-                                        showReasonDialog = true
-                                    } else {
-                                        showReasonDialog = false
-                                    }
+                                    showReasonDialog = currentPermissionIndex < permissionsToRequest.size
                                 }
                             )
                         }
@@ -144,13 +109,63 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    //  이미 허용된 권한은 걸러주는 함수
+    private fun pendingNormalPermissions(): List<AppPermission> {
+        fun isGranted(p: String) =
+            ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
+
+        val list = mutableListOf<AppPermission>()
+
+        // Android 13+ 알림
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!isGranted(Manifest.permission.POST_NOTIFICATIONS)) {
+                list += AppPermission(
+                    Manifest.permission.POST_NOTIFICATIONS,
+                    "알림 권한 → 레시피 알림과 앱 소식을 받기 위해 필요해요."
+                )
+            }
+        }
+
+        // 미디어 읽기: 13+는 READ_MEDIA_IMAGES, 그 이전은 READ_EXTERNAL_STORAGE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!isGranted(Manifest.permission.READ_MEDIA_IMAGES)) {
+                list += AppPermission(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    "사진 기능 → 레시피 조리 과정을 도와드리기 위해 필요해요."
+                )
+            }
+        } else {
+            if (!isGranted(Manifest.permission.READ_EXTERNAL_STORAGE)) {
+                list += AppPermission(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    "사진 기능 → 레시피 조리 과정을 도와드리기 위해 필요해요."
+                )
+            }
+        }
+
+        if (!isGranted(Manifest.permission.RECORD_AUDIO)) {
+            list += AppPermission(
+                Manifest.permission.RECORD_AUDIO,
+                "마이크 기능 → 조리 중 음성 도우미 서비스를 위해 필요해요."
+            )
+        }
+
+        if (!isGranted(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            list += AppPermission(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                "위치 기능 → 주변 맛집 찾기 기능을 위해 필요해요."
+            )
+        }
+
+        return list
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingChatUid = intent.getStringExtra("chatUid")
     }
 }
-
 @Composable
 fun ReasonDialog(reason: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AnimatedVisibility(

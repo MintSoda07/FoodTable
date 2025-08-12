@@ -14,8 +14,8 @@ import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-// 줌 레벨 15 설정
-const val CUSTOM_MARKER_MIN_ZOOM: Float = 14f
+// 줌 레벨 16 설정
+const val CUSTOM_MARKER_MIN_ZOOM: Float = 15f
 const val NEARBY_RADIUS_M: Double = 1500.0
 
 class MatzipViewModel : ViewModel() {
@@ -43,6 +43,18 @@ class MatzipViewModel : ViewModel() {
 
     var cameraMoveTarget by mutableStateOf<LatLng?>(null)
         private set
+
+    var cameraMoveZoom by mutableStateOf<Float?>(null)
+
+    fun moveToLocation(lat: Double, lng: Double, zoom: Float? = null) {
+        cameraMoveTarget = LatLng.from(lat, lng)
+        cameraMoveZoom = zoom
+    }
+
+    fun resetCameraMoveTarget() {
+        cameraMoveTarget = null
+        cameraMoveZoom = null
+    }
     var pendingCustomMarker by mutableStateOf<CustomMarkerData?>(null)
         private set
     var selectedCustomMarker by mutableStateOf<CustomMarkerData?>(null)
@@ -66,7 +78,7 @@ class MatzipViewModel : ViewModel() {
     fun moveToLocation(lat: Double, lng: Double) {
         cameraMoveTarget = LatLng.from(lat, lng)
     }
-    fun resetCameraMoveTarget() { cameraMoveTarget = null }
+
     fun setPendingCustomMarkerValue(marker: CustomMarkerData) {
         pendingCustomMarker = marker
     }

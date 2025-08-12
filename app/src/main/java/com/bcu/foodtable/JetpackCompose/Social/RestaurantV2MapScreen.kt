@@ -192,24 +192,22 @@ fun RestaurantMapWithCustomDrawer(
                             },
                             // drawer 내부 리스트 클릭시에도 닫기 원하면 아래처럼
                             onItemClicked = { marker ->
-                                // 지도를 해당 위치로 이동
-                                viewModel.moveToLocation(marker.lat, marker.lng)
+                                //  확대해서 마커가 보이게 (14 또는 15 권장)
+                                viewModel.moveToLocation(marker.lat, marker.lng, CUSTOM_MARKER_MIN_ZOOM)
 
-                                // 1) 찜 or 검색결과에서 온 KakaoPlace 인가?
+                                // KakaoPlace인지 먼저 찾아서 카카오 다이얼로그 열기
                                 val place = viewModel.favoriteRestaurants.find { it.id == marker.id }
                                     ?: viewModel.visibleRestaurants.find { it.id == marker.id }
 
                                 if (place != null) {
-                                    //  KakaoPlace 다이얼로그 열기 (찜/공유/카카오맵 버튼 있는 그거!)
-                                    viewModel.onMarkerClicked(place)
+                                    viewModel.onMarkerClicked(place)      // 카카오 다이얼로그 (찜/공유/카카오맵)
                                     viewModel.dismissCustomMarkerDialog()
                                 } else {
-                                    //  커스텀 마커인 경우
-                                    viewModel.setPendingCustomMarkerValue(marker) // 카메라 이동 후 onCameraMoveEnd에서 열리게 함
+                                    // 커스텀 마커일 경우
+                                    viewModel.setPendingCustomMarkerValue(marker)
                                     viewModel.dismissPlaceDialog()
                                 }
 
-                                // 이 화면은 AnimatedVisibility로 여닫으니, drawerState 대신 플래그를 닫아야 함
                                 drawerOpened = false
                             },
                             viewModel = viewModel
@@ -366,24 +364,22 @@ fun RestaurantMapMainScreen(
                                 )
                             },
                             onItemClicked = { marker ->
-                                // 지도를 해당 위치로 이동
-                                viewModel.moveToLocation(marker.lat, marker.lng)
+                                //  확대해서 마커가 보이게 (14 또는 15 권장)
+                                viewModel.moveToLocation(marker.lat, marker.lng, CUSTOM_MARKER_MIN_ZOOM)
 
-                                // 1) 찜 or 검색결과에서 온 KakaoPlace 인가?
+                                // KakaoPlace인지 먼저 찾아서 카카오 다이얼로그 열기
                                 val place = viewModel.favoriteRestaurants.find { it.id == marker.id }
                                     ?: viewModel.visibleRestaurants.find { it.id == marker.id }
 
                                 if (place != null) {
-                                    //  KakaoPlace 다이얼로그 열기 (찜/공유/카카오맵 버튼 있는 그거!)
-                                    viewModel.onMarkerClicked(place)
+                                    viewModel.onMarkerClicked(place)      // 카카오 다이얼로그 (찜/공유/카카오맵)
                                     viewModel.dismissCustomMarkerDialog()
                                 } else {
-                                    //  커스텀 마커인 경우
-                                    viewModel.setPendingCustomMarkerValue(marker) // 카메라 이동 후 onCameraMoveEnd에서 열리게 함
+                                    // 커스텀 마커일 경우
+                                    viewModel.setPendingCustomMarkerValue(marker)
                                     viewModel.dismissPlaceDialog()
                                 }
 
-                                // 이 화면은 AnimatedVisibility로 여닫으니, drawerState 대신 플래그를 닫아야 함
                                 drawerOpened = false
                             },
                             viewModel = viewModel
@@ -461,16 +457,27 @@ fun RestaurantKakaoMap(
                 }
             }
     }
-    LaunchedEffect(cameraMoveTarget) {
-        Log.d("MAP", "LaunchedEffect(cameraMoveTarget): $cameraMoveTarget, kakaoMap=$kakaoMap")
-        if (cameraMoveTarget != null && kakaoMap != null) {
-            kakaoMap?.moveCamera(
-                CameraUpdateFactory.newCenterPosition(cameraMoveTarget),
-                CameraAnimation.from(600, true, true)
+    LaunchedEffect(cameraMoveTarget, viewModel.cameraMoveZoom) {
+        val map = kakaoMap ?: return@LaunchedEffect
+        val target = cameraMoveTarget ?: return@LaunchedEffect
+        val z: Float? = viewModel.cameraMoveZoom
+
+        if (z != null) {
+            // 위치 + 줌을 한 번에 적용 (zoomLevel은 Int)
+            map.moveCamera(
+                CameraUpdateFactory.newCenterPosition(target, z.toInt()),
+                CameraAnimation.from(500, true, true)
             )
-            viewModel.resetCameraMoveTarget()
-            // 절대 showCustomMarkerDialog/clearPendingCustomMarker 여기서 하지 않기!
+        } else {
+            // 줌 지정이 없으면 위치만 이동
+            map.moveCamera(
+                CameraUpdateFactory.newCenterPosition(target),
+                CameraAnimation.from(500, true, true)
+            )
         }
+
+        // setOnCameraMoveEndListener가 알아서 refresh 해줄 것
+        viewModel.resetCameraMoveTarget()
     }
 
     // 3. 지도 컴포넌트
@@ -988,10 +995,18 @@ fun DrawerContent(
                             .padding(start = 26.dp), // 아이콘 정렬 맞춤용
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = { viewModel.removeRestaurantFromFavorites(marker.id) }) {
-                            Icon(Icons.Default.Favorite, contentDescription = "찜 해제", tint = Color.Gray)
+                        TextButton(
+                            onClick = { viewModel.removeRestaurantFromFavorites(marker.id) },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = Color.Red   // 아이콘/텍스트 기본 색
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Favorite,  //  꽉 찬 하트
+                                contentDescription = "찜 해제"
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Text("찜 해제", color = Color.Gray)
+                            Text("찜 해제")
                         }
                     }
 
