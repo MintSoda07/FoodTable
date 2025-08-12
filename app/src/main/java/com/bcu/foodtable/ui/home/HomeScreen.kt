@@ -998,7 +998,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         launchSingleTop = true
                         restoreState = true
                     }
-                }
+                },
+                navController = navController
             )
         },
         floatingActionButton = {
@@ -1052,7 +1053,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     navController = navController // NavController를 넘겨준다
                 )
             }
-
+            composable("HiddenScreen") {
+                HiddenScreen()   // 당신이 만든 숨김 화면 Composable
+            }
             composable("trendRecipes") {
                 val trendRecipeViewModel: TrendRecipeViewModel = viewModel()
                 TrendRecipeScreen(
@@ -1200,7 +1203,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ) { backStackEntry ->
                 val recipeId    = backStackEntry.arguments?.getString("recipeId") ?: ""
                 val channelName = backStackEntry.arguments?.getString("channelName") ?: ""
+// 🔐 비밀 입력 시퀀스 설정 (아이콘 왼쪽부터 1~5라고 가정)
+                val secretSequence = remember { listOf(1, 3, 2, 5, 4) }
+                var clickHistory by remember { mutableStateOf(emptyList<Int>()) }
 
+// (선택) 입력 시간 제한: 마지막 입력 후 N초 지나면 히스토리 초기화
+                var lastInputAt by remember { mutableStateOf(0L) }
+                val timeoutMs = 6000L  // 6초 안에 입력해야 함
                 FoodTableTheme {
                     EditRecipeScreen(
                         recipeId        = recipeId,
@@ -1292,8 +1301,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
 fun AppBottomNavigationBar(
     screens: List<Screen>,
     selectedTab: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    navController: NavController // 🔹 navController 추가
 ) {
+    // 🔐 비밀 코드 상태
+    val secretSequence = listOf(1, 3, 2, 5, 4) // 원하는 순서
+    var clickHistory by remember { mutableStateOf(emptyList<Int>()) }
+    var lastInputAt by remember { mutableStateOf(0L) }
+    val timeoutMs = 6000L // 입력 제한 시간(6초)
+
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
         tonalElevation = 0.dp
@@ -1315,7 +1331,26 @@ fun AppBottomNavigationBar(
                     )
                 },
                 selected = selectedTab == index,
-                onClick = { onTabSelected(index) },
+                onClick = {
+                    // 📝 비밀 코드 입력 로직
+                    val now = System.currentTimeMillis()
+                    if (now - lastInputAt > timeoutMs) {
+                        clickHistory = emptyList() // 시간초과 시 초기화
+                    }
+                    lastInputAt = now
+
+                    val pressed = index + 1 // 버튼을 1~5 번호로 매핑
+                    clickHistory = (clickHistory + pressed).takeLast(secretSequence.size)
+
+                    if (clickHistory == secretSequence) {
+                        clickHistory = emptyList()
+                        navController.navigate("HiddenScreen") // 숨겨진 페이지로 이동
+                        return@NavigationBarItem
+                    }
+
+                    // 기본 탭 동작
+                    onTabSelected(index)
+                },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = MaterialTheme.colorScheme.primary,
                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,

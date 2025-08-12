@@ -82,7 +82,8 @@ fun SubscribeScreenWithNavigation(
                         launchSingleTop = true
                         restoreState = true
                     }
-                }
+                },
+                navController = navController
             )
         }
     ) { paddingValues ->
