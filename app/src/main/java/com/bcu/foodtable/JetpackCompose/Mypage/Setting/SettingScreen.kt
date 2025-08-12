@@ -124,13 +124,15 @@ fun SettingScreen(
                         checked = healthGranted,
                         onCheckedChange = { isChecked ->
                             if (isChecked) {
+                                HealthPrefs.setEnabled(context, true)   //  ON 저장
                                 if (!viewModel.isHealthConnectInstalled()) {
                                     viewModel.openPlayStoreForHealthConnect(context)
                                 } else {
-                                    onRequestPermissions()
+                                    onRequestPermissions()               // 권한 시트 띄우기
                                 }
                             } else {
-                                viewModel.revokeHealthPermissions()
+                                HealthPrefs.setEnabled(context, false)   //  OFF 저장
+                                viewModel.revokeHealthPermissions()      // 권한 철회
                             }
                         }
                     )

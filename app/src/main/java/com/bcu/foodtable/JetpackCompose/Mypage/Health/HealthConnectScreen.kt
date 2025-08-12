@@ -29,6 +29,7 @@ import com.bcu.foodtable.ui.home.HomeTopBar
 import com.bcu.foodtable.ui.home.Screen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.HealthPrefs
 
 @Composable
 fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeViewModel = viewModel()) {
@@ -55,20 +56,23 @@ fun HealthConnectScreen(viewModel: HealthConnectViewModel, homeViewModel: HomeVi
     )
 
     LaunchedEffect(Unit) {
+        // ✅ 사용자 설정이 OFF면 아무 것도 하지 않음 (자동 권한요청/로딩 차단)
+        if (!HealthPrefs.isEnabled(context)) {
+            Log.d("HC", "Health disabled by user — skip auto request")
+            return@LaunchedEffect
+        }
+
         viewModel.setHealthClient(client)
         homeViewModel.loadUserInfo()
-
         StepSyncManager(context, client, viewModel).syncIfNewDay()
 
-        val granted =
-            viewModel.getHealthClient()?.permissionController?.getGrantedPermissions() ?: emptySet()
+        val granted = client.permissionController.getGrantedPermissions()
         val needed = viewModel.getRequiredPermissions() - granted
         if (needed.isNotEmpty()) {
             permissionLauncher.launch(needed)
         } else {
             viewModel.loadHealthData(client)
         }
-
         viewModel.fetchWeeklySteps()
     }
 
