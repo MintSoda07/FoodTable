@@ -8,9 +8,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,14 +29,30 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
-import com.bcu.foodtable.useful.ActivityTransition // 있으면 사용, 없으면 지워도 됨
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
 
-    private val requestPostNotifications =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* granted/denied */ }
+    data class AppPermission(
+        val permission: String,
+        val reason: String
+    )
+
+    private val permissionsToRequest = mutableListOf<AppPermission>()
+    private var currentPermissionIndex by mutableStateOf(0)
+    private var showReasonDialog by mutableStateOf(false)
+
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+            // 다음 권한 진행
+            currentPermissionIndex++
+            if (currentPermissionIndex < permissionsToRequest.size) {
+                showReasonDialog = true
+            } else {
+                showReasonDialog = false
+            }
+        }
 
     private var pendingChatUid: String? = null
 
@@ -45,41 +60,115 @@ class MainActivity : ComponentActivity() {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
         super.onCreate(savedInstanceState)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestPostNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-
         pendingChatUid = intent?.getStringExtra("chatUid")
+
+        // 요청할 권한 목록 준비
+        permissionsToRequest.clear()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(
+                AppPermission(
+                    Manifest.permission.POST_NOTIFICATIONS,
+                    "알림 권한 → 레시피 알림과 앱 소식을 받기 위해 필요해요."
+                )
+            )
+        }
+        permissionsToRequest.addAll(
+            listOf(
+                AppPermission(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    "사진 기능 → 레시피 조리 과정을 도와드리기 위해 필요해요."
+                ),
+                AppPermission(
+                    Manifest.permission.RECORD_AUDIO,
+                    "마이크 기능 → 조리 중 음성 도우미 서비스를 위해 필요해요."
+                ),
+                AppPermission(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    "위치 기능 → 주변 맛집 찾기 기능을 위해 필요해요."
+                ),
+                AppPermission(
+                    "android.permission.health.READ_STEPS",
+                    "헬스 커넥트 → 건강정보 관리를 위해 필요해요."
+                )
+            )
+        )
 
         setContent {
             MaterialTheme(colorScheme = warmLightColorScheme) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    MainLoginScreen(
-                        onLoginClick = {
-                            val i = Intent(this@MainActivity, LoginActivity::class.java).apply {
-                                pendingChatUid?.let { putExtra("chatUid", it) }
+                    var introFinished by remember { mutableStateOf(false) }
+
+                    // 인트로 + 로그인 화면
+                    Box(Modifier.fillMaxSize()) {
+                        MainLoginScreen(
+                            onLoginClick = {
+                                val i = Intent(this@MainActivity, LoginActivity::class.java).apply {
+                                    pendingChatUid?.let { putExtra("chatUid", it) }
+                                }
+                                startActivity(i)
+                            },
+                            onSignUpClick = {
+                                val i = Intent(this@MainActivity, SignUpActivity::class.java).apply {
+                                    pendingChatUid?.let { putExtra("chatUid", it) }
+                                }
+                                startActivity(i)
+                            },
+                            onIntroEnd = {
+                                introFinished = true
+                                if (permissionsToRequest.isNotEmpty()) {
+                                    currentPermissionIndex = 0
+                                    showReasonDialog = true
+                                }
                             }
-                            startActivity(i) // ← 표준 호출 (오류 없음)
-                            // ActivityTransition.startStatic(this@MainActivity, i) // 오버로드 추가했다면 이걸로
-                        },
-                        onSignUpClick = {
-                            val i = Intent(this@MainActivity, SignUpActivity::class.java).apply {
-                                pendingChatUid?.let { putExtra("chatUid", it) }
-                            }
-                            startActivity(i)
-                            // ActivityTransition.startStatic(this@MainActivity, i)
+                        )
+
+                        // 권한 안내 다이얼로그
+                        if (introFinished && showReasonDialog) {
+                            val current = permissionsToRequest[currentPermissionIndex]
+                            ReasonDialog(
+                                reason = current.reason,
+                                onConfirm = { permissionLauncher.launch(current.permission) },
+                                onDismiss = {
+                                    currentPermissionIndex++
+                                    if (currentPermissionIndex < permissionsToRequest.size) {
+                                        showReasonDialog = true
+                                    } else {
+                                        showReasonDialog = false
+                                    }
+                                }
+                            )
                         }
-                    )
+                    }
                 }
             }
         }
     }
 
-    // ✅ nullable 아님
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         pendingChatUid = intent.getStringExtra("chatUid")
+    }
+}
+
+@Composable
+fun ReasonDialog(reason: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn(animationSpec = tween(300)) + scaleIn(initialScale = 0.8f),
+        exit = fadeOut(animationSpec = tween(200)) + scaleOut(targetScale = 0.8f)
+    ) {
+        AlertDialog(
+            onDismissRequest = { onDismiss() },
+            title = { Text("권한 요청 안내") },
+            text = { Text(reason) },
+            confirmButton = {
+                TextButton(onClick = onConfirm) { Text("허용") }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("거부") }
+            }
+        )
     }
 }
 
@@ -98,15 +187,18 @@ private val warmLightColorScheme = lightColorScheme(
 @Composable
 fun MainLoginScreen(
     onLoginClick: () -> Unit,
-    onSignUpClick: () -> Unit
+    onSignUpClick: () -> Unit,
+    onIntroEnd: () -> Unit
 ) {
     val offsetX = remember { Animatable(-600f) }
     var showSubtitle by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        offsetX.animateTo(0f, tween(1200))
+        offsetX.animateTo(0f, tween(1200, easing = FastOutSlowInEasing))
         delay(400)
         showSubtitle = true
+        delay(1200) // 인트로 종료 타이밍
+        onIntroEnd()
     }
 
     val subtitleAlpha by animateFloatAsState(
@@ -174,33 +266,41 @@ fun MainLoginScreen(
                     .padding(bottom = 50.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Button(
-                    onClick = onLoginClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(bottom = 12.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE26D47),
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(8.dp)
+                AnimatedVisibility(
+                    visible = showSubtitle,
+                    enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+                    exit = fadeOut()
                 ) {
-                    Text(text = stringResource(id = R.string.login_button), fontSize = 17.sp)
-                }
-                OutlinedButton(
-                    onClick = onSignUpClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.7f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White.copy(alpha = 0.95f)
-                    )
-                ) {
-                    Text(text = stringResource(id = R.string.signup_button), fontSize = 15.sp)
+                    Column {
+                        Button(
+                            onClick = onLoginClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(bottom = 12.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE26D47),
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(8.dp)
+                        ) {
+                            Text(text = stringResource(id = R.string.login_button), fontSize = 17.sp)
+                        }
+                        OutlinedButton(
+                            onClick = onSignUpClick,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.7f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White.copy(alpha = 0.95f)
+                            )
+                        ) {
+                            Text(text = stringResource(id = R.string.signup_button), fontSize = 15.sp)
+                        }
+                    }
                 }
             }
         }
