@@ -151,6 +151,10 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
+        <activity
+            android:name=".ui.home.SlotActivity"
+            android:exported="false" />
         <!-- FCM 메시징 서비스 -->
         <service
             android:name=".MyFirebaseMessagingService"

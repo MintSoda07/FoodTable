@@ -1304,6 +1304,7 @@ fun AppBottomNavigationBar(
     onTabSelected: (Int) -> Unit,
     navController: NavController // 🔹 navController 추가
 ) {
+    val context = LocalContext.current
     // 🔐 비밀 코드 상태
     val secretSequence = listOf(1, 3, 2, 5, 4) // 원하는 순서
     var clickHistory by remember { mutableStateOf(emptyList<Int>()) }
@@ -1332,19 +1333,18 @@ fun AppBottomNavigationBar(
                 },
                 selected = selectedTab == index,
                 onClick = {
-                    // 📝 비밀 코드 입력 로직
+                    // 🔐 비밀 코드 입력 로직
                     val now = System.currentTimeMillis()
-                    if (now - lastInputAt > timeoutMs) {
-                        clickHistory = emptyList() // 시간초과 시 초기화
-                    }
+                    if (now - lastInputAt > timeoutMs) clickHistory = emptyList()
                     lastInputAt = now
 
-                    val pressed = index + 1 // 버튼을 1~5 번호로 매핑
+                    val pressed = index + 1
                     clickHistory = (clickHistory + pressed).takeLast(secretSequence.size)
 
                     if (clickHistory == secretSequence) {
                         clickHistory = emptyList()
-                        navController.navigate("HiddenScreen") // 숨겨진 페이지로 이동
+                        // ✅ 여기서 SlotActivity 실행
+                        context.startActivity(Intent(context, SlotActivity::class.java))
                         return@NavigationBarItem
                     }
 
