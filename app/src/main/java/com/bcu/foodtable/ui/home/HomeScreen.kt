@@ -963,8 +963,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
             // 필요하면 더 추가!
         }
     }
-
-    if (showBottomSheet) {
+    // 홈일때만 바텀 시트 렌더
+    if (currentRoute == Screen.Home.route && showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = {
                 coroutineScope.launch {
@@ -978,6 +978,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
         }
     }
 
+//  라우트 바뀌면 바텀시트 부드럽게 닫기
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != Screen.Home.route && showBottomSheet) {
+            coroutineScope.launch {
+                sheetState.hide()
+                showBottomSheet = false
+            }
+        }
+    }
     Scaffold(
         topBar = {
             AppTopBar(
@@ -1003,12 +1012,11 @@ fun HomeScreen(viewModel: HomeViewModel) {
             )
         },
         floatingActionButton = {
-            if (currentRoute != "chat/{uid}") {
-                FloatingActionButton(onClick = {
-                    showBottomSheet = true
-                }) {
+            if (currentRoute == Screen.Home.route) {   // ← 홈에서만
+                FloatingActionButton(onClick = { showBottomSheet = true }) {
                     Icon(Icons.Filled.Chat, contentDescription = "Open AI Chat")
-         }
+                    // 제미나이 아이콘 쓰려면 painterResource(R.drawable.ic_gemini)로 교체
+                }
             }
         },
         modifier = Modifier.pointerInput(Unit) {
