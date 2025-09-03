@@ -1,33 +1,47 @@
 package com.bcu.foodtable.ui.rank
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,8 +53,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -60,18 +78,21 @@ fun RankScreenImproved(navController: NavController) {
     val myUid = remember { UserManager.getUser()?.uid ?: "" }
 
     var sortOption by rememberSaveable { mutableStateOf(SortOption.Subscribers) }
-    var showSortMenu by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
 
     val rankingList = remember { mutableStateListOf<UserRankingItem>() }
     val scope = rememberCoroutineScope()
 
-    val sheetState = rememberModalBottomSheetState() // 초기값 Hidden
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedUser by remember { mutableStateOf<UserRankingItem?>(null) }
     var userChannels by remember { mutableStateOf<List<ChannelUI>>(emptyList()) }
 
+    var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<Throwable?>(null) }
+
     LaunchedEffect(sortOption) {
+        isLoading = true; loadError = null
         try {
-            Log.d("RankScreen", "Fetching users...")
             val docs = firestore.collection("user").get().await().documents
             val items = docs.mapNotNull { doc ->
                 val uid = doc.id
@@ -87,102 +108,150 @@ fun RankScreenImproved(navController: NavController) {
             }
             val sorted = when (sortOption) {
                 SortOption.Subscribers -> items.sortedByDescending { it.subscriberCount }
-                SortOption.Channels -> items.sortedByDescending { it.channelCount }
-                SortOption.Recipes -> items.sortedByDescending { it.recipeCount }
+                SortOption.Channels    -> items.sortedByDescending { it.channelCount }
+                SortOption.Recipes     -> items.sortedByDescending { it.recipeCount }
             }.take(50)
-            rankingList.clear(); rankingList.addAll(sorted)
-            Log.d("RankScreen", "Loaded ${sorted.size} users")
+
+            rankingList.clear()
+            rankingList.addAll(sorted)
         } catch (e: Exception) {
-            Log.e("RankScreen", "Error loading ranking", e)
+            loadError = e
+        } finally {
+            isLoading = false
         }
     }
 
+    // 채널 바텀시트 (구독자 내림차순 정렬)
     if (selectedUser != null) {
-        ModalBottomSheet(
+        ChannelSheet(
             sheetState = sheetState,
-            onDismissRequest = { selectedUser = null }
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Text(
-                    text = "${selectedUser!!.name}님의 채널",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(8.dp))
-                LazyColumn {
-                    items(userChannels) { ch ->
-                        Text(
-                            text = "• ${ch.name} (${ch.subscribers}명)",
-                            fontSize = 16.sp,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = {
-                    navController.navigate("profile/${selectedUser!!.uid}")
+            user = selectedUser!!,
+            channels = userChannels.sortedByDescending { it.subscribers },
+            onDismiss = { selectedUser = null },
+            onOpenProfile = {
+                navController.navigate("profile/${selectedUser!!.uid}")
+                selectedUser = null
+            },
+            onChannelClick = { channelName ->
+                scope.launch {
+                    sheetState.hide()
                     selectedUser = null
-                }) {
-                    Text("프로필 보기")
+                    val encoded = Uri.encode(channelName)
+                    navController.navigate("channelView/$encoded") // 3) 이동
                 }
             }
-        }
+        )
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("🏆 랭킹 TOP50", fontWeight = FontWeight.Bold) },
-                actions = {
-                    IconButton(onClick = { showSortMenu = true }) {
-                        Icon(Icons.Default.Sort, contentDescription = null)
-                    }
-                    DropdownMenu(
-                        expanded = showSortMenu,
-                        onDismissRequest = { showSortMenu = false }
-                    ) {
-                        SortOption.values().forEach { opt ->
-                            DropdownMenuItem(
-                                text = { Text(opt.label) },
-                                onClick = {
-                                    sortOption = opt
-                                    showSortMenu = false
-                                }
-                            )
-                        }
-                    }
+                title = {
+                    Text(
+                        "🏆 랭킹 TOP 50",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 },
+                navigationIcon = {},
+                actions = {},
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                scrollBehavior = scrollBehavior
             )
-        }
-    ) { pad ->
-        LazyColumn(
-            contentPadding = pad,
+        },
+        modifier = Modifier
+            .fillMaxSize()
+            .nestedScroll(scrollBehavior.nestedScrollConnection)
+    )  { pad ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(pad)
         ) {
-            itemsIndexed(rankingList, key = { _, it -> it.uid }) { idx, user ->
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn() + scaleIn(initialScale = 0.8f)
-                ) {
-                    RankingCard(
-                        rank = idx + 1,
-                        item = user,
-                        onClick = {
-                            scope.launch {
-                                val docs = firestore.collection("channel")
-                                    .whereEqualTo("owner", user.uid)
-                                    .get().await().documents
-                                userChannels = docs.map { d -> ChannelUI(d.getString("name") ?: "-", d.getLong("subscribers")?.toInt() ?: 0) }
-                                selectedUser = user
+            // 본문 헤더: 검색 + 정렬칩(가로 스크롤)
+            HeaderControls(
+                selected = sortOption,
+                onSelect = { sortOption = it },
+                query = query,
+                onQueryChange = { query = it }
+            )
+
+            when {
+                isLoading -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) { items(8) { UserRowShimmer() } }
+                }
+                loadError != null -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            "랭킹을 불러오지 못했어요.",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            loadError?.localizedMessage ?: "알 수 없는 오류",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = { sortOption = sortOption }) { Text("다시 시도") }
+                    }
+                }
+                else -> {
+                    // 매 프레임 계산 (또는 toList()로 스냅샷 고정) → 정렬/필터 즉시 반영
+                    val filtered =
+                        if (query.isBlank()) rankingList.toList()
+                        else rankingList.filter { it.name.contains(query.trim(), ignoreCase = true) }
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        itemsIndexed(filtered, key = { _, it -> it.uid }) { idx, user ->
+                            AnimatedVisibility(visible = true, enter = fadeIn() + scaleIn(initialScale = 0.98f)) {
+                                RankingCard(
+                                    rank = idx + 1,
+                                    item = user,
+                                    onClick = {
+                                        scope.launch {
+                                            val docs = firestore.collection("channel")
+                                                .whereEqualTo("owner", user.uid)
+                                                .get().await().documents
+                                            userChannels = docs.map { d ->
+                                                ChannelUI(
+                                                    d.getString("name") ?: "-",
+                                                    d.getLong("subscribers")?.toInt() ?: 0
+                                                )
+                                            }
+                                            selectedUser = user
+                                        }
+                                    }
+                                )
                             }
                         }
-                    )
+                    }
                 }
             }
         }
@@ -190,50 +259,277 @@ fun RankScreenImproved(navController: NavController) {
 }
 
 @Composable
+private fun HeaderControls(
+    selected: SortOption,
+    onSelect: (SortOption) -> Unit,
+    query: String,
+    onQueryChange: (String) -> Unit
+) {
+    Column {
+        // 검색
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            singleLine = true,
+            placeholder = { Text("유저 이름 검색") }
+        )
+        // 정렬칩 (가로 스크롤)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(
+                selected = selected == SortOption.Subscribers,
+                onClick = { onSelect(SortOption.Subscribers) },
+                label = { Text(SortOption.Subscribers.label) }
+            )
+            FilterChip(
+                selected = selected == SortOption.Channels,
+                onClick = { onSelect(SortOption.Channels) },
+                label = { Text(SortOption.Channels.label) }
+            )
+            FilterChip(
+                selected = selected == SortOption.Recipes,
+                onClick = { onSelect(SortOption.Recipes) },
+                label = { Text(SortOption.Recipes.label) }
+            )
+        }
+        Divider(Modifier.padding(top = 4.dp))
+    }
+}
+
+
+@Composable
 fun RankingCard(
     rank: Int,
     item: UserRankingItem,
     onClick: () -> Unit
 ) {
-    val background = when (rank) {
-        1 -> Color(0xFFFFD700)
-        2 -> Color(0xFFC0C0C0)
-        3 -> Color(0xFFCD7F32)
+    val isTop3 = rank in 1..3
+    val container = when (rank) {
+        1 -> Color(0xFFFFF7D1)
+        2 -> Color(0xFFF3F4F6)
+        3 -> Color(0xFFFFEFE3)
         else -> MaterialTheme.colorScheme.surface
     }
-    val textColor = if (item.isCurrentUser) Color.Red else MaterialTheme.colorScheme.onSurface
+    val content = if (isTop3) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
 
     Card(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = background),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = container),
+        elevation = if (isTop3) CardDefaults.cardElevation(4.dp) else CardDefaults.cardElevation(1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .fillMaxWidth()
         ) {
-            Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = Color.Black)
-            Spacer(Modifier.width(12.dp))
-            Column {
+            // 순위 배지
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        when (rank) {
+                            1 -> Color(0xFFFFD54F)
+                            2 -> Color(0xFFCFD8DC)
+                            3 -> Color(0xFFBCAAA4)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    "$rank 위 - ${item.name}",
-                    fontSize = 18.sp,
+                    text = "$rank",
                     fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "채널: ${item.channelCount}개 · 레시피: ${item.recipeCount}개 · 구독자: ${item.subscriberCount}명",
-                    fontSize = 14.sp,
-                    color = textColor
+                    color = if (isTop3) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = if (item.isCurrentUser) MaterialTheme.colorScheme.primary else content
+                    )
+                    if (item.isCurrentUser) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "나",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "채널 ${item.channelCount} · 레시피 ${item.recipeCount} · 구독자 ${item.subscriberCount}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.EmojiEvents,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.secondary
+            )
         }
     }
 }
 
+@Composable
+private fun SortChips(
+    selected: SortOption,
+    onSelect: (SortOption) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(end = 8.dp)
+    ) {
+        SortOption.values().forEach { opt ->
+            FilterChip(
+                selected = selected == opt,
+                onClick = { onSelect(opt) },
+                label = { Text(opt.label) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchBar(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        singleLine = true,
+        placeholder = { Text(placeholder) }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChannelSheet(
+    sheetState: SheetState,
+    user: UserRankingItem,
+    channels: List<ChannelUI>,
+    onDismiss: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onChannelClick: (String) -> Unit  //
+) {
+    ModalBottomSheet(
+        sheetState = sheetState,
+        onDismissRequest = onDismiss
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(
+                text = "${user.name}님의 채널",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Spacer(Modifier.height(8.dp))
+
+            if (channels.isEmpty()) {
+                Text(
+                    text = "채널이 없습니다.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.heightIn(max = 360.dp)
+                ) {
+                    items(channels, key = { it.name }) { ch ->
+                        ElevatedCard(
+                            onClick = { onChannelClick(ch.name) }, //
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 심볼
+                                Icon(
+                                    imageVector = Icons.Default.Category,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(10.dp))
+
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        ch.name,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "구독자 ${ch.subscribers}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onOpenProfile,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("프로필 보기") }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun UserRowShimmer() {
+    // 아주 간단한 Placeholder
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(68.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {}
+}
+
+// --- 기존 enum/data는 유지 ---
 enum class SortOption(val label: String) {
     Subscribers("구독자순"),
     Channels("채널순"),
