@@ -756,7 +756,7 @@ fun RecipeCookingScreen(
                 }
 
                 ModernActionButton(
-                    text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 AI 요리 평가 받기",
+                    text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 눈으로 맛보는 AI 요리 비교",
                     backgroundColor = Color(0xFF5C2B1B), // onPrimaryContainer 색상
                     onClick = {
                         pickImageLauncherForAiEval.launch("image/*")

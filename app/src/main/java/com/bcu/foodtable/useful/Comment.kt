@@ -10,6 +10,7 @@ data class Comment(
     val createdAt: Timestamp = Timestamp.now(),
     val likes: Int = 0,
     val pinned: Boolean = false,
+
 )
 data class Reply(
     val id: String = "",
