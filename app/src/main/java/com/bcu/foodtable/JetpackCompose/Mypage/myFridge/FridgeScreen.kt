@@ -505,33 +505,26 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
         }
 
         // AI 추천 버튼 (기능 유지)
-        AnimatedVisibility(
-            visible = isOpen && GlobalTray.items.isNotEmpty(),
-            enter = fadeIn() + slideInVertically(),
-            exit = fadeOut() + slideOutVertically(),
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 80.dp, end = 24.dp)
-        ) {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    showDialog.value = Ingredient(id = "", name = "AI Trigger", quantity = 1)
-                },
-                containerColor = Color(0xFF4CAF50),
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+        Box(Modifier.fillMaxSize()) {
+            AnimatedVisibility(
+                visible = isOpen && GlobalTray.items.isNotEmpty(),
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -it/2 }),
+                exit  = fadeOut() + slideOutVertically(targetOffsetY = { -it/2 }),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 0.dp, end = 16.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AutoAwesome,
-                    contentDescription = "AI 추천",
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "AI 레시피 추천",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                ExtendedFloatingActionButton(
+                    onClick = { showDialog.value = Ingredient(id = "", name = "AI Trigger", quantity = 1) },
+                    containerColor = Color(0xFF4CAF50),
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = "AI 추천", modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("AI 레시피 추천", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
 
@@ -556,21 +549,21 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
         }
 
         // 재료 추가 버튼 (기능 유지)
-        FloatingActionButton(
-            onClick = {
-                navController.navigate("add_ingredient?section=$selectedSection")
-            },
+        AnimatedVisibility(
+            visible = isOpen,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit  = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 40.dp, bottom = 50.dp),
-            containerColor = Color(0xFF2196F3),
-            contentColor = Color.White
+                .padding(end = 40.dp, bottom = 100.dp)
         ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = "재료 추가",
-                modifier = Modifier.size(24.dp)
-            )
+            FloatingActionButton(
+                onClick = { navController.navigate("add_ingredient?section=$selectedSection") },
+                containerColor = Color(0xFF2196F3),
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "재료 추가", modifier = Modifier.size(24.dp))
+            }
         }
     }
 
