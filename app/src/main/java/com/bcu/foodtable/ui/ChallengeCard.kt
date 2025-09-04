@@ -46,7 +46,6 @@ import com.bcu.foodtable.model.ChallengeDetailActivity
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-
 @Composable
 fun ChallengeCardAnimated(
     challenge: Challenge,
@@ -55,143 +54,131 @@ fun ChallengeCardAnimated(
     onStartChallenge: () -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val isRewardClaimable = !challenge.isCompleted && challenge.progress >= challenge.targetValue
     val isStarted = challenge.progress > 0
 
+    val progressTarget = challenge.targetValue.coerceAtLeast(1)
+    val targetProgress = (challenge.progress.toFloat() / progressTarget).coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
-        targetValue = if (challenge.targetValue > 0) challenge.progress.toFloat() / challenge.targetValue else 0f,
-        animationSpec = tween(durationMillis = 1000), label = "progressAnimation"
+        targetValue = targetProgress,
+        animationSpec = tween(450),
+        label = "progressAnimation"
     )
 
-    val infiniteTransition = rememberInfiniteTransition(label = "rewardTransition")
-    val animatedRewardScale by infiniteTransition.animateFloat(
+    val infinite = rememberInfiniteTransition(label = "rewardTransition")
+    val rewardScale by infinite.animateFloat(
         initialValue = 1f,
-        targetValue = if (isRewardClaimable) 1.15f else 1.0f,
+        targetValue = if (isRewardClaimable) 1.08f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(800),
+            animation = tween(700),
             repeatMode = RepeatMode.Reverse
-        ), label = "rewardScale"
+        ),
+        label = "rewardScale"
     )
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 8.dp,
-                shape = RoundedCornerShape(16.dp),
-                spotColor = MaterialTheme.colorScheme.primary
-            )
-            .clickable {
-                val intent = Intent(context, ChallengeDetailActivity::class.java)
-                intent.putExtra("challenge", Json.encodeToString(challenge))
-                context.startActivity(intent)
-            },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp),
+        onClick = {
+            // 상세 화면 이동 (기존 기능 유지)
+            val intent = Intent(context, com.bcu.foodtable.model.ChallengeDetailActivity::class.java)
+            intent.putExtra("challenge", Json.encodeToString(challenge))
+            context.startActivity(intent)
+        }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // 제목 / 완료 아이콘
             Row(
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = challenge.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = challenge.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = challenge.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    modifier = Modifier.weight(1f)
+                )
                 if (challenge.isCompleted) {
                     Icon(
                         imageVector = Icons.Filled.MilitaryTech,
-                        contentDescription = "완료",
-                        modifier = Modifier
-                            .size(48.dp)
-                            .padding(start = 16.dp),
+                        contentDescription = "완료됨",
                         tint = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(6.dp))
 
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .padding(12.dp)
+            Text(
+                text = challenge.description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // 진행도
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "진행도 (${(animatedProgress * 100).toInt()}%)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        "${challenge.progress} / ${challenge.targetValue}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { animatedProgress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(CircleShape),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+                Text(
+                    "진행도",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "${challenge.progress} / ${challenge.targetValue} (${(animatedProgress * 100).toInt()}%)",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+            )
 
+            Spacer(Modifier.height(12.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // 보상 & 액션
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .scale(if (isRewardClaimable) animatedRewardScale else 1f)
-                        .background(
-                            color = if (isRewardClaimable) MaterialTheme.colorScheme.tertiaryContainer.copy(
-                                alpha = 0.7f
-                            ) else Color.Transparent,
-                            shape = CircleShape
+                AssistChip(
+                    onClick = {},
+                    label = { Text("보상 ${challenge.reward} 소금", fontWeight = FontWeight.SemiBold) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Diamond,
+                            contentDescription = null
                         )
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Diamond,
-                        contentDescription = "보상",
-                        tint = if (isRewardClaimable) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.scale(rewardScale),
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = if (isRewardClaimable)
+                            MaterialTheme.colorScheme.tertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant,
+                        labelColor = if (isRewardClaimable)
+                            MaterialTheme.colorScheme.onTertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant,
+                        leadingIconContentColor = if (isRewardClaimable)
+                            MaterialTheme.colorScheme.onTertiaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "보상: ${challenge.reward} 소금",
-                        color = if (isRewardClaimable) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                )
 
                 when {
                     isRewardClaimable -> {
@@ -225,7 +212,7 @@ fun ChallengeCardAnimated(
                             enabled = false
                         )
                     }
-                    else -> { // Not started
+                    else -> {
                         ChallengeButton(
                             text = "도전하기",
                             icon = Icons.Default.RocketLaunch,
@@ -237,6 +224,7 @@ fun ChallengeCardAnimated(
         }
     }
 }
+
 
 @Composable
 private fun ChallengeButton(

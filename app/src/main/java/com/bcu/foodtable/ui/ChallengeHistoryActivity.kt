@@ -6,8 +6,10 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -35,27 +37,31 @@ class ChallengeHistoryActivity : ComponentActivity() {
 fun ChallengeHistoryScreen(challenges: List<Challenge>) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("📜 완료한 챌린지 기록") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF6D4C41),
-                    titleContentColor = Color.White
+            CenterAlignedTopAppBar(
+                title = { Text("📜 완료한 챌린지 기록", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                 )
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            if (challenges.isEmpty()) {
-                item {
-                    Text("아직 완료한 챌린지가 없습니다.", color = Color.Gray)
-                }
-            } else {
-                items(challenges, key = { challenge -> challenge.id }) { challenge ->
+        if (challenges.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .padding(padding)
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("아직 완료한 챌린지가 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(challenges, key = { it.id }) { challenge ->
                     CompletedChallengeCard(challenge)
                 }
             }
@@ -66,19 +72,40 @@ fun ChallengeHistoryScreen(challenges: List<Challenge>) {
 @Composable
 fun CompletedChallengeCard(challenge: Challenge) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0F2F1)),
-        elevation = CardDefaults.cardElevation(4.dp)
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "✅ ${challenge.title}",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                )
+                AssistChip(
+                    onClick = {},
+                    label = { Text("완료") },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                )
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
-                text = "✅ ${challenge.title}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF004D40)
+                "보상 ${challenge.reward} 소금",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("보상: ${challenge.reward} 소금")
-            Text("진행도: ${challenge.progress} / ${challenge.targetValue}")
+            Text(
+                "진행도 ${challenge.progress} / ${challenge.targetValue}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

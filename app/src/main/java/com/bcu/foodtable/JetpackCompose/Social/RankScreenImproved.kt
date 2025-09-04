@@ -149,11 +149,10 @@ fun RankScreenImproved(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "🏆 랭킹 TOP 50",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        text = "🏆 랭킹 TOP 50",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
                     )
                 },
                 navigationIcon = {},
@@ -161,11 +160,8 @@ fun RankScreenImproved(navController: NavController) {
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                scrollBehavior = scrollBehavior
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         },
         modifier = Modifier
