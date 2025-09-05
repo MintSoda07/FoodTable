@@ -76,6 +76,9 @@ fun OpenChatRoomScreen(
     var showTransfer by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
+    // 첫 진입 시 다이얼로그 보이도록
+    var showJoinDialog by remember { mutableStateOf(true) }
+
     val storage = remember { FirebaseStorage.getInstance().reference }
     // 방 정보 + 내 멤버 여부
     LaunchedEffect(roomId) {
@@ -157,7 +160,7 @@ fun OpenChatRoomScreen(
     }
 
     // 미가입 & 방장 아님 → 입장 다이얼로그
-    if (room != null && !joined && !isOwner) {
+    if (room != null && !joined && !isOwner && showJoinDialog) {
         JoinRoomSheet(
             room = room!!,
             onJoin = { nickname, passcode ->
@@ -177,13 +180,32 @@ fun OpenChatRoomScreen(
                     }
                 }
             },
-            onDismiss = { navController.popBackStack() }
+            onDismiss = { showJoinDialog = false }
         )
+    }
+    if (room != null && !joined && !isOwner && !showJoinDialog) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "이 방에 참여해야 대화를 볼 수 있어요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { showJoinDialog = true }) { Text("참여하기") }
+                    TextButton(onClick = { navController.popBackStack() }) { Text("뒤로가기") }
+                }
+            }
+        }
+        return
     }
 
     if (!joined || room == null) return
 
-    ChatTheme { // ✅ DM과 동일 톤 적용
+    ChatTheme { //
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(

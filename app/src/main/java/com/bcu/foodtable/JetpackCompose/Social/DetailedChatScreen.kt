@@ -309,10 +309,15 @@ fun DetailedChatScreen(
                                         OpenChatInviteBubble(
                                             message = msg,
                                             onJoin = { roomId ->
-                                                navController.navigate("openchat/$roomId")
-                                                // (딥링크로 열고 싶으면 아래 대안)
-                                                // val ctx = LocalContext.current
-                                                // ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("foodtable://openchat?roomId=$roomId")))
+                                                scope.launch {
+                                                    val roomDoc = db.collection("openRooms").document(roomId).get().await()
+                                                    if (!roomDoc.exists()) {
+                                                        Toast.makeText(context, "존재하지 않는 방입니다.", Toast.LENGTH_SHORT).show()
+                                                        return@launch
+                                                    }
+                                                    // 존재하면 정상 진입
+                                                    navController.navigate("openchat/$roomId")
+                                                }
                                             }
                                         )
                                     }
