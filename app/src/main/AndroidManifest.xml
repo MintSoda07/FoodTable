@@ -133,7 +133,13 @@
                     android:host="openchat" />
             </intent-filter>
         </activity>
-
+        <activity
+            android:name=".ui.merchant.MerchantPage" android:exported="true"
+            android:label="가맹 페이지"/>
+        <activity
+            android:name=".ui.merchant.MerchantSetupActivity"
+            android:exported="true"
+            android:label="가맹 기본 설정" />
         <activity android:name=".HomeActivity" />
         <activity android:name=".LoginActivity" android:exported="false" android:windowSoftInputMode="adjustPan" />
         <activity android:name=".SignUpActivity" android:exported="false" />
