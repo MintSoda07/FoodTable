@@ -211,3 +211,45 @@ try {
   throw new functions.https.HttpsError("internal", errorMessage);
 }
 });
+
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+admin.initializeApp();
+
+exports.onRoomMessage = functions.firestore
+  .document('openRooms/{roomId}/messages/{msgId}')
+  .onCreate(async (snap, ctx) => {
+    const msg = snap.data();
+    const roomId = ctx.params.roomId;
+
+    await admin.firestore().doc(`openRooms/${roomId}`).update({
+      lastMessage: msg.text || (msg.imageUrl ? '사진' : '') || '메시지',
+      lastAt: Date.now()
+    });
+
+    const membersSnap = await admin.firestore().collection(`openRooms/${roomId}/members`).get();
+    const uids = membersSnap.docs.map(d => d.id).filter(uid => uid !== msg.senderUid);
+    if (uids.length === 0) return null;
+
+    const userDocs = await Promise.all(uids.map(uid => admin.firestore().doc(`user/${uid}`).get()));
+    const tokens = userDocs.flatMap(d => (d.get('deviceTokens') || [])).filter(Boolean);
+    if (tokens.length === 0) return null;
+
+    const payload = {
+      notification: {
+        title: `새 메시지`,
+        body: msg.text ? msg.text.substring(0, 50) : '사진이 도착했어요',
+      },
+      data: { type: 'openchat', roomId }
+    };
+    await admin.messaging().sendToDevice(tokens, payload);
+    return null;
+  });
+
+exports.onMemberCountChange = functions.firestore
+  .document('openRooms/{roomId}/members/{uid}')
+  .onWrite(async (change, ctx) => {
+    const roomRef = admin.firestore().doc(`openRooms/${ctx.params.roomId}`);
+    const membersSnap = await roomRef.collection('members').get();
+    await roomRef.update({ memberCount: membersSnap.size });
+  });

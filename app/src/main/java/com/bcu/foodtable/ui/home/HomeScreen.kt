@@ -199,6 +199,7 @@ import androidx.compose.ui.layout.BeyondBoundsLayout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.navigation.NavController
+import androidx.navigation.navDeepLink
 import coil.Coil
 import coil.request.ImageRequest
 import com.airbnb.lottie.compose.LottieAnimation
@@ -211,6 +212,9 @@ import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeViewModel
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.CreateOpenChatScreen
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatHomeScreen
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoomScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
 
@@ -1092,6 +1096,18 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     navController = navController
                 )
             }
+            composable("openchat_home") { OpenChatHomeScreen(navController) }
+            composable("openchat_create") { CreateOpenChatScreen(navController) }
+            composable(
+                route = "openchat/{roomId}",
+                arguments = listOf(navArgument("roomId") { type = NavType.StringType }),
+                deepLinks = listOf(navDeepLink { uriPattern = "foodtable://openchat?roomId={roomId}" })
+            ) { backStackEntry ->
+                val roomId = backStackEntry.arguments?.getString("roomId") ?: return@composable
+                OpenChatRoomScreen(navController, roomId)
+            }
+
+
             composable(
                 route = "profile/{uid}",
                 arguments = listOf(navArgument("uid") {

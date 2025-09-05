@@ -117,9 +117,20 @@
         <activity android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
+            <!-- 앱 아이콘/앱서랍 노출용 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- 딥링크(foodtable://openchat)용 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="foodtable"
+                    android:host="openchat" />
             </intent-filter>
         </activity>
 

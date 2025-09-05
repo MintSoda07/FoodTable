@@ -134,7 +134,10 @@ fun FriendsTab(
                 HomeTopAppBar(
                     requestCount = requests.size,
                     onMyUidClick = { showAddDialog = true },
-                    onTabSelected = { selectedTab = it }
+                    onTabSelected = { selectedTab = it },
+                    onOpenChatClick = {
+                        navController.navigate("openchat_home")
+                    }
                 )
             },
             containerColor = MaterialTheme.colorScheme.background,
@@ -287,10 +290,14 @@ fun FriendRequestScreen(requests: List<User>) {
 
 
 // ─── UI 컴포넌트 ──────────────────────────────────────────────────────────
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopAppBar(requestCount: Int, onMyUidClick: () -> Unit, onTabSelected: (Int) -> Unit) {
+fun HomeTopAppBar(
+    requestCount: Int,
+    onMyUidClick: () -> Unit,
+    onTabSelected: (Int) -> Unit,
+    onOpenChatClick: () -> Unit,
+) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val titles = listOf("친구", "검색", "받은 요청")
 
@@ -298,12 +305,20 @@ fun HomeTopAppBar(requestCount: Int, onMyUidClick: () -> Unit, onTabSelected: (I
         CenterAlignedTopAppBar(
             title = { Text("친구", fontWeight = FontWeight.Bold) },
             actions = {
+                // ← 오픈채팅 진입 버튼
+                IconButton(onClick = onOpenChatClick) {
+                    Icon(Icons.Default.Chat, contentDescription = "오픈채팅")
+                }
+                // 기존: UID로 친구 추가
                 IconButton(onClick = onMyUidClick) {
-                    Icon(Icons.Default.Add, contentDescription = "UID로 친구 추가")
+                    Icon(Icons.Default.PersonAdd, contentDescription = "UID로 친구 추가")
                 }
             },
-            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = Color.Transparent
+            )
         )
+
         PrimaryTabRow(selectedTabIndex = selectedTabIndex) {
             titles.forEachIndexed { index, title ->
                 Tab(

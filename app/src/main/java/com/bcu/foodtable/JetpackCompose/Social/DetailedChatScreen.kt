@@ -74,7 +74,10 @@ data class ChatMessage(
     val type: String? = null,
     val placeName: String? = null,
     val category: String? = null,
-    val placeUrl: String? = null
+    val placeUrl: String? = null,
+    val openchatRoomId: String? = null,
+    val openchatTitle: String? = null,
+    val deeplink: String? = null
 )
 
 private val ChatColorScheme = lightColorScheme(
@@ -294,7 +297,6 @@ fun DetailedChatScreen(
                         items(messages, key = { it.id }) { msg ->
                             val isMe = msg.senderUid == currentUid
 
-                            // 등장 애니메이션 + 자연스러운 자리 이동
                             AnimatedVisibility(
                                 visible = true,
                                 enter = fadeIn(animationSpec = tween(220, delayMillis = 20)) +
@@ -303,6 +305,17 @@ fun DetailedChatScreen(
                                 modifier = Modifier.animateItemPlacement()
                             ) {
                                 when {
+                                    msg.type == "openchat_invite" -> {
+                                        OpenChatInviteBubble(
+                                            message = msg,
+                                            onJoin = { roomId ->
+                                                navController.navigate("openchat/$roomId")
+                                                // (딥링크로 열고 싶으면 아래 대안)
+                                                // val ctx = LocalContext.current
+                                                // ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("foodtable://openchat?roomId=$roomId")))
+                                            }
+                                        )
+                                    }
                                     msg.type == "place" -> {
                                         SharedPlaceMessageBubble(message = msg, isMe = isMe)
                                     }
@@ -565,7 +578,7 @@ fun ChatMessageBubble(
                         Text(message.text, modifier = Modifier.padding(12.dp), color = textColor)
                     }
                     if (message.imageUrl != null) {
-                        // ✅ 이미지 팝인 애니메이션
+
                         val scale by animateFloatAsState(
                             targetValue = 1f,
                             animationSpec = spring(
@@ -609,6 +622,41 @@ fun ChatMessageBubble(
     }
 }
 
+@Composable
+fun OpenChatInviteBubble(
+    message: ChatMessage,
+    onJoin: (roomId: String) -> Unit
+) {
+    val title = message.openchatTitle ?: "오픈채팅"
+    val roomId = message.openchatRoomId
+    val isEnabled = !roomId.isNullOrBlank()
+
+    // DM은 좌/우 정렬 컨벤션이 있으니, 일반 메시지와 같은 폭으로
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        ElevatedCard {
+            Column(Modifier.padding(16.dp).widthIn(max = 320.dp)) {
+                Text("오픈채팅 초대", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(6.dp))
+                Text(message.text ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(title, style = MaterialTheme.typography.bodyMedium)
+                    Button(
+                        onClick = { roomId?.let(onJoin) },
+                        enabled = isEnabled
+                    ) { Text("참여하기") }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun MoneyTransferContent(

@@ -137,7 +137,7 @@ fun SocialScreen(navController: NavHostController) {
                 ) {
                     Column {
                         // 검색바 (기존 로직 유지)
-                        AnimatedVisibility(visible = wheelItems[selectedIndex].label in listOf("커뮤니티", "친구")) {
+                        AnimatedVisibility(visible = wheelItems[selectedIndex].label in listOf("커뮤니티")) {
                             OutlinedTextField(
                                 value = searchText,
                                 onValueChange = { searchText = it },
