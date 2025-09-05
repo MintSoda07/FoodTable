@@ -7,9 +7,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -19,30 +16,29 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.bcu.foodtable.JetpackCompose.Social.ChatTheme // ✅ DM과 동일 테마 적용
+import com.bcu.foodtable.JetpackCompose.Social.ChatTheme
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,16 +72,18 @@ fun OpenChatRoomScreen(
     var showTransfer by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // 첫 진입 시 다이얼로그 보이도록
-    var showJoinDialog by remember { mutableStateOf(true) }
+    var showJoinDialog by remember { mutableStateOf(false) }        // 입장 다이얼로그 표시 여부
+    var membershipChecked by remember { mutableStateOf(false) }     // 멤버십 판별 완료 게이트
 
     val storage = remember { FirebaseStorage.getInstance().reference }
-    // 방 정보 + 내 멤버 여부
+
+    // 방 정보 + 내 멤버 여부 판별
     LaunchedEffect(roomId) {
         val db = FirebaseFirestore.getInstance()
         val doc = db.collection("openRooms").document(roomId).get().await()
-        room = doc.toObject(OpenChatRoom::class.java)?.copy(id = doc.id) ?: return@LaunchedEffect
-        isOwner = (room!!.ownerUid == myUid)
+        val r = doc.toObject(OpenChatRoom::class.java)?.copy(id = doc.id) ?: return@LaunchedEffect
+        room = r
+        isOwner = (r.ownerUid == myUid)
 
         val memDoc = db.collection("openRooms").document(roomId)
             .collection("members").document(myUid).get().await()
@@ -94,14 +92,19 @@ fun OpenChatRoomScreen(
 
         // 방장인데 아직 멤버가 아니면 자동 참가
         if (isOwner && !joined) {
-            try {
+            runCatching {
                 vm.joinRoom(roomId, myUid, myGlobalNick)
                 vm.sendSystem(roomId, "join", myGlobalNick)
                 joined = true
-            } catch (_: Exception) {}
+            }
         }
         if (joined) vm.listenMessages(roomId)
+
+        membershipChecked = true
+        showJoinDialog = (!isOwner && !joined)   // 판별 끝난 뒤에 다이얼로그 열지 결정
     }
+
+    // 멤버 실시간(상단 "n명 참여중", 멤버 시트)
     DisposableEffect(roomId) {
         val db = FirebaseFirestore.getInstance()
         val reg = db.collection("openRooms").document(roomId)
@@ -109,9 +112,24 @@ fun OpenChatRoomScreen(
             .addSnapshotListener { snap, _ ->
                 liveMemberCount = (snap?.size() ?: 0).toLong()
                 liveMembers = snap?.documents?.mapNotNull { it.toObject(OpenChatMember::class.java) }.orEmpty()
+
             }
         onDispose { reg.remove() }
     }
+    // 방 정보 로딩 이후 방 정보
+    DisposableEffect("roomDoc_$roomId") {
+        val db = FirebaseFirestore.getInstance()
+        val reg = db.collection("openRooms").document(roomId)
+            .addSnapshotListener { snap, _ ->
+                val r = snap?.toObject(OpenChatRoom::class.java)?.copy(id = snap.id)
+                if (r != null) {
+                    room = r
+                    isOwner = (r.ownerUid == myUid) // ← 메뉴 활성/비활성 즉시 반영
+                }
+            }
+        onDispose { reg.remove() }
+    }
+
 
     val messages by vm.messages.collectAsState()
 
@@ -135,23 +153,16 @@ fun OpenChatRoomScreen(
         }
     }
 
-    // 이미지 선택 → 업로드 후 전송
-    val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
+    // 이미지 선택 → 업로드 후 downloadUrl로 전송
+    val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             try {
                 Toast.makeText(ctx, "이미지 업로드 중...", Toast.LENGTH_SHORT).show()
-
-
                 val filename = "${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
                 val ref = storage.child("openchatImages/$roomId/$myUid/$filename")
-
-                // 업로드
                 ref.putFile(uri).await()
-
                 val url = ref.downloadUrl.await().toString()
-
-                // 메시지에 downloadUrl 저장
                 vm.sendImage(roomId, myUid, url)
             } catch (e: Exception) {
                 Toast.makeText(ctx, "이미지 전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -159,8 +170,16 @@ fun OpenChatRoomScreen(
         }
     }
 
+    // ===== 게이트: 멤버십 판별/방 정보 로딩 전에는 분기 X (깜빡임 방지) =====
+    if (!membershipChecked || room == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     // 미가입 & 방장 아님 → 입장 다이얼로그
-    if (room != null && !joined && !isOwner && showJoinDialog) {
+    if (showJoinDialog) {
         JoinRoomSheet(
             room = room!!,
             onJoin = { nickname, passcode ->
@@ -175,6 +194,7 @@ fun OpenChatRoomScreen(
                         myNick = nickname
                         joined = true
                         vm.listenMessages(roomId)
+                        showJoinDialog = false
                     } catch (e: Exception) {
                         Toast.makeText(ctx, e.message ?: "입장 실패", Toast.LENGTH_SHORT).show()
                     }
@@ -183,17 +203,12 @@ fun OpenChatRoomScreen(
             onDismiss = { showJoinDialog = false }
         )
     }
-    if (room != null && !joined && !isOwner && !showJoinDialog) {
+
+    // 미가입 + 다이얼로그 닫힌 자리표시 UI
+    if (!joined && !showJoinDialog) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "이 방에 참여해야 대화를 볼 수 있어요.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("이 방에 참여해야 대화를 볼 수 있어요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { showJoinDialog = true }) { Text("참여하기") }
                     TextButton(onClick = { navController.popBackStack() }) { Text("뒤로가기") }
@@ -203,21 +218,18 @@ fun OpenChatRoomScreen(
         return
     }
 
-    if (!joined || room == null) return
-
-    ChatTheme { //
+    // ===== 여기부터 joined == true 일 때만 채팅 UI =====
+    ChatTheme {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            // 방 이름 더 크게 + 가운데
                             Text(
                                 room!!.title,
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.ExtraBold
                             )
-                            // "~참여중" 가운데
                             Text(
                                 "${liveMemberCount}명 참여중",
                                 style = MaterialTheme.typography.labelSmall,
@@ -226,41 +238,80 @@ fun OpenChatRoomScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { shareOpenChatLink(ctx, roomId) }) { Icon(Icons.Default.Share, null) }
-                        IconButton(onClick = { showMembers = true }) { Icon(Icons.Default.Group, null) }
+                        IconButton(onClick = { shareOpenChatLink(ctx, roomId) }) {
+                            Icon(Icons.Default.Share, contentDescription = "공유")
+                        }
+                        IconButton(onClick = { showMembers = true }) {
+                            Icon(Icons.Default.Group, contentDescription = "멤버")
+                        }
                         Box {
-                            IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "더보기")
+                            }
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                                DropdownMenuItem(text = { Text("멤버 보기") }, onClick = { showMenu = false; showMembers = true })
-                                DropdownMenuItem(text = { Text("링크 복사") }, onClick = {
-                                    showMenu = false
-                                    val uri = "foodtable://openchat?roomId=$roomId"
-                                    clipboard.setText(AnnotatedString(uri))
-                                    Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
-                                })
-                                DropdownMenuItem(text = { Text("친구 초대") }, onClick = { showMenu = false; showInvite = true })
+                                DropdownMenuItem(
+                                    text = { Text("멤버 보기") },
+                                    onClick = { showMenu = false; showMembers = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("링크 복사") },
+                                    onClick = {
+                                        showMenu = false
+                                        val uri = "foodtable://openchat?roomId=$roomId"
+                                        clipboard.setText(AnnotatedString(uri))
+                                        Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("친구 초대") },
+                                    onClick = { showMenu = false; showInvite = true }
+                                )
 
-                                if (isOwner) {
-                                    val canTransfer = liveMembers.size >= 2
-                                    DropdownMenuItem(
-                                        text = { Text("방장 양도") },
-                                        enabled = canTransfer,
-                                        onClick = {
-                                            showMenu = false
-                                            if (canTransfer) showTransfer = true
-                                            else Toast.makeText(ctx, "양도하려면 멤버가 2명 이상이어야 해요.", Toast.LENGTH_SHORT).show()
+                                // 공개/비공개 전환: 방장만 활성
+                                val willOpen = !(room?.open ?: true)
+                                DropdownMenuItem(
+                                    text = { Text(if (willOpen) "공개로 전환" else "비공개로 전환") },
+                                    enabled = isOwner,
+                                    onClick = {
+                                        showMenu = false
+                                        if (!isOwner) return@DropdownMenuItem
+                                        if (willOpen) {
+                                            scope.launch {
+                                                vm.setRoomVisibility(roomId, true, null)
+                                                room = room?.copy(open = true, passcode = null)
+                                            }
+                                        } else {
+                                            passcodeInput = ""
+                                            showPasscodeDialog = true
                                         }
-                                    )
+                                    }
+                                )
+
+                                // 방장 양도: 방장 & 2명 이상일 때만 활성
+                                val canTransfer = liveMemberCount >= 2
+                                DropdownMenuItem(
+                                    text = { Text("방장 양도") },
+                                    enabled = isOwner && canTransfer,
+                                    onClick = {
+                                        showMenu = false
+                                        if (isOwner && canTransfer) showTransfer = true
+                                    }
+                                )
+
+                                // 방 삭제: 방장만
+                                DropdownMenuItem(
+                                    text = { Text("방 삭제") },
+                                    enabled = isOwner,
+                                    onClick = {
+                                        showMenu = false
+                                        if (isOwner) showDeleteConfirm = true
+                                    }
+                                )
+
+                                // 방 나가기: 방장은 비활성(숨김), 멤버만 표시
+                                if (!isOwner) {
                                     DropdownMenuItem(
-                                        text = { Text("방 삭제") },
-                                        onClick = {
-                                            showMenu = false
-                                            showDeleteConfirm = true
-                                        }
-                                    )
-                                } else {
-                                    DropdownMenuItem(
-                                        text = { Text("나가기") },
+                                        text = { Text("방 나가기") },
                                         onClick = {
                                             showMenu = false
                                             scope.launch {
@@ -276,25 +327,6 @@ fun OpenChatRoomScreen(
                                         }
                                     )
                                 }
-
-                                if (isOwner) {
-                                    val willOpen = !(room?.open ?: true)
-                                    DropdownMenuItem(
-                                        text = { Text(if (willOpen) "공개로 전환" else "비공개로 전환") },
-                                        onClick = {
-                                            showMenu = false
-                                            if (willOpen) {
-                                                scope.launch {
-                                                    vm.setRoomVisibility(roomId, true, null)
-                                                    room = room?.copy(open = true, passcode = null)
-                                                }
-                                            } else {
-                                                passcodeInput = ""
-                                                showPasscodeDialog = true
-                                            }
-                                        }
-                                    )
-                                }
                             }
                         }
                     },
@@ -304,7 +336,6 @@ fun OpenChatRoomScreen(
                 )
             },
             floatingActionButton = {
-
                 AnimatedVisibility(visible = !isNearBottom) {
                     FloatingActionButton(
                         onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } },
@@ -315,13 +346,12 @@ fun OpenChatRoomScreen(
                 }
             },
             bottomBar = {
-                // ✅ DM과 동일 입력 바 재사용 (이미 프로젝트에 존재)
                 com.bcu.foodtable.JetpackCompose.Social.ChatInputBar(
                     onSendMessage = { text ->
                         scope.launch { if (text.isNotBlank()) vm.sendText(roomId, myUid, text) }
                     },
                     onSendImage = { pickImageLauncher.launch("image/*") },
-                    onSendMoney = { /* 오픈채팅은 미사용 */ }
+                    onSendMoney = { /* 오픈채팅 미사용 */ }
                 )
             },
             containerColor = MaterialTheme.colorScheme.background
@@ -348,7 +378,8 @@ fun OpenChatRoomScreen(
         }
     }
 
-    // 멤버 시트
+    // ===== 바텀시트/다이얼로그들 =====
+
     if (showMembers) {
         MembersBottomSheet(
             roomId = roomId,
@@ -358,7 +389,7 @@ fun OpenChatRoomScreen(
             onDismiss = { showMembers = false }
         )
     }
-    // 친구 초대(친구 DM으로 초대 메시지 전송; 멤버 추가는 수락 시점에 join)
+
     if (showInvite) {
         InviteFriendsSheet(
             onLoad = { vm.fetchFriends(myUid) },
@@ -381,7 +412,7 @@ fun OpenChatRoomScreen(
             onDismiss = { showInvite = false }
         )
     }
-    // 방장 양도 시트
+
     if (showTransfer) {
         TransferOwnerSheet(
             members = liveMembers,
@@ -389,6 +420,8 @@ fun OpenChatRoomScreen(
             onTransfer = { targetUid ->
                 scope.launch {
                     try {
+                        room = room?.copy(ownerUid = targetUid)
+                        isOwner = (targetUid == myUid)
                         vm.transferOwnership(roomId, targetUid)
                         Toast.makeText(ctx, "방장을 양도했습니다.", Toast.LENGTH_SHORT).show()
                         showTransfer = false
@@ -401,7 +434,6 @@ fun OpenChatRoomScreen(
         )
     }
 
-    // 방 삭제 확인 다이얼로그
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
@@ -426,7 +458,6 @@ fun OpenChatRoomScreen(
         )
     }
 
-    // 비공개 전환 비번 다이얼로그
     if (showPasscodeDialog) {
         AlertDialog(
             onDismissRequest = { showPasscodeDialog = false },
@@ -508,7 +539,6 @@ private fun TransferOwnerSheet(
     }
 }
 
-
 @Composable
 private fun JoinRoomSheet(
     room: OpenChatRoom,
@@ -566,7 +596,7 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
     val shape = MaterialTheme.shapes.medium
 
     if (isMe) {
-        // ===== 내가 보낸 메시지: 시간은 왼쪽(버블 왼쪽), 기존 유지 =====
+        // 내가 보낸 메시지: 시간은 왼쪽(버블 왼쪽)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
@@ -594,12 +624,11 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
                         message.text?.let {
                             Text(it, modifier = Modifier.padding(12.dp), color = textColor)
                         }
-                        message.imageUrl?.let { url ->
+                        message.imageUrl?.let {
                             AsyncImage(
-                                model = message.imageUrl,
+                                model = it,
                                 contentDescription = null,
-                                modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp),
-                                onError = { Toast.makeText(ctx, "이미지를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show() }
+                                modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
                             )
                         }
                         AnimatedVisibility(visible = unreadCount > 0) {
@@ -615,26 +644,22 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
             }
         }
     } else {
-        // ===== 상대가 보낸 메시지: 닉네임은 '버블 위', 시간은 '버블 오른쪽 아래'(예전처럼) =====
+        // 상대가 보낸 메시지: 닉네임은 버블 '위', 시간은 버블 오른쪽 하단
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.Bottom // ← 시간(오른쪽)이 버블 하단 기준으로 정렬되도록
+            verticalAlignment = Alignment.Bottom
         ) {
-            // 닉네임 + 버블을 하나의 Column으로 묶음
             Column(
                 horizontalAlignment = Alignment.Start,
                 modifier = Modifier.padding(end = 6.dp)
             ) {
-                // 닉네임을 버블 '위'에
                 Text(
                     message.senderNickname,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(2.dp))
-
-                // 버블
                 Box(modifier = Modifier.widthIn(max = 280.dp)) {
                     Surface(color = bubbleColor, shape = shape) {
                         Column(
@@ -651,20 +676,17 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
                             message.text?.let {
                                 Text(it, modifier = Modifier.padding(12.dp), color = textColor)
                             }
-                            message.imageUrl?.let { url ->
+                            message.imageUrl?.let {
                                 AsyncImage(
-                                    model = message.imageUrl,
+                                    model = it,
                                     contentDescription = null,
-                                    modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp),
-                                    onError = { Toast.makeText(ctx, "이미지를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show() }
+                                    modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
                                 )
                             }
                         }
                     }
                 }
             }
-
-            // 시간: 버블 오른쪽, 하단 정렬(예전과 동일 위치)
             Text(
                 timeText,
                 style = MaterialTheme.typography.labelSmall,
@@ -710,16 +732,17 @@ private fun MembersBottomSheet(
                 ) {
                     Column {
                         Text(m.nickname)
-                        Text(
-                            if (m.role == "owner") "방장" else "멤버",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text(if (m.role == "owner") "방장" else "멤버", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (isOwner && m.role != "owner") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { onKick(m.uid) }) { Text("강퇴") }
-                            TextButton(onClick = { onBan(m.uid) }) { Text("밴") }
-                        }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = { onKick(m.uid) },
+                            enabled = isOwner && m.role != "owner"
+                        ) { Text("강퇴") }
+                        TextButton(
+                            onClick = { onBan(m.uid) },
+                            enabled = isOwner && m.role != "owner"
+                        ) { Text("밴") }
                     }
                 }
             }

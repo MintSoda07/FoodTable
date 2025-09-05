@@ -14,8 +14,8 @@ import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-// 줌 레벨 16 설정
-const val CUSTOM_MARKER_MIN_ZOOM: Float = 15f
+// 줌 레벨 14 설정
+const val CUSTOM_MARKER_MIN_ZOOM: Float = 14f
 const val NEARBY_RADIUS_M: Double = 1500.0
 
 class MatzipViewModel : ViewModel() {
