@@ -7,29 +7,39 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.bcu.foodtable.JetpackCompose.Social.ChatTheme
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,12 +67,23 @@ fun OpenChatRoomScreen(
     var showPasscodeDialog by remember { mutableStateOf(false) }
     var passcodeInput by remember { mutableStateOf("") }
 
-    // 방 정보 + 내 멤버 여부
+    var liveMemberCount by remember { mutableStateOf(0L) }
+    var liveMembers by remember { mutableStateOf(listOf<OpenChatMember>()) }
+    var showTransfer by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    var showJoinDialog by remember { mutableStateOf(false) }        // 입장 다이얼로그 표시 여부
+    var membershipChecked by remember { mutableStateOf(false) }     // 멤버십 판별 완료 게이트
+
+    val storage = remember { FirebaseStorage.getInstance().reference }
+
+    // 방 정보 + 내 멤버 여부 판별
     LaunchedEffect(roomId) {
         val db = FirebaseFirestore.getInstance()
         val doc = db.collection("openRooms").document(roomId).get().await()
-        room = doc.toObject(OpenChatRoom::class.java)?.copy(id = doc.id) ?: return@LaunchedEffect
-        isOwner = (room!!.ownerUid == myUid)
+        val r = doc.toObject(OpenChatRoom::class.java)?.copy(id = doc.id) ?: return@LaunchedEffect
+        room = r
+        isOwner = (r.ownerUid == myUid)
 
         val memDoc = db.collection("openRooms").document(roomId)
             .collection("members").document(myUid).get().await()
@@ -71,14 +92,44 @@ fun OpenChatRoomScreen(
 
         // 방장인데 아직 멤버가 아니면 자동 참가
         if (isOwner && !joined) {
-            try {
+            runCatching {
                 vm.joinRoom(roomId, myUid, myGlobalNick)
                 vm.sendSystem(roomId, "join", myGlobalNick)
                 joined = true
-            } catch (_: Exception) {}
+            }
         }
         if (joined) vm.listenMessages(roomId)
+
+        membershipChecked = true
+        showJoinDialog = (!isOwner && !joined)   // 판별 끝난 뒤에 다이얼로그 열지 결정
     }
+
+    // 멤버 실시간(상단 "n명 참여중", 멤버 시트)
+    DisposableEffect(roomId) {
+        val db = FirebaseFirestore.getInstance()
+        val reg = db.collection("openRooms").document(roomId)
+            .collection("members")
+            .addSnapshotListener { snap, _ ->
+                liveMemberCount = (snap?.size() ?: 0).toLong()
+                liveMembers = snap?.documents?.mapNotNull { it.toObject(OpenChatMember::class.java) }.orEmpty()
+
+            }
+        onDispose { reg.remove() }
+    }
+    // 방 정보 로딩 이후 방 정보
+    DisposableEffect("roomDoc_$roomId") {
+        val db = FirebaseFirestore.getInstance()
+        val reg = db.collection("openRooms").document(roomId)
+            .addSnapshotListener { snap, _ ->
+                val r = snap?.toObject(OpenChatRoom::class.java)?.copy(id = snap.id)
+                if (r != null) {
+                    room = r
+                    isOwner = (r.ownerUid == myUid) // ← 메뉴 활성/비활성 즉시 반영
+                }
+            }
+        onDispose { reg.remove() }
+    }
+
 
     val messages by vm.messages.collectAsState()
 
@@ -102,18 +153,33 @@ fun OpenChatRoomScreen(
         }
     }
 
-    // 이미지 선택 → 업로드 후 전송
-    val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
+    // 이미지 선택 → 업로드 후 downloadUrl로 전송
+    val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            // TODO: Storage 업로드 후 downloadUrl 사용
-            val url = uri.toString()
-            vm.sendImage(roomId, myUid, url)
+            try {
+                Toast.makeText(ctx, "이미지 업로드 중...", Toast.LENGTH_SHORT).show()
+                val filename = "${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
+                val ref = storage.child("openchatImages/$roomId/$myUid/$filename")
+                ref.putFile(uri).await()
+                val url = ref.downloadUrl.await().toString()
+                vm.sendImage(roomId, myUid, url)
+            } catch (e: Exception) {
+                Toast.makeText(ctx, "이미지 전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
+    // ===== 게이트: 멤버십 판별/방 정보 로딩 전에는 분기 X (깜빡임 방지) =====
+    if (!membershipChecked || room == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     // 미가입 & 방장 아님 → 입장 다이얼로그
-    if (room != null && !joined && !isOwner) {
+    if (showJoinDialog) {
         JoinRoomSheet(
             room = room!!,
             onJoin = { nickname, passcode ->
@@ -128,66 +194,87 @@ fun OpenChatRoomScreen(
                         myNick = nickname
                         joined = true
                         vm.listenMessages(roomId)
+                        showJoinDialog = false
                     } catch (e: Exception) {
                         Toast.makeText(ctx, e.message ?: "입장 실패", Toast.LENGTH_SHORT).show()
                     }
                 }
             },
-            onDismiss = { navController.popBackStack() }
+            onDismiss = { showJoinDialog = false }
         )
     }
 
-    if (!joined || room == null) return
+    // 미가입 + 다이얼로그 닫힌 자리표시 UI
+    if (!joined && !showJoinDialog) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("이 방에 참여해야 대화를 볼 수 있어요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { showJoinDialog = true }) { Text("참여하기") }
+                    TextButton(onClick = { navController.popBackStack() }) { Text("뒤로가기") }
+                }
+            }
+        }
+        return
+    }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(room!!.title, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "${room!!.memberCount}명 참여중",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                // ✅ 뒤로가기 버튼 제거(시스템 Back은 유지)
-                actions = {
-                    IconButton(onClick = { shareOpenChatLink(ctx, roomId) }) { Icon(Icons.Default.Share, null) }
-                    IconButton(onClick = { showMembers = true }) { Icon(Icons.Default.Group, null) }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(text = { Text("멤버 보기") }, onClick = { showMenu = false; showMembers = true })
-                            DropdownMenuItem(
-                                text = { Text("링크 복사") },
-                                onClick = {
-                                    showMenu = false
-                                    val uri = "foodtable://openchat?roomId=$roomId"
-                                    clipboard.setText(AnnotatedString(uri))
-                                    Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
-                                }
+    // ===== 여기부터 joined == true 일 때만 채팅 UI =====
+    ChatTheme {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                room!!.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold
                             )
-                            DropdownMenuItem(text = { Text("친구 초대") }, onClick = { showMenu = false; showInvite = true })
-                            DropdownMenuItem(
-                                text = { Text("나가기") },
-                                onClick = {
-                                    showMenu = false
-                                    scope.launch {
-                                        vm.leaveRoom(roomId, myUid)
-                                        vm.sendSystem(roomId, "leave", myNick.ifBlank { myGlobalNick })
-                                        vm.removeMessageListener()
-                                        navController.popBackStack()
+                            Text(
+                                "${liveMemberCount}명 참여중",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { shareOpenChatLink(ctx, roomId) }) {
+                            Icon(Icons.Default.Share, contentDescription = "공유")
+                        }
+                        IconButton(onClick = { showMembers = true }) {
+                            Icon(Icons.Default.Group, contentDescription = "멤버")
+                        }
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(Icons.Default.MoreVert, contentDescription = "더보기")
+                            }
+                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("멤버 보기") },
+                                    onClick = { showMenu = false; showMembers = true }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("링크 복사") },
+                                    onClick = {
+                                        showMenu = false
+                                        val uri = "foodtable://openchat?roomId=$roomId"
+                                        clipboard.setText(AnnotatedString(uri))
+                                        Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
                                     }
-                                }
-                            )
-                            if (isOwner) {
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("친구 초대") },
+                                    onClick = { showMenu = false; showInvite = true }
+                                )
+
+                                // 공개/비공개 전환: 방장만 활성
                                 val willOpen = !(room?.open ?: true)
                                 DropdownMenuItem(
                                     text = { Text(if (willOpen) "공개로 전환" else "비공개로 전환") },
+                                    enabled = isOwner,
                                     onClick = {
                                         showMenu = false
+                                        if (!isOwner) return@DropdownMenuItem
                                         if (willOpen) {
                                             scope.launch {
                                                 vm.setRoomVisibility(roomId, true, null)
@@ -199,52 +286,100 @@ fun OpenChatRoomScreen(
                                         }
                                     }
                                 )
+
+                                // 방장 양도: 방장 & 2명 이상일 때만 활성
+                                val canTransfer = liveMemberCount >= 2
+                                DropdownMenuItem(
+                                    text = { Text("방장 양도") },
+                                    enabled = isOwner && canTransfer,
+                                    onClick = {
+                                        showMenu = false
+                                        if (isOwner && canTransfer) showTransfer = true
+                                    }
+                                )
+
+                                // 방 삭제: 방장만
+                                DropdownMenuItem(
+                                    text = { Text("방 삭제") },
+                                    enabled = isOwner,
+                                    onClick = {
+                                        showMenu = false
+                                        if (isOwner) showDeleteConfirm = true
+                                    }
+                                )
+
+                                // 방 나가기: 방장은 비활성(숨김), 멤버만 표시
+                                if (!isOwner) {
+                                    DropdownMenuItem(
+                                        text = { Text("방 나가기") },
+                                        onClick = {
+                                            showMenu = false
+                                            scope.launch {
+                                                try {
+                                                    vm.leaveRoom(roomId, myUid)
+                                                    vm.sendSystem(roomId, "leave", myNick.ifBlank { myGlobalNick })
+                                                    vm.removeMessageListener()
+                                                    navController.popBackStack()
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(ctx, e.message ?: "나가기 실패", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    )
+                )
+            },
+            floatingActionButton = {
+                AnimatedVisibility(visible = !isNearBottom) {
+                    FloatingActionButton(
+                        onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "맨 아래로")
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            // ✅ 사용자가 위로 스크롤했을 때만 노출되는 "맨 아래로" FAB
-            AnimatedVisibility(visible = !isNearBottom) {
-                ExtendedFloatingActionButton(
-                    icon = { Icon(Icons.Default.ArrowDownward, null) },
-                    text = { Text("맨 아래로") },
-                    onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } }
+            },
+            bottomBar = {
+                com.bcu.foodtable.JetpackCompose.Social.ChatInputBar(
+                    onSendMessage = { text ->
+                        scope.launch { if (text.isNotBlank()) vm.sendText(roomId, myUid, text) }
+                    },
+                    onSendImage = { pickImageLauncher.launch("image/*") },
+                    onSendMoney = { /* 오픈채팅 미사용 */ }
                 )
-            }
-        },
-        bottomBar = {
-            com.bcu.foodtable.JetpackCompose.Social.ChatInputBar(
-                onSendMessage = { text ->
-                    scope.launch { if (text.isNotBlank()) vm.sendText(roomId, myUid, text) }
-                },
-                onSendImage = { pickImageLauncher.launch("image/*") },
-                onSendMoney = { /* 미사용 */ }
-            )
-        }
-    ) { pad ->
-        LazyColumn(
-            state = listState, // ✅
-            modifier = Modifier.padding(pad).fillMaxSize(),
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(messages, key = { it.id }) { msg ->
-                when (msg.type) {
-                    "system" -> SystemBubble(text = msg.text ?: "")
-                    else -> RoomMessageBubble(
-                        message = msg,
-                        isMe = msg.senderUid == myUid,
-                        unreadCount = (room!!.memberCount - (msg.readBy.size)).coerceAtLeast(0)
-                    )
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { pad ->
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .padding(pad)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(messages, key = { it.id }) { msg ->
+                    when (msg.type) {
+                        "system" -> SystemBubble(text = msg.text ?: "")
+                        else -> RoomMessageBubble(
+                            message = msg,
+                            isMe = msg.senderUid == myUid,
+                            unreadCount = (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
+                        )
+                    }
                 }
             }
         }
     }
 
-    // 멤버 시트
+    // ===== 바텀시트/다이얼로그들 =====
+
     if (showMembers) {
         MembersBottomSheet(
             roomId = roomId,
@@ -254,7 +389,7 @@ fun OpenChatRoomScreen(
             onDismiss = { showMembers = false }
         )
     }
-    // 친구 초대(친구 DM으로 초대 메시지 전송; 멤버 추가는 수락 시점에 join)
+
     if (showInvite) {
         InviteFriendsSheet(
             onLoad = { vm.fetchFriends(myUid) },
@@ -278,7 +413,51 @@ fun OpenChatRoomScreen(
         )
     }
 
-    // 비공개 전환 비번 다이얼로그
+    if (showTransfer) {
+        TransferOwnerSheet(
+            members = liveMembers,
+            currentOwnerUid = room!!.ownerUid,
+            onTransfer = { targetUid ->
+                scope.launch {
+                    try {
+                        room = room?.copy(ownerUid = targetUid)
+                        isOwner = (targetUid == myUid)
+                        vm.transferOwnership(roomId, targetUid)
+                        Toast.makeText(ctx, "방장을 양도했습니다.", Toast.LENGTH_SHORT).show()
+                        showTransfer = false
+                    } catch (e: Exception) {
+                        Toast.makeText(ctx, e.message ?: "양도 실패", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            onDismiss = { showTransfer = false }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("방 삭제") },
+            text = { Text("방의 모든 메시지가 삭제됩니다. 되돌릴 수 없습니다. 계속할까요?") },
+            confirmButton = {
+                Button(onClick = {
+                    showDeleteConfirm = false
+                    scope.launch {
+                        try {
+                            vm.deleteRoom(roomId, myUid)
+                            vm.removeMessageListener()
+                            Toast.makeText(ctx, "방을 삭제했습니다.", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        } catch (e: Exception) {
+                            Toast.makeText(ctx, e.message ?: "삭제 실패", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) { Text("삭제") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }
+        )
+    }
+
     if (showPasscodeDialog) {
         AlertDialog(
             onDismissRequest = { showPasscodeDialog = false },
@@ -309,6 +488,54 @@ fun OpenChatRoomScreen(
             },
             dismissButton = { TextButton(onClick = { showPasscodeDialog = false }) { Text("취소") } }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferOwnerSheet(
+    members: List<OpenChatMember>,
+    currentOwnerUid: String,
+    onTransfer: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected by remember { mutableStateOf<String?>(null) }
+    val candidates = remember(members, currentOwnerUid) { members.filter { it.uid != currentOwnerUid } }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(16.dp)) {
+            Text("방장 양도", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+
+            if (candidates.isEmpty()) {
+                Text("양도 가능한 멤버가 없습니다.")
+            } else {
+                candidates.forEach { m ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(m.nickname)
+                            Text("멤버", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        RadioButton(
+                            selected = (selected == m.uid),
+                            onClick = { selected = m.uid }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { selected?.let(onTransfer) },
+                    enabled = selected != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("양도하기") }
+            }
+        }
     }
 }
 
@@ -354,45 +581,118 @@ private fun SystemBubble(text: String) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: Long) {
-    val align = if (isMe) Arrangement.End else Arrangement.Start
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = align) {
-        Column(horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
-            if (!isMe) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).background(Color.Gray, CircleShape))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        message.senderNickname,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+    val ctx = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val timeFormatter = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.KOREA) }
+    val timeText = timeFormatter.format(java.util.Date(message.timestamp))
+
+    val bubbleColor =
+        if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val textColor =
+        if (isMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val shape = MaterialTheme.shapes.medium
+
+    if (isMe) {
+        // 내가 보낸 메시지: 시간은 왼쪽(버블 왼쪽)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                timeText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(end = 6.dp)
+            )
+            Box(modifier = Modifier.widthIn(max = 280.dp)) {
+                Surface(color = bubbleColor, shape = shape) {
+                    Column(
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                message.text?.takeIf { it.isNotBlank() }?.let {
+                                    clipboard.setText(AnnotatedString(it))
+                                    Toast.makeText(ctx, "메시지가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    ) {
+                        message.text?.let {
+                            Text(it, modifier = Modifier.padding(12.dp), color = textColor)
+                        }
+                        message.imageUrl?.let {
+                            AsyncImage(
+                                model = it,
+                                contentDescription = null,
+                                modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
+                            )
+                        }
+                        AnimatedVisibility(visible = unreadCount > 0) {
+                            Text(
+                                "안 읽은 사람: $unreadCount",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
-                Spacer(Modifier.height(2.dp))
             }
-            Surface(
-                color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium
+        }
+    } else {
+        // 상대가 보낸 메시지: 닉네임은 버블 '위', 시간은 버블 오른쪽 하단
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column(
+                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.padding(end = 6.dp)
             ) {
-                Column(Modifier.padding(10.dp)) {
-                    message.text?.let { Text(it) }
-                    message.imageUrl?.let {
-                        AsyncImage(
-                            model = it,
-                            contentDescription = null,
-                            modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
-                        )
-                    }
-                    AnimatedVisibility(visible = unreadCount > 0 && isMe) {
-                        Text(
-                            "안 읽은 사람: $unreadCount",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Text(
+                    message.senderNickname,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(2.dp))
+                Box(modifier = Modifier.widthIn(max = 280.dp)) {
+                    Surface(color = bubbleColor, shape = shape) {
+                        Column(
+                            modifier = Modifier.combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    message.text?.takeIf { it.isNotBlank() }?.let {
+                                        clipboard.setText(AnnotatedString(it))
+                                        Toast.makeText(ctx, "메시지가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        ) {
+                            message.text?.let {
+                                Text(it, modifier = Modifier.padding(12.dp), color = textColor)
+                            }
+                            message.imageUrl?.let {
+                                AsyncImage(
+                                    model = it,
+                                    contentDescription = null,
+                                    modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
+            Text(
+                timeText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(start = 6.dp)
+            )
         }
     }
 }
@@ -409,9 +709,13 @@ private fun MembersBottomSheet(
     val db = FirebaseFirestore.getInstance()
     var members by remember { mutableStateOf(listOf<OpenChatMember>()) }
 
-    LaunchedEffect(roomId) {
-        val snap = db.collection("openRooms").document(roomId).collection("members").get().await()
-        members = snap.documents.mapNotNull { it.toObject(OpenChatMember::class.java) }
+    DisposableEffect(roomId) {
+        val reg = db.collection("openRooms").document(roomId)
+            .collection("members")
+            .addSnapshotListener { snap, _ ->
+                members = snap?.documents?.mapNotNull { it.toObject(OpenChatMember::class.java) }.orEmpty()
+            }
+        onDispose { reg.remove() }
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -420,7 +724,9 @@ private fun MembersBottomSheet(
             Spacer(Modifier.height(12.dp))
             members.forEach { m ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -428,11 +734,15 @@ private fun MembersBottomSheet(
                         Text(m.nickname)
                         Text(if (m.role == "owner") "방장" else "멤버", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (isOwner && m.role != "owner") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { onKick(m.uid) }) { Text("강퇴") }
-                            TextButton(onClick = { onBan(m.uid) }) { Text("밴") }
-                        }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = { onKick(m.uid) },
+                            enabled = isOwner && m.role != "owner"
+                        ) { Text("강퇴") }
+                        TextButton(
+                            onClick = { onBan(m.uid) },
+                            enabled = isOwner && m.role != "owner"
+                        ) { Text("밴") }
                     }
                 }
             }
@@ -469,7 +779,9 @@ private fun InviteFriendsSheet(
             } else {
                 friends.forEach { f ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {

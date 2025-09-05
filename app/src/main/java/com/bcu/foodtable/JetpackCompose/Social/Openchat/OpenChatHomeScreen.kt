@@ -2,6 +2,7 @@ package com.bcu.foodtable.JetpackCompose.Social.Openchat
 
 // Compose
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 
 // Layout & lists
@@ -21,10 +22,11 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.WorkspacePremium // 왕관 느낌 뱃지
 
 // UI utils
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -32,9 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.bcu.foodtable.useful.UserManager
-import android.text.format.DateUtils
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
+import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,28 +48,23 @@ fun OpenChatHomeScreen(
     val me = UserManager.getUser() ?: return
     val myUid = me.uid
 
-    // ✅ 실시간 구독 (생성/변경 즉시 반영)
-    LaunchedEffect(Unit) { vm.observeDiscover() }
-    LaunchedEffect(myUid) { vm.observeMyRooms(myUid) }
+    // 실시간 구독 시작
+    LaunchedEffect(Unit) { vm.observeDiscover() }     // 공개방
+    LaunchedEffect(myUid) { vm.observeMyRooms(myUid) } // 내가 들어간 방
 
-    val discover by vm.discover.collectAsState()
-    val myRooms by vm.myRooms.collectAsState()
+    val discover by vm.discover.collectAsState() // open == true 만
+    val myRooms by vm.myRooms.collectAsState()   // memberIds array-contains
 
-    var tab by remember { mutableStateOf(0) } // 0=탐색, 1=내 방
+    var tab by rememberSaveable { mutableStateOf(0) } // 0: 탐색, 1: 내 방
     var query by rememberSaveable { mutableStateOf("") }
 
-    val joinedIds = remember(myRooms) { myRooms.map { it.id }.toSet() }
-
-    fun filter(list: List<OpenChatRoom>): List<OpenChatRoom> {
-        val q = query.trim()
-        if (q.isEmpty()) return list
-        return list.filter { it.title.contains(q, true) || it.desc.contains(q, true) }
-    }
+    // 내가 들어간 방 id 집합 (탐색에서 제외용)
+    val myRoomIds = remember(myRooms) { myRooms.map { it.id }.toSet() }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("오픈채팅", style = MaterialTheme.typography.titleMedium) },
+                title = { Text("오픈채팅", style = MaterialTheme.typography.headlineSmall) },
                 actions = {
                     IconButton(onClick = { navController.navigate("openchat_create") }) {
                         Icon(Icons.Default.AddCircle, contentDescription = "방 만들기")
@@ -76,169 +74,151 @@ fun OpenChatHomeScreen(
         }
     ) { pad ->
         Column(Modifier.padding(pad)) {
-            // 탭
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("탐색") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("내 방") })
             }
 
-            // 검색 바 (콤팩트)
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
+            // 검색창
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 10.dp),
-                placeholder = { Text("방 제목/소개 검색") },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "지우기")
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = {
+                        if (query.isNotBlank()) {
+                            IconButton(onClick = { query = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "지우기")
+                            }
                         }
-                    }
-                }
-            )
-
-            if (tab == 1) {
-                // 내 방만
-                val list = filter(myRooms)
-                SectionsList(
-                    sections = listOf("내 방" to list),
-                    joinedIds = joinedIds,
-                    navController = navController
-                )
-            } else {
-                // 탐색: 내가 들어간 방 + 전체 공개 방(내 방도 함께 노출)
-                val joined = filter(discover.filter { it.id in joinedIds })
-                val allPublic = filter(discover) // 중복 허용
-
-                SectionsList(
-                    sections = listOf(
-                        "내가 들어가있는 방" to joined,
-                        "전체 공개 방" to allPublic
-                    ),
-                    joinedIds = joinedIds,
-                    navController = navController
-                )
-            }
-        }
-    }
-}
-
-/** 섹션형 리스트 (중복 key 충돌 방지 위해 섹션 prefix 부여) */
-@Composable
-private fun SectionsList(
-    sections: List<Pair<String, List<OpenChatRoom>>>,
-    joinedIds: Set<String>,
-    navController: NavHostController
-) {
-    LazyColumn(
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        sections.forEach { (title, list) ->
-            // 섹션 타이틀
-            item(key = "header_$title") {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    },
+                    placeholder = { Text("방 제목/소개 검색") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            if (list.isEmpty()) {
-                item(key = "empty_$title") {
-                    Text(
-                        "표시할 방이 없어요.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
+            if (tab == 0) {
+                //
+                val publicList = remember(discover, myRoomIds, query) {
+                    discover // observeDiscover가 open==true로 가져옴
+                        .filter { it.id !in myRoomIds }
+                        .filter { it.title.contains(query, true) || it.desc.contains(query, true) }
                 }
-            } else {
-                // ✅ 섹션 prefix를 key에 붙여 중복 방(같은 id)도 충돌 없이 노출
-                items(
-                    items = list,
-                    key = { room -> "${title}_${room.id}" }
-                ) { room ->
-                    RoomRow(
-                        room = room,
-                        isJoined = joinedIds.contains(room.id),
-                        onClick = { navController.navigate("openchat/${room.id}") }
-                    )
-                }
-            }
-
-            item(key = "sp_$title") { Spacer(Modifier.height(4.dp)) }
-        }
-    }
-}
-
-/** 콤팩트한 리스트형 룸 아이템 */
-@Composable
-private fun RoomRow(
-    room: OpenChatRoom,
-    isJoined: Boolean,
-    onClick: () -> Unit
-) {
-    // 꼭 필요한 정보만: 제목 / 멤버수 / 공개여부 / 최근활동 / (참여중 배지)
-    val privacyIcon = if (room.open) Icons.Default.LockOpen else Icons.Default.Lock
-    val last = remember(room.lastAt) {
-        if (room.lastAt <= 0L) "방금 전"
-        else DateUtils.getRelativeTimeSpanString(room.lastAt).toString()
-    }
-
-    // ListItem이 가장 콤팩트함
-    Surface(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp)
-    ) {
-        ListItem(
-            headlineContent = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(room.title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    if (isJoined) {
-                        Spacer(Modifier.width(8.dp))
-                        AssistChip(
-                            onClick = {},
-                            label = { Text("참여중") },
-                            leadingIcon = { Icon(Icons.Default.CheckCircle, null) }
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(publicList, key = { it.id }) { room ->
+                        RoomRow(
+                            room = room,
+                            myUid = myUid,               // crown 판단에 사용 (탐색에서도 방장 표시 가능)
+                            onClick = { navController.navigate("openchat/${room.id}") }
                         )
                     }
                 }
-            },
-            supportingContent = {
-                // 소개는 한 줄만 (있을 때만)
-                if (room.desc.isNotBlank()) {
-                    Text(
-                        room.desc,
-                        maxLines = 1,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+            } else {
+                //
+                val joinedList = remember(myRooms, query) {
+                    myRooms.filter { it.title.contains(query, true) || it.desc.contains(query, true) }
                 }
-            },
-            leadingContent = {
-                // 공개/비공개
-                Icon(privacyIcon, contentDescription = null)
-            },
-            trailingContent = {
-                Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
-                    // 멤버 수
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        Icon(Icons.Default.Group, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("${room.memberCount}", style = MaterialTheme.typography.labelMedium)
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(joinedList, key = { it.id }) { room ->
+                        RoomRow(
+                            room = room,
+                            myUid = myUid,               // 방장 여부 판단해서 왕관 표시
+                            onClick = { navController.navigate("openchat/${room.id}") }
+                        )
                     }
-                    // 최근 활동
-                    Text(last, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        )
+        }
+    }
+}
+
+/** 콤팩트 카드: 썸네일 + 제목(방장=왕관) + 한줄소개 + 실시간 인원 + 공개/비공개 아이콘 */
+@Composable
+private fun RoomRow(
+    room: OpenChatRoom,
+    myUid: String?,
+    onClick: () -> Unit
+) {
+    // 실시간 멤버 수
+    var liveCount by remember { mutableStateOf(0) }
+    DisposableEffect(room.id) {
+        val db = FirebaseFirestore.getInstance()
+        val reg = db.collection("openRooms").document(room.id)
+            .collection("members")
+            .addSnapshotListener { snap, _ -> liveCount = snap?.size()?.toInt() ?: 0 }
+        onDispose { reg.remove() }
+    }
+
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 썸네일
+            AsyncImage(
+                model = room.thumbUrl.ifBlank { null },
+                contentDescription = null,
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+            Spacer(Modifier.width(12.dp))
+
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    //
+                    if (myUid != null && room.ownerUid == myUid) {
+                        Icon(
+                            Icons.Default.WorkspacePremium,
+                            contentDescription = "방장",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(room.title, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                }
+                if (room.desc.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        room.desc,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AssistChip(
+                    onClick = {},
+                    label = { Text("$liveCount") },
+                    leadingIcon = { Icon(Icons.Default.Group, contentDescription = null) }
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = if (room.open) Icons.Default.LockOpen else Icons.Default.Lock,
+                    contentDescription = if (room.open) "공개" else "비공개",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }

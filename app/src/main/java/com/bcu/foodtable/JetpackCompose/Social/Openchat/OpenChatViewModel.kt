@@ -39,9 +39,7 @@ class OpenChatViewModel : ViewModel() {
         discoverListener = rooms
             .whereEqualTo("open", true)
             .orderBy("lastAt", Query.Direction.DESCENDING)
-            .limit(200)
-            .addSnapshotListener { snap, e ->
-                if (e != null) return@addSnapshotListener
+            .addSnapshotListener { snap, _ ->
                 _discover.value = snap?.documents?.mapNotNull { d ->
                     d.toObject(OpenChatRoom::class.java)?.copy(id = d.id)
                 }.orEmpty()
@@ -55,11 +53,13 @@ class OpenChatViewModel : ViewModel() {
             .whereArrayContains("memberIds", myUid)
             .orderBy("lastAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, _ ->
-                _myRooms.value = snap?.documents?.mapNotNull { d ->
+                val list = snap?.documents?.mapNotNull { d ->
                     d.toObject(OpenChatRoom::class.java)?.copy(id = d.id)
                 }.orEmpty()
+                _myRooms.value = list
             }
     }
+
 
     /** 방 만들기 */
     suspend fun createRoom(
@@ -68,7 +68,8 @@ class OpenChatViewModel : ViewModel() {
         title: String,
         desc: String,
         open: Boolean,
-        passcode: String?
+        passcode: String?,
+        thumbUrl: String? = null
     ): String {
         val ref = rooms.document()
         val now = System.currentTimeMillis()
@@ -82,7 +83,8 @@ class OpenChatViewModel : ViewModel() {
             memberCount = 1,
             lastAt = now,
             lastMessage = null,
-            memberIds = listOf(ownerUid)
+            memberIds = listOf(ownerUid),
+            thumbUrl = thumbUrl.orEmpty()
         )
         ref.set(room).await()
         val ownerMember = OpenChatMember(
@@ -122,11 +124,67 @@ class OpenChatViewModel : ViewModel() {
         return true
     }
 
-    /** 나가기 */
+    /** 나가기: 방장은 바로 나갈 수 없도록 금지(양도 후에만) */
     suspend fun leaveRoom(roomId: String, uid: String) {
+        val roomSnap = rooms.document(roomId).get().await()
+        require(roomSnap.exists()) { "방이 존재하지 않습니다." }
+        val ownerUid = roomSnap.getString("ownerUid")
+        if (ownerUid == uid) {
+            throw IllegalStateException("방장은 나가기 전에 방장을 다른 멤버에게 양도해야 합니다.")
+        }
+        rooms.document(roomId).collection("members").document(uid).delete().await()
+        rooms.document(roomId).update("memberIds", FieldValue.arrayRemove(uid)).await()
+    }
+
+    /** 방장 양도: oldOwner -> member, newOwner -> owner */
+    suspend fun transferOwnership(roomId: String, newOwnerUid: String) {
         val roomRef = rooms.document(roomId)
-        roomRef.collection("members").document(uid).delete().await()
-        roomRef.update("memberIds", FieldValue.arrayRemove(uid)).await()
+        db.runTransaction { tx ->
+            val roomDoc = tx.get(roomRef)
+            require(roomDoc.exists()) { "방이 존재하지 않습니다." }
+            val oldOwnerUid = roomDoc.getString("ownerUid") ?: error("방장 정보 없음")
+            require(oldOwnerUid != newOwnerUid) { "이미 해당 사용자가 방장입니다." }
+
+            val newMemberRef = roomRef.collection("members").document(newOwnerUid)
+            val oldMemberRef = roomRef.collection("members").document(oldOwnerUid)
+            require(tx.get(newMemberRef).exists()) { "대상 사용자가 멤버가 아닙니다." }
+
+            tx.update(roomRef, "ownerUid", newOwnerUid)
+            tx.set(newMemberRef, mapOf("role" to "owner"), SetOptions.merge())
+            tx.set(oldMemberRef, mapOf("role" to "member"), SetOptions.merge())
+            null
+        }.await()
+
+        // 시스템 메시지: 새 방장 이름 표시
+        val newOwnerName = users.document(newOwnerUid).get().await().getString("name") ?: "새 방장"
+        sendSystem(roomId, "owner_transfer", newOwnerName)
+    }
+
+    /** 방 삭제: 오너만 가능. 모든 하위 컬렉션 삭제 후 룸 문서 삭제 */
+    suspend fun deleteRoom(roomId: String, requesterUid: String) {
+        val roomRef = rooms.document(roomId)
+        val doc = roomRef.get().await()
+        require(doc.exists()) { "방이 존재하지 않습니다." }
+        val ownerUid = doc.getString("ownerUid")
+        require(ownerUid == requesterUid) { "방장만 삭제할 수 있습니다." }
+
+        // 하위 컬렉션 순차 삭제
+        suspend fun deleteCollection(path: String, batchSize: Int = 300) {
+            val coll = roomRef.collection(path)
+            while (true) {
+                val snap = coll.limit(batchSize.toLong()).get().await()
+                if (snap.isEmpty) break
+                val batch = db.batch()
+                snap.documents.forEach { batch.delete(it.reference) }
+                batch.commit().await()
+            }
+        }
+
+        // 존재할 수 있는 모든 서브컬렉션 정리
+        listOf("messages", "members", "bans", "events").forEach { deleteCollection(it) }
+
+        // 마지막에 방 자체 삭제
+        roomRef.delete().await()
     }
 
     /** 메시지 리스너 */
@@ -185,6 +243,7 @@ class OpenChatViewModel : ViewModel() {
             "kick"   -> "${nickname ?: "사용자"}님이 강퇴되었습니다."
             "invite" -> "${nickname ?: "누군가"}님을 초대했어요."
             "notice" -> nickname ?: "공지사항이 업데이트되었습니다."
+            "owner_transfer" -> "방장이 ${nickname ?: "새 방장"}님으로 변경되었어요."
             else     -> nickname ?: "시스템 알림"
         }
         val now = System.currentTimeMillis()
@@ -214,19 +273,20 @@ class OpenChatViewModel : ViewModel() {
 
     /** 강퇴/밴 */
     suspend fun kickMember(roomId: String, targetUid: String) {
-        val memRef = rooms.document(roomId).collection("members").document(targetUid)
-        val mem = memRef.get().await()
-        val nickname = mem.getString("nickname")
-        memRef.delete().await()
-        rooms.document(roomId).update("memberIds", FieldValue.arrayRemove(targetUid)).await()
-        sendSystem(roomId, "kick", nickname)
-    }
-    suspend fun banMember(roomId: String, targetUid: String, reason: String?) {
-        rooms.document(roomId).collection("bans").document(targetUid)
-            .set(mapOf("reason" to (reason ?: ""), "bannedAt" to Timestamp.now())).await()
-        kickMember(roomId, targetUid)
+        val roomRef = rooms.document(roomId)
+        roomRef.collection("members").document(targetUid).delete().await()
+        roomRef.update("memberIds", FieldValue.arrayRemove(targetUid)).await()
+        val targetName = users.document(targetUid).get().await().getString("name")
+        sendSystem(roomId, "kick", targetName)
     }
 
+    suspend fun banMember(roomId: String, targetUid: String, reason: String?) {
+        val roomRef = rooms.document(roomId)
+        roomRef.collection("bans").document(targetUid)
+            .set(mapOf("reason" to (reason ?: ""), "bannedAt" to com.google.firebase.Timestamp.now()))
+            .await()
+        kickMember(roomId, targetUid) // ← 내부에서 system 처리
+    }
     /** ---- 초대 플로우 (친구 채팅으로 초대 전송) ---- */
 
     // (1) id list로 유저들 이름 조회 (whereIn chunked)
@@ -306,4 +366,12 @@ class OpenChatViewModel : ViewModel() {
         val targetNames = fetchUsersByIds(targetUids).joinToString(", ") { it.second }
         sendSystem(roomId, "invite", targetNames)
     }
+    override fun onCleared() {
+        super.onCleared()
+        discoverListener?.remove()
+        myRoomsListener?.remove()
+        msgListener?.remove()
+    }
+
+
 }

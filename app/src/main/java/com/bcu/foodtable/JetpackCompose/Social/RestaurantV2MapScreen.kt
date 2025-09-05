@@ -512,18 +512,29 @@ fun RestaurantKakaoMap(
                                 val layer = map.labelManager?.layer
 
                                 // 현위치 마커 추가
-                                fun updateUserMarker(userPos: LatLng) {
-                                    val srcBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.user_loc)
+                                // === [ADD/REPLACE] onMapReady(...) 내부: 사용자 아이콘 캐싱 + 업데이트 함수 ===
+                                val userIconBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.user_loc).let { src ->
                                     val sizePx = TypedValue.applyDimension(
                                         TypedValue.COMPLEX_UNIT_DIP, 24f, context.resources.displayMetrics
                                     ).toInt()
-                                    val scaledBitmap = Bitmap.createScaledBitmap(srcBitmap, sizePx, sizePx, true)
-                                    val style = LabelStyle.from(scaledBitmap)
-                                    val opts = LabelOptions.from("user_loc", userPos)
-                                        .setStyles(style)
-                                        .setRank(10000L)
-                                    userLocationLabel = layer?.addLabel(opts)
+                                    Bitmap.createScaledBitmap(src, sizePx, sizePx, true)
                                 }
+                                val userIconStyle = LabelStyle.from(userIconBitmap)
+
+                                // [REPLACE] add/move를 한 함수로 통합
+                                fun updateUserMarker(userPos: LatLng) {
+                                    val layer = kakaoMap?.labelManager?.layer ?: return
+                                    val existing = userLocationLabel
+                                    if (existing == null) {
+                                        val opts = LabelOptions.from("user_loc", userPos)
+                                            .setStyles(userIconStyle)
+                                            .setRank(10000L) // 항상 최상단에 가깝게
+                                        userLocationLabel = layer.addLabel(opts)
+                                    } else {
+                                        existing.moveTo(userPos)
+                                    }
+                                }
+
 
                                 // 현위치 트래킹
                                 val fusedClient = LocationServices.getFusedLocationProviderClient(context)
@@ -565,7 +576,9 @@ fun RestaurantKakaoMap(
                                 val center = map.cameraPosition?.getPosition() ?: userLocationLatLng
                                 viewModel.fetchRestaurantsFromKakao(center.latitude, center.longitude)
 
+
                                 // 마커 표시 함수
+                                // === [REPLACE] showMarkers(): 줌별 샘플링 + 개수 상한 적용 ===
                                 fun showMarkers() {
                                     val layer = kakaoMap?.labelManager?.layer
                                     val zoom: Float = kakaoMap?.cameraPosition?.zoomLevel?.toFloat() ?: 0f
@@ -573,33 +586,61 @@ fun RestaurantKakaoMap(
 
                                     layer?.removeAll()
 
-                                    // 현위치 마커는 항상
+                                    userLocationLabel = null
+
+                                    // 현위치는 항상 표시
                                     updateUserMarker(userLocationLatLng)
 
-                                    // === 줌이 충분할 때만 다른 마커들 표시 ===
-                                    if (zoom >= CUSTOM_MARKER_MIN_ZOOM) {
-                                        // 1) 카카오 + 찜 맛집
-                                        val allKakaoPlaces = (viewModel.visibleRestaurants + viewModel.favoriteRestaurants)
-                                            .distinctBy { it.id }
+                                    // 기존 규칙 유지: 임계치 미만이면 다른 마커는 숨김
+                                    if (zoom < CUSTOM_MARKER_MIN_ZOOM) return
 
-                                        allKakaoPlaces.forEach { place ->
-                                            val pos = LatLng.from(place.y.toDoubleOrNull() ?: 0.0, place.x.toDoubleOrNull() ?: 0.0)
-                                            val opts = LabelOptions.from("matzip_${place.id}", pos)
-                                                .setStyles(R.drawable.user_loc_small)
-                                                .setRank(10L)
-                                            layer?.addLabel(opts)
+                                    val minDist = minDistanceMetersForZoom(zoom)
+                                    val (maxKakao, maxCustom) = maxCountsForZoom(zoom)
+
+                                    // 1) Kakao + 즐겨찾기 (ID 중복 제거 + 좌표 유효한 것만)
+                                    val kakaoTriples = (viewModel.visibleRestaurants + viewModel.favoriteRestaurants)
+                                        .distinctBy { it.id }
+                                        .mapNotNull { p ->
+                                            val lat = p.y.toDoubleOrNull()
+                                            val lng = p.x.toDoubleOrNull()
+                                            if (lat == null || lng == null) null else Triple(p, lat, lng)
                                         }
 
-                                        // 2) 커스텀 마커
-                                        customMarkers.values.forEach { marker ->
-                                            val pos = LatLng.from(marker.lat, marker.lng)
-                                            val opts = LabelOptions.from("cust_${marker.id}", pos)
-                                                .setStyles(R.drawable.user_loc_small)
-                                                .setRank(20L)
-                                            layer?.addLabel(opts)
-                                        }
+                                    val sampledKakao = sampleByDistance(
+                                        items = kakaoTriples,
+                                        center = center,
+                                        minDistanceMeters = minDist,
+                                        maxCount = maxKakao,
+                                        lat = { it.second }, lng = { it.third }
+                                    )
+
+                                    // 2) Custom markers
+                                    val sampledCustom = sampleByDistance(
+                                        items = customMarkers.values.toList(),
+                                        center = center,
+                                        minDistanceMeters = minDist,
+                                        maxCount = maxCustom,
+                                        lat = { it.lat }, lng = { it.lng }
+                                    )
+
+                                    // 3) 실제 라벨 추가 (순서/랭크로 시각 우선순위 조절)
+                                    sampledKakao.forEach { (place, lat, lng) ->
+                                        val pos = LatLng.from(lat, lng)
+                                        val opts = LabelOptions.from("matzip_${place.id}", pos)
+                                            .setStyles(R.drawable.user_loc_small) // 필요 시 다른 아이콘으로 교체
+                                            .setRank(10L) // 커스텀보다 아래
+                                        layer?.addLabel(opts)
+                                    }
+
+                                    sampledCustom.forEach { marker ->
+                                        val pos = LatLng.from(marker.lat, marker.lng)
+                                        val opts = LabelOptions.from("cust_${marker.id}", pos)
+                                            .setStyles(R.drawable.user_loc_small) // 필요 시 다른 아이콘으로 교체
+                                            .setRank(20L) // 카카오보다 위
+                                        layer?.addLabel(opts)
                                     }
                                 }
+
 
 
 
@@ -1086,6 +1127,46 @@ fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Doub
             kotlin.math.sin(dLon/2) * kotlin.math.sin(dLon/2)
     val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1-a))
     return R * c
+}
+
+// === 줌 레벨에 따른 밀도/개수 제어 헬퍼 ===
+private fun minDistanceMetersForZoom(zoom: Float): Double = when {
+    zoom < 14f -> Double.POSITIVE_INFINITY  // 줌 13: 안그림
+    zoom < 16f -> 500.0   // 줌 14~15: 기존 800 → 500 (더 많이)
+    zoom < 18f -> 220.0   // 줌 16~17: 기존 320 → 220 (확 늘림)
+    else       -> 120.0   // 줌 18+: 기존 180 → 120
+}
+
+// [REPLACE] 줌별 최대 개수 상한(더 많이 보이도록)
+private fun maxCountsForZoom(zoom: Float): Pair<Int, Int> = when {
+    zoom < 14f ->   0 to   0
+    zoom < 16f -> 120 to  60   // 14~15: 기존 60/30 → 120/60
+    zoom < 18f -> 320 to 160   // 16~17: 기존 240/120 → 320/160
+    else       -> 600 to 300   // 18+: 기존 400/200 → 600/300
+}
+
+/** 중심에서 가까운 것부터 고르되, 서로 minDistanceMeters 이상 떨어지도록 샘플링 */
+private inline fun <T> sampleByDistance(
+    items: List<T>,
+    center: LatLng,
+    minDistanceMeters: Double,
+    maxCount: Int,
+    crossinline lat: (T) -> Double,
+    crossinline lng: (T) -> Double
+): List<T> {
+    if (items.isEmpty() || maxCount <= 0) return emptyList()
+    val sorted = items.sortedBy {
+        distanceMeters(center.latitude, center.longitude, lat(it), lng(it))
+    }
+    val chosen = mutableListOf<T>()
+    for (item in sorted) {
+        if (chosen.size >= maxCount) break
+        val tooClose = chosen.any { s ->
+            distanceMeters(lat(s), lng(s), lat(item), lng(item)) < minDistanceMeters
+        }
+        if (!tooClose) chosen.add(item)
+    }
+    return chosen
 }
 
 
