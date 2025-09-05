@@ -35,14 +35,14 @@ class OpenChatViewModel : ViewModel() {
 
     /** 공개방(탐색) 실시간 구독 */
     fun observeDiscover() {
-        rooms
+        discoverListener?.remove()
+        discoverListener = rooms
             .whereEqualTo("open", true)
             .orderBy("lastAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snap, _ ->
-                val list = snap?.documents?.mapNotNull { d ->
+                _discover.value = snap?.documents?.mapNotNull { d ->
                     d.toObject(OpenChatRoom::class.java)?.copy(id = d.id)
                 }.orEmpty()
-                _discover.value = list
             }
     }
 
@@ -68,7 +68,8 @@ class OpenChatViewModel : ViewModel() {
         title: String,
         desc: String,
         open: Boolean,
-        passcode: String?
+        passcode: String?,
+        thumbUrl: String? = null
     ): String {
         val ref = rooms.document()
         val now = System.currentTimeMillis()
@@ -82,7 +83,8 @@ class OpenChatViewModel : ViewModel() {
             memberCount = 1,
             lastAt = now,
             lastMessage = null,
-            memberIds = listOf(ownerUid)
+            memberIds = listOf(ownerUid),
+            thumbUrl = thumbUrl.orEmpty()
         )
         ref.set(room).await()
         val ownerMember = OpenChatMember(
@@ -271,19 +273,20 @@ class OpenChatViewModel : ViewModel() {
 
     /** 강퇴/밴 */
     suspend fun kickMember(roomId: String, targetUid: String) {
-        val memRef = rooms.document(roomId).collection("members").document(targetUid)
-        val mem = memRef.get().await()
-        val nickname = mem.getString("nickname")
-        memRef.delete().await()
-        rooms.document(roomId).update("memberIds", FieldValue.arrayRemove(targetUid)).await()
-        sendSystem(roomId, "kick", nickname)
-    }
-    suspend fun banMember(roomId: String, targetUid: String, reason: String?) {
-        rooms.document(roomId).collection("bans").document(targetUid)
-            .set(mapOf("reason" to (reason ?: ""), "bannedAt" to Timestamp.now())).await()
-        kickMember(roomId, targetUid)
+        val roomRef = rooms.document(roomId)
+        roomRef.collection("members").document(targetUid).delete().await()
+        roomRef.update("memberIds", FieldValue.arrayRemove(targetUid)).await()
+        val targetName = users.document(targetUid).get().await().getString("name")
+        sendSystem(roomId, "kick", targetName)
     }
 
+    suspend fun banMember(roomId: String, targetUid: String, reason: String?) {
+        val roomRef = rooms.document(roomId)
+        roomRef.collection("bans").document(targetUid)
+            .set(mapOf("reason" to (reason ?: ""), "bannedAt" to com.google.firebase.Timestamp.now()))
+            .await()
+        kickMember(roomId, targetUid) // ← 내부에서 system 처리
+    }
     /** ---- 초대 플로우 (친구 채팅으로 초대 전송) ---- */
 
     // (1) id list로 유저들 이름 조회 (whereIn chunked)
@@ -362,6 +365,12 @@ class OpenChatViewModel : ViewModel() {
         // 방 내부 공지(“A, B님을 초대했어요.”)
         val targetNames = fetchUsersByIds(targetUids).joinToString(", ") { it.second }
         sendSystem(roomId, "invite", targetNames)
+    }
+    override fun onCleared() {
+        super.onCleared()
+        discoverListener?.remove()
+        myRoomsListener?.remove()
+        msgListener?.remove()
     }
 
 

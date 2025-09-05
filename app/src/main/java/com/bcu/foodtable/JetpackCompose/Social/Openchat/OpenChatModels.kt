@@ -11,7 +11,8 @@ data class OpenChatRoom(
     val memberCount: Long = 1,
     val lastAt: Long = System.currentTimeMillis(),   // 정렬/탐색용(ms)
     val lastMessage: String? = null,                 // 리스트 미리보기
-    val memberIds: List<String> = emptyList()
+    val memberIds: List<String> = emptyList(),
+    val thumbUrl: String = ""
 )
 
 data class OpenChatMember(
