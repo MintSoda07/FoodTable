@@ -7,7 +7,12 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,17 +24,25 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.bcu.foodtable.JetpackCompose.Social.ChatTheme // ✅ DM과 동일 테마 적용
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -139,106 +152,121 @@ fun OpenChatRoomScreen(
 
     if (!joined || room == null) return
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(room!!.title, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "${room!!.memberCount}명 참여중",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                // ✅ 뒤로가기 버튼 제거(시스템 Back은 유지)
-                actions = {
-                    IconButton(onClick = { shareOpenChatLink(ctx, roomId) }) { Icon(Icons.Default.Share, null) }
-                    IconButton(onClick = { showMembers = true }) { Icon(Icons.Default.Group, null) }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
-                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            DropdownMenuItem(text = { Text("멤버 보기") }, onClick = { showMenu = false; showMembers = true })
-                            DropdownMenuItem(
-                                text = { Text("링크 복사") },
-                                onClick = {
-                                    showMenu = false
-                                    val uri = "foodtable://openchat?roomId=$roomId"
-                                    clipboard.setText(AnnotatedString(uri))
-                                    Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
-                                }
+    ChatTheme { // ✅ DM과 동일 톤 적용
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            // 방 이름 더 크게 + 가운데
+                            Text(
+                                room!!.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold
                             )
-                            DropdownMenuItem(text = { Text("친구 초대") }, onClick = { showMenu = false; showInvite = true })
-                            DropdownMenuItem(
-                                text = { Text("나가기") },
-                                onClick = {
-                                    showMenu = false
-                                    scope.launch {
-                                        vm.leaveRoom(roomId, myUid)
-                                        vm.sendSystem(roomId, "leave", myNick.ifBlank { myGlobalNick })
-                                        vm.removeMessageListener()
-                                        navController.popBackStack()
-                                    }
-                                }
+                            // "~참여중" 가운데
+                            Text(
+                                "${room!!.memberCount}명 참여중",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            if (isOwner) {
-                                val willOpen = !(room?.open ?: true)
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { shareOpenChatLink(ctx, roomId) }) { Icon(Icons.Default.Share, null) }
+                        IconButton(onClick = { showMembers = true }) { Icon(Icons.Default.Group, null) }
+                        Box {
+                            IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
+                            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                                DropdownMenuItem(text = { Text("멤버 보기") }, onClick = { showMenu = false; showMembers = true })
                                 DropdownMenuItem(
-                                    text = { Text(if (willOpen) "공개로 전환" else "비공개로 전환") },
+                                    text = { Text("링크 복사") },
                                     onClick = {
                                         showMenu = false
-                                        if (willOpen) {
-                                            scope.launch {
-                                                vm.setRoomVisibility(roomId, true, null)
-                                                room = room?.copy(open = true, passcode = null)
-                                            }
-                                        } else {
-                                            passcodeInput = ""
-                                            showPasscodeDialog = true
+                                        val uri = "foodtable://openchat?roomId=$roomId"
+                                        clipboard.setText(AnnotatedString(uri))
+                                        Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                                DropdownMenuItem(text = { Text("친구 초대") }, onClick = { showMenu = false; showInvite = true })
+                                DropdownMenuItem(
+                                    text = { Text("나가기") },
+                                    onClick = {
+                                        showMenu = false
+                                        scope.launch {
+                                            vm.leaveRoom(roomId, myUid)
+                                            vm.sendSystem(roomId, "leave", myNick.ifBlank { myGlobalNick })
+                                            vm.removeMessageListener()
+                                            navController.popBackStack()
                                         }
                                     }
                                 )
+                                if (isOwner) {
+                                    val willOpen = !(room?.open ?: true)
+                                    DropdownMenuItem(
+                                        text = { Text(if (willOpen) "공개로 전환" else "비공개로 전환") },
+                                        onClick = {
+                                            showMenu = false
+                                            if (willOpen) {
+                                                scope.launch {
+                                                    vm.setRoomVisibility(roomId, true, null)
+                                                    room = room?.copy(open = true, passcode = null)
+                                                }
+                                            } else {
+                                                passcodeInput = ""
+                                                showPasscodeDialog = true
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    )
+                )
+            },
+            floatingActionButton = {
+
+                AnimatedVisibility(visible = !isNearBottom) {
+                    FloatingActionButton(
+                        onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "맨 아래로")
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            // ✅ 사용자가 위로 스크롤했을 때만 노출되는 "맨 아래로" FAB
-            AnimatedVisibility(visible = !isNearBottom) {
-                ExtendedFloatingActionButton(
-                    icon = { Icon(Icons.Default.ArrowDownward, null) },
-                    text = { Text("맨 아래로") },
-                    onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } }
+            },
+            bottomBar = {
+                // ✅ DM과 동일 입력 바 재사용 (이미 프로젝트에 존재)
+                com.bcu.foodtable.JetpackCompose.Social.ChatInputBar(
+                    onSendMessage = { text ->
+                        scope.launch { if (text.isNotBlank()) vm.sendText(roomId, myUid, text) }
+                    },
+                    onSendImage = { pickImageLauncher.launch("image/*") },
+                    onSendMoney = { /* 오픈채팅은 미사용 */ }
                 )
-            }
-        },
-        bottomBar = {
-            com.bcu.foodtable.JetpackCompose.Social.ChatInputBar(
-                onSendMessage = { text ->
-                    scope.launch { if (text.isNotBlank()) vm.sendText(roomId, myUid, text) }
-                },
-                onSendImage = { pickImageLauncher.launch("image/*") },
-                onSendMoney = { /* 미사용 */ }
-            )
-        }
-    ) { pad ->
-        LazyColumn(
-            state = listState, // ✅
-            modifier = Modifier.padding(pad).fillMaxSize(),
-            contentPadding = PaddingValues(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(messages, key = { it.id }) { msg ->
-                when (msg.type) {
-                    "system" -> SystemBubble(text = msg.text ?: "")
-                    else -> RoomMessageBubble(
-                        message = msg,
-                        isMe = msg.senderUid == myUid,
-                        unreadCount = (room!!.memberCount - (msg.readBy.size)).coerceAtLeast(0)
-                    )
+            },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { pad ->
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .padding(pad)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 12.dp, horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(messages, key = { it.id }) { msg ->
+                    when (msg.type) {
+                        "system" -> SystemBubble(text = msg.text ?: "")
+                        else -> RoomMessageBubble(
+                            message = msg,
+                            isMe = msg.senderUid == myUid,
+                            unreadCount = (room!!.memberCount - (msg.readBy.size)).coerceAtLeast(0)
+                        )
+                    }
                 }
             }
         }
@@ -354,45 +382,130 @@ private fun SystemBubble(text: String) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: Long) {
-    val align = if (isMe) Arrangement.End else Arrangement.Start
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = align) {
-        Column(horizontalAlignment = if (isMe) Alignment.End else Alignment.Start) {
-            if (!isMe) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).background(Color.Gray, CircleShape))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        message.senderNickname,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+    val ctx = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val timeFormatter = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.KOREA) }
+    val timeText = timeFormatter.format(java.util.Date(message.timestamp))
+
+    val bubbleColor =
+        if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val textColor =
+        if (isMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val shape = MaterialTheme.shapes.medium
+
+    if (isMe) {
+        // ===== 내가 보낸 메시지: 시간은 왼쪽(버블 왼쪽), 기존 유지 =====
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                timeText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(end = 6.dp)
+            )
+            Box(modifier = Modifier.widthIn(max = 280.dp)) {
+                Surface(color = bubbleColor, shape = shape) {
+                    Column(
+                        modifier = Modifier.combinedClickable(
+                            onClick = {},
+                            onLongClick = {
+                                message.text?.takeIf { it.isNotBlank() }?.let {
+                                    clipboard.setText(AnnotatedString(it))
+                                    Toast.makeText(ctx, "메시지가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    ) {
+                        message.text?.let {
+                            Text(it, modifier = Modifier.padding(12.dp), color = textColor)
+                        }
+                        message.imageUrl?.let { url ->
+                            AsyncImage(
+                                model = url,
+                                contentDescription = "Room Image",
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .clip(shape)
+                                    .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
+                            )
+                        }
+                        AnimatedVisibility(visible = unreadCount > 0) {
+                            Text(
+                                "안 읽은 사람: $unreadCount",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
-                Spacer(Modifier.height(2.dp))
             }
-            Surface(
-                color = if (isMe) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium
+        }
+    } else {
+        // ===== 상대가 보낸 메시지: 닉네임은 '버블 위', 시간은 '버블 오른쪽 아래'(예전처럼) =====
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Bottom // ← 시간(오른쪽)이 버블 하단 기준으로 정렬되도록
+        ) {
+            // 닉네임 + 버블을 하나의 Column으로 묶음
+            Column(
+                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.padding(end = 6.dp)
             ) {
-                Column(Modifier.padding(10.dp)) {
-                    message.text?.let { Text(it) }
-                    message.imageUrl?.let {
-                        AsyncImage(
-                            model = it,
-                            contentDescription = null,
-                            modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
-                        )
-                    }
-                    AnimatedVisibility(visible = unreadCount > 0 && isMe) {
-                        Text(
-                            "안 읽은 사람: $unreadCount",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                // 닉네임을 버블 '위'에
+                Text(
+                    message.senderNickname,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(2.dp))
+
+                // 버블
+                Box(modifier = Modifier.widthIn(max = 280.dp)) {
+                    Surface(color = bubbleColor, shape = shape) {
+                        Column(
+                            modifier = Modifier.combinedClickable(
+                                onClick = {},
+                                onLongClick = {
+                                    message.text?.takeIf { it.isNotBlank() }?.let {
+                                        clipboard.setText(AnnotatedString(it))
+                                        Toast.makeText(ctx, "메시지가 복사되었습니다.", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        ) {
+                            message.text?.let {
+                                Text(it, modifier = Modifier.padding(12.dp), color = textColor)
+                            }
+                            message.imageUrl?.let { url ->
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = "Room Image",
+                                    modifier = Modifier
+                                        .padding(4.dp)
+                                        .clip(shape)
+                                        .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
+
+            // 시간: 버블 오른쪽, 하단 정렬(예전과 동일 위치)
+            Text(
+                timeText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray,
+                modifier = Modifier.padding(start = 6.dp)
+            )
         }
     }
 }
@@ -420,13 +533,18 @@ private fun MembersBottomSheet(
             Spacer(Modifier.height(12.dp))
             members.forEach { m ->
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
                         Text(m.nickname)
-                        Text(if (m.role == "owner") "방장" else "멤버", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (m.role == "owner") "방장" else "멤버",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     if (isOwner && m.role != "owner") {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -469,7 +587,9 @@ private fun InviteFriendsSheet(
             } else {
                 friends.forEach { f ->
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
