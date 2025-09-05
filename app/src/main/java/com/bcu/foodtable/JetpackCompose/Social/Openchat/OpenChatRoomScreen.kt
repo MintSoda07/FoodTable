@@ -39,6 +39,7 @@ import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.Social.ChatTheme // ✅ DM과 동일 테마 적용
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
@@ -70,6 +71,12 @@ fun OpenChatRoomScreen(
     var showPasscodeDialog by remember { mutableStateOf(false) }
     var passcodeInput by remember { mutableStateOf("") }
 
+    var liveMemberCount by remember { mutableStateOf(0L) }
+    var liveMembers by remember { mutableStateOf(listOf<OpenChatMember>()) }
+    var showTransfer by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    val storage = remember { FirebaseStorage.getInstance().reference }
     // 방 정보 + 내 멤버 여부
     LaunchedEffect(roomId) {
         val db = FirebaseFirestore.getInstance()
@@ -91,6 +98,16 @@ fun OpenChatRoomScreen(
             } catch (_: Exception) {}
         }
         if (joined) vm.listenMessages(roomId)
+    }
+    DisposableEffect(roomId) {
+        val db = FirebaseFirestore.getInstance()
+        val reg = db.collection("openRooms").document(roomId)
+            .collection("members")
+            .addSnapshotListener { snap, _ ->
+                liveMemberCount = (snap?.size() ?: 0).toLong()
+                liveMembers = snap?.documents?.mapNotNull { it.toObject(OpenChatMember::class.java) }.orEmpty()
+            }
+        onDispose { reg.remove() }
     }
 
     val messages by vm.messages.collectAsState()
@@ -119,9 +136,23 @@ fun OpenChatRoomScreen(
     val pickImageLauncher = rememberLauncherForActivityResult(GetContent()) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
-            // TODO: Storage 업로드 후 downloadUrl 사용
-            val url = uri.toString()
-            vm.sendImage(roomId, myUid, url)
+            try {
+                Toast.makeText(ctx, "이미지 업로드 중...", Toast.LENGTH_SHORT).show()
+
+
+                val filename = "${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
+                val ref = storage.child("openchatImages/$roomId/$myUid/$filename")
+
+                // 업로드
+                ref.putFile(uri).await()
+
+                val url = ref.downloadUrl.await().toString()
+
+                // 메시지에 downloadUrl 저장
+                vm.sendImage(roomId, myUid, url)
+            } catch (e: Exception) {
+                Toast.makeText(ctx, "이미지 전송 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -166,8 +197,8 @@ fun OpenChatRoomScreen(
                             )
                             // "~참여중" 가운데
                             Text(
-                                "${room!!.memberCount}명 참여중",
-                                style = MaterialTheme.typography.bodySmall,
+                                "${liveMemberCount}명 참여중",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -179,28 +210,51 @@ fun OpenChatRoomScreen(
                             IconButton(onClick = { showMenu = true }) { Icon(Icons.Default.MoreVert, null) }
                             DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                                 DropdownMenuItem(text = { Text("멤버 보기") }, onClick = { showMenu = false; showMembers = true })
-                                DropdownMenuItem(
-                                    text = { Text("링크 복사") },
-                                    onClick = {
-                                        showMenu = false
-                                        val uri = "foodtable://openchat?roomId=$roomId"
-                                        clipboard.setText(AnnotatedString(uri))
-                                        Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
-                                    }
-                                )
+                                DropdownMenuItem(text = { Text("링크 복사") }, onClick = {
+                                    showMenu = false
+                                    val uri = "foodtable://openchat?roomId=$roomId"
+                                    clipboard.setText(AnnotatedString(uri))
+                                    Toast.makeText(ctx, "링크 복사됨", Toast.LENGTH_SHORT).show()
+                                })
                                 DropdownMenuItem(text = { Text("친구 초대") }, onClick = { showMenu = false; showInvite = true })
-                                DropdownMenuItem(
-                                    text = { Text("나가기") },
-                                    onClick = {
-                                        showMenu = false
-                                        scope.launch {
-                                            vm.leaveRoom(roomId, myUid)
-                                            vm.sendSystem(roomId, "leave", myNick.ifBlank { myGlobalNick })
-                                            vm.removeMessageListener()
-                                            navController.popBackStack()
+
+                                if (isOwner) {
+                                    val canTransfer = liveMembers.size >= 2
+                                    DropdownMenuItem(
+                                        text = { Text("방장 양도") },
+                                        enabled = canTransfer,
+                                        onClick = {
+                                            showMenu = false
+                                            if (canTransfer) showTransfer = true
+                                            else Toast.makeText(ctx, "양도하려면 멤버가 2명 이상이어야 해요.", Toast.LENGTH_SHORT).show()
                                         }
-                                    }
-                                )
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("방 삭제") },
+                                        onClick = {
+                                            showMenu = false
+                                            showDeleteConfirm = true
+                                        }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text("나가기") },
+                                        onClick = {
+                                            showMenu = false
+                                            scope.launch {
+                                                try {
+                                                    vm.leaveRoom(roomId, myUid)
+                                                    vm.sendSystem(roomId, "leave", myNick.ifBlank { myGlobalNick })
+                                                    vm.removeMessageListener()
+                                                    navController.popBackStack()
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(ctx, e.message ?: "나가기 실패", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+
                                 if (isOwner) {
                                     val willOpen = !(room?.open ?: true)
                                     DropdownMenuItem(
@@ -264,7 +318,7 @@ fun OpenChatRoomScreen(
                         else -> RoomMessageBubble(
                             message = msg,
                             isMe = msg.senderUid == myUid,
-                            unreadCount = (room!!.memberCount - (msg.readBy.size)).coerceAtLeast(0)
+                            unreadCount = (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
                         )
                     }
                 }
@@ -305,6 +359,50 @@ fun OpenChatRoomScreen(
             onDismiss = { showInvite = false }
         )
     }
+    // 방장 양도 시트
+    if (showTransfer) {
+        TransferOwnerSheet(
+            members = liveMembers,
+            currentOwnerUid = room!!.ownerUid,
+            onTransfer = { targetUid ->
+                scope.launch {
+                    try {
+                        vm.transferOwnership(roomId, targetUid)
+                        Toast.makeText(ctx, "방장을 양도했습니다.", Toast.LENGTH_SHORT).show()
+                        showTransfer = false
+                    } catch (e: Exception) {
+                        Toast.makeText(ctx, e.message ?: "양도 실패", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            onDismiss = { showTransfer = false }
+        )
+    }
+
+    // 방 삭제 확인 다이얼로그
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("방 삭제") },
+            text = { Text("방의 모든 메시지가 삭제됩니다. 되돌릴 수 없습니다. 계속할까요?") },
+            confirmButton = {
+                Button(onClick = {
+                    showDeleteConfirm = false
+                    scope.launch {
+                        try {
+                            vm.deleteRoom(roomId, myUid)
+                            vm.removeMessageListener()
+                            Toast.makeText(ctx, "방을 삭제했습니다.", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        } catch (e: Exception) {
+                            Toast.makeText(ctx, e.message ?: "삭제 실패", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) { Text("삭제") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("취소") } }
+        )
+    }
 
     // 비공개 전환 비번 다이얼로그
     if (showPasscodeDialog) {
@@ -339,6 +437,55 @@ fun OpenChatRoomScreen(
         )
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferOwnerSheet(
+    members: List<OpenChatMember>,
+    currentOwnerUid: String,
+    onTransfer: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selected by remember { mutableStateOf<String?>(null) }
+    val candidates = remember(members, currentOwnerUid) { members.filter { it.uid != currentOwnerUid } }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.padding(16.dp)) {
+            Text("방장 양도", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(12.dp))
+
+            if (candidates.isEmpty()) {
+                Text("양도 가능한 멤버가 없습니다.")
+            } else {
+                candidates.forEach { m ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(m.nickname)
+                            Text("멤버", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        RadioButton(
+                            selected = (selected == m.uid),
+                            onClick = { selected = m.uid }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { selected?.let(onTransfer) },
+                    enabled = selected != null,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("양도하기") }
+            }
+        }
+    }
+}
+
 
 @Composable
 private fun JoinRoomSheet(
@@ -427,12 +574,10 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
                         }
                         message.imageUrl?.let { url ->
                             AsyncImage(
-                                model = url,
-                                contentDescription = "Room Image",
-                                modifier = Modifier
-                                    .padding(4.dp)
-                                    .clip(shape)
-                                    .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
+                                model = message.imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp),
+                                onError = { Toast.makeText(ctx, "이미지를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show() }
                             )
                         }
                         AnimatedVisibility(visible = unreadCount > 0) {
@@ -486,12 +631,10 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
                             }
                             message.imageUrl?.let { url ->
                                 AsyncImage(
-                                    model = url,
-                                    contentDescription = "Room Image",
-                                    modifier = Modifier
-                                        .padding(4.dp)
-                                        .clip(shape)
-                                        .sizeIn(maxHeight = 250.dp, maxWidth = 250.dp)
+                                    model = message.imageUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp),
+                                    onError = { Toast.makeText(ctx, "이미지를 불러올 수 없습니다.", Toast.LENGTH_SHORT).show() }
                                 )
                             }
                         }
@@ -522,9 +665,13 @@ private fun MembersBottomSheet(
     val db = FirebaseFirestore.getInstance()
     var members by remember { mutableStateOf(listOf<OpenChatMember>()) }
 
-    LaunchedEffect(roomId) {
-        val snap = db.collection("openRooms").document(roomId).collection("members").get().await()
-        members = snap.documents.mapNotNull { it.toObject(OpenChatMember::class.java) }
+    DisposableEffect(roomId) {
+        val reg = db.collection("openRooms").document(roomId)
+            .collection("members")
+            .addSnapshotListener { snap, _ ->
+                members = snap?.documents?.mapNotNull { it.toObject(OpenChatMember::class.java) }.orEmpty()
+            }
+        onDispose { reg.remove() }
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
