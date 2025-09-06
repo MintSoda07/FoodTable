@@ -17,7 +17,6 @@ class OpenChatViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val rooms = db.collection("openRooms")
     private val users = db.collection("user")
-    private val dms   = db.collection("dm") // 개인채팅(초대 메시지 전송용) – 프로젝트 구조에 맞게 경로만 맞추면 됨
 
     private val _discover = MutableStateFlow<List<OpenChatRoom>>(emptyList())
     val discover: StateFlow<List<OpenChatRoom>> = _discover
@@ -253,23 +252,23 @@ class OpenChatViewModel : ViewModel() {
     }
 
     /** 읽음 표시 */
-    suspend fun markRead(roomId: String, uid: String, msgId: String) {
-        rooms.document(roomId).collection("messages").document(msgId)
-            .set(mapOf("readBy.$uid" to true), SetOptions.merge()).await()
-    }
-
-    fun markAllRead(roomId: String, uid: String, list: List<RoomMessage>) {
-        viewModelScope.launch {
-            val batch = db.batch()
-            list.forEach { m ->
-                if (m.type != "system" && m.readBy[uid] != true) {
-                    val ref = rooms.document(roomId).collection("messages").document(m.id)
-                    batch.set(ref, mapOf("readBy.$uid" to true), SetOptions.merge())
-                }
-            }
-            batch.commit().await()
-        }
-    }
+//    suspend fun markRead(roomId: String, uid: String, msgId: String) {
+//        rooms.document(roomId).collection("messages").document(msgId)
+//            .set(mapOf("readBy.$uid" to true), SetOptions.merge()).await()
+//    }
+//
+//    fun markAllRead(roomId: String, uid: String, list: List<RoomMessage>) {
+//        viewModelScope.launch {
+//            val batch = db.batch()
+//            list.forEach { m ->
+//                if (m.type != "system" && m.readBy[uid] != true) {
+//                    val ref = rooms.document(roomId).collection("messages").document(m.id)
+//                    batch.set(ref, mapOf("readBy.$uid" to true), SetOptions.merge())
+//                }
+//            }
+//            batch.commit().await()
+//        }
+//    }
 
     /** 강퇴/밴 */
     suspend fun kickMember(roomId: String, targetUid: String) {
@@ -311,9 +310,39 @@ class OpenChatViewModel : ViewModel() {
         return pairs.map { (uid, name) -> Friend(uid, name) }
     }
 
-    /** DM 스레드ID(양쪽 동일) */
-    private fun dmThreadId(a: String, b: String): String =
-        if (a < b) "${a}_$b" else "${b}_$a"
+//    /** DM 스레드ID(양쪽 동일) */
+//    private fun dmThreadId(a: String, b: String): String =
+//        if (a < b) "${a}_$b" else "${b}_$a"
+
+    // 레시피 공유
+    suspend fun sendRecipeShare(
+        roomId: String,
+        senderUid: String,
+        title: String,
+        thumbUrl: String?,
+        deeplink: String
+    ) {
+        val now = System.currentTimeMillis()
+        val msgRef = FirebaseFirestore.getInstance()
+            .collection("openRooms").document(roomId)
+            .collection("messages").document()
+
+        val payload = mapOf(
+            "id" to msgRef.id,
+            "senderUid" to senderUid,
+            "type" to "recipe",
+            "text" to title,
+            "imageUrl" to (thumbUrl ?: ""),
+            "deeplink" to deeplink,
+            "timestamp" to now,
+            "readBy" to mapOf(senderUid to true) // 스키마에 맞게
+        )
+        msgRef.set(payload).await()
+
+        // 마지막 메시지 업데이트
+        FirebaseFirestore.getInstance().collection("openRooms").document(roomId)
+            .update(mapOf("lastAt" to now, "lastMessage" to "[레시피] $title")).await()
+    }
 
     /** (2) 친구 채팅으로 오픈채팅 초대 메시지 전송 (멤버 추가는 하지 않음) */
     suspend fun sendInvitesAsDm(
@@ -375,3 +404,7 @@ class OpenChatViewModel : ViewModel() {
 
 
 }
+
+
+
+

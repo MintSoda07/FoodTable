@@ -57,6 +57,7 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeShareBubble
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
@@ -324,6 +325,15 @@ fun DetailedChatScreen(
                                     msg.type == "place" -> {
                                         SharedPlaceMessageBubble(message = msg, isMe = isMe)
                                     }
+                                    msg.type == "recipe" -> {
+                                        RecipeShareBubble(
+                                            message = msg,
+                                            onOpen = { rid ->
+                                                navController.navigate("recipe_by_id/${Uri.encode(rid)}")
+                                            }
+                                        )
+                                    }
+
                                     else -> {
                                         ChatMessageBubble(
                                             message = msg,

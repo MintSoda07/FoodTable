@@ -32,7 +32,10 @@ data class RoomMessage(
     val senderNickname: String = "",
     val timestamp: Long = System.currentTimeMillis(),
     val systemCode: String? = null,
-    val readBy: Map<String, Boolean> = emptyMap()
+    val readBy: Map<String, Boolean> = emptyMap(),
+    val recipeTitle: String? = null,
+    val recipeThumb: String? = null,
+    val deeplink: String? = null
 )
 
 /** 친구 초대용 간단 모델 */

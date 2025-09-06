@@ -32,10 +32,17 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
+import com.bcu.foodtable.JetpackCompose.Social.ChatMessage
 import com.bcu.foodtable.JetpackCompose.Social.ChatTheme
+import com.bcu.foodtable.useful.RecipeItem
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -367,6 +374,22 @@ fun OpenChatRoomScreen(
                 items(messages, key = { it.id }) { msg ->
                     when (msg.type) {
                         "system" -> SystemBubble(text = msg.text ?: "")
+                        "recipe" -> {
+                            RecipeShareBubble(
+                                message = ChatMessage( // RoomMessage → 필요한 필드만 매핑
+                                    id = msg.id,
+                                    senderUid = msg.senderUid,
+                                    text = msg.text,
+                                    imageUrl = msg.imageUrl,
+                                    timestamp = msg.timestamp,
+                                    type = "recipe",
+                                    deeplink = msg.deeplink
+                                ),
+                                onOpen = { rid ->
+                                    navController.navigate("recipe_by_id/${Uri.encode(rid)}")
+                                }
+                            )
+                        }
                         else -> RoomMessageBubble(
                             message = msg,
                             isMe = msg.senderUid == myUid,
@@ -812,4 +835,186 @@ private fun shareOpenChatLink(ctx: android.content.Context, roomId: String) {
             .setType("text/plain")
             .putExtra(Intent.EXTRA_TEXT, "오픈채팅 입장: $uri")
     )
+}
+// 레시피 공유 버블
+@Composable
+fun RecipeShareBubble(
+    message: ChatMessage,
+    onOpen: (recipeId: String) -> Unit
+) {
+    val title = message.text ?: "레시피"
+    val thumb = message.imageUrl
+    val rid = remember(message.deeplink) {
+        try {
+            Uri.parse(message.deeplink ?: "").getQueryParameter("rid") ?: ""
+        } catch (_: Exception) { "" }
+    }
+    val isEnabled = rid.isNotBlank()
+
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        ElevatedCard {
+            Column(Modifier.padding(16.dp).widthIn(max = 340.dp)) {
+                Text("레시피 공유", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(6.dp))
+                if (!thumb.isNullOrBlank()) {
+                    AsyncImage(
+                        model = thumb,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(title, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { if (isEnabled) onOpen(rid) }, enabled = isEnabled) {
+                    Text("레시피 보기")
+                }
+            }
+        }
+    }
+}
+@Composable
+fun RecipeByIdScreen(rid: String, navController: NavController) {
+    val db = FirebaseFirestore.getInstance()
+    val uid = FirebaseAuth.getInstance().currentUser?.uid
+    var recipe by remember { mutableStateOf<RecipeItem?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var purchased by remember { mutableStateOf(false) }
+    var askPurchase by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var purchasing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(rid) {
+        loading = true
+        error = null
+        try {
+            android.util.Log.d("RecipeNav", "open rid=$rid")
+            val doc = db.collection("recipe").document(rid).get().await()
+            if (!doc.exists()) {
+                error = "레시피를 찾을 수 없어요. (rid=$rid)"
+                return@LaunchedEffect
+            }
+            recipe = doc.toObject(RecipeItem::class.java)?.copy(id = doc.id)
+
+            if (uid != null) {
+                val p = db.collection("user").document(uid)
+                    .collection("purchased").document(rid)
+                    .get().await()
+                purchased = (p.getBoolean("purchased") == true)
+                askPurchase = !purchased
+            } else {
+                askPurchase = true // 비로그인 → 구매 필요 처리
+            }
+        } catch (e: Exception) {
+            error = "레시피 로딩 실패: ${e.message}"
+        } finally {
+            loading = false
+        }
+    }
+
+    when {
+        loading -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        error != null -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(error!!, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { navController.popBackStack() }) { Text("뒤로가기") }
+                }
+            }
+        }
+        recipe == null -> { // 이 경우도 안전하게 처리
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("레시피 데이터를 불러오지 못했어요.")
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { navController.popBackStack() }) { Text("뒤로가기") }
+                }
+            }
+        }
+        askPurchase -> {
+            AlertDialog(
+                onDismissRequest = { navController.popBackStack() },
+                title = { Text("레시피 구매 필요") },
+                text = { Text("이 레시피를 보려면 구매가 필요합니다. 지금 구매할까요?") },
+                confirmButton = {
+                    Button(
+                        enabled = uid != null && !purchasing,
+                        onClick = {
+                            if (uid == null) {
+                                Toast.makeText(ctx, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            val price = (recipe?.cost ?: 100)
+                            purchasing = true
+                            scope.launch {
+                                try {
+                                    purchaseRecipeWithPoints(db, uid, rid, price)
+                                    askPurchase = false
+                                    purchased = true
+                                    Toast.makeText(ctx, "구매 완료! 🎉 (${price} 소금 차감)", Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(ctx, e.message ?: "구매 실패", Toast.LENGTH_LONG).show()
+                                } finally {
+                                    purchasing = false
+                                }
+                            }
+                        }
+                    ) { Text(if (purchasing) "결제 중..." else "구매") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { navController.popBackStack() }) { Text("취소") }
+                }
+            )
+        }
+        else -> {
+            // 모든 조건 OK → 본문
+            RecipeCookingScreen(recipe = recipe!!, navController = navController)
+        }
+    }
+}
+
+suspend fun purchaseRecipeWithPoints(
+    db: FirebaseFirestore,
+    uid: String,
+    recipeId: String,
+    cost: Int
+) {
+    val userRef = db.collection("user").document(uid)
+    val purchasedRef = userRef.collection("purchased").document(recipeId)
+
+    db.runTransaction { tx ->
+        // 이미 구매했으면 아무 것도 하지 않음(재차감 방지)
+        val purchasedDoc = tx.get(purchasedRef)
+        if (purchasedDoc.getBoolean("purchased") == true) return@runTransaction null
+
+        val userDoc = tx.get(userRef)
+        val currentPoint = userDoc.getLong("point") ?: 0L
+        val need = cost.toLong()
+        if (currentPoint < need) {
+            throw IllegalStateException("소금이 부족합니다. (보유: $currentPoint, 필요: $need)")
+        }
+
+        // 포인트 차감 + 구매 플래그 기록 (원자적)
+        tx.update(userRef, "point", FieldValue.increment(-need))
+        tx.set(
+            purchasedRef,
+            mapOf(
+                "purchased" to true,
+                "price" to need,
+                "ts" to FieldValue.serverTimestamp()
+            ),
+            SetOptions.merge()
+        )
+        null
+    }.await()
 }

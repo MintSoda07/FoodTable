@@ -215,6 +215,7 @@ import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeViewModel
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.CreateOpenChatScreen
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatHomeScreen
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoomScreen
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeByIdScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
 
@@ -1105,6 +1106,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ) { backStackEntry ->
                 val roomId = backStackEntry.arguments?.getString("roomId") ?: return@composable
                 OpenChatRoomScreen(navController, roomId)
+            }
+            composable(
+                route = "recipe_by_id/{rid}",
+                deepLinks = listOf(navDeepLink { uriPattern = "foodtable://recipe?rid={rid}" })
+            ) { backStackEntry ->
+                val rid = backStackEntry.arguments?.getString("rid")!!
+                RecipeByIdScreen(rid = rid, navController = navController)
             }
 
 

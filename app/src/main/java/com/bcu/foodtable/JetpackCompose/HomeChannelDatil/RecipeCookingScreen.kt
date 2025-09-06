@@ -67,14 +67,23 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.bcu.foodtable.JetpackCompose.MultiShopPriceSearchActivity
+import com.bcu.foodtable.JetpackCompose.Social.ChatMessage
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.Friend
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoom
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatViewModel
+import com.bcu.foodtable.JetpackCompose.Social.sendMessage
 import com.bcu.foodtable.TTS.CookingAiViewModel
 import com.bcu.foodtable.TTS.CookingAiViewModelFactory
+import com.bcu.foodtable.ui.theme.WarmLightColorScheme
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.tasks.await
@@ -117,7 +126,9 @@ fun RecipeCookingScreen(
     // 1) ViewModel 인스턴스 얻기
     val calorieVm: RecipeCalorieViewModel = viewModel()
 
+    var showShareSheet by remember { mutableStateOf(false) }
 
+    val ocVm: OpenChatViewModel = viewModel()
     // 2) 레시피 ID가 바뀔 때마다(처음 진입 포함) 칼로리 로드/추정 요청
     LaunchedEffect(recipe.id, recipe.ingredients, recipe.order) {
         calorieVm.loadOrEstimateCalories(recipe)
@@ -437,6 +448,10 @@ fun RecipeCookingScreen(
                                         tint = Color(0xFFE25532)
                                     )
                                 }
+
+                            }
+                            IconButton(onClick = { showShareSheet = true }) {
+                                Icon(Icons.Default.Share, contentDescription = "레시피 공유", tint = Color(0xFFE25532))
                             }
                         }
 
@@ -755,6 +770,7 @@ fun RecipeCookingScreen(
                     }
                 }
 
+
                 ModernActionButton(
                     text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 눈으로 맛보는 AI 요리 비교",
                     backgroundColor = Color(0xFF5C2B1B), // onPrimaryContainer 색상
@@ -768,9 +784,46 @@ fun RecipeCookingScreen(
 
             item {
                 Spacer(modifier = Modifier.height(40.dp))
-                CommentSection(recipeId = recipe.id)
+                MaterialTheme(colorScheme = WarmLightColorScheme) {
+                    CommentSection(recipeId = recipeId)
+                }
             }
         }
+        if (showShareSheet) {
+            ShareRecipeSheet(
+                myUid = FirebaseAuth.getInstance().currentUser?.uid ?: "",
+                recipeId = recipe.id,
+                recipeTitle = recipe.name,
+                recipeThumb = recipe.imageResId.takeIf { it.startsWith("http") },
+                onSendDm = { targetUid ->
+                    val deeplink = "foodtable://recipe?rid=${recipe.id}"
+                    val msg = ChatMessage(
+                        senderUid = FirebaseAuth.getInstance().currentUser!!.uid,
+                        type = "recipe",
+                        text = recipe.name,
+                        imageUrl = recipe.imageResId,
+                        deeplink = deeplink,
+                        timestamp = System.currentTimeMillis()
+                    )
+                    val db = FirebaseFirestore.getInstance()
+                    sendMessage(db, msg.senderUid, targetUid, msg) // suspend OK
+                },
+                onSendOpenRoom = { targetRoomId ->
+                    val deeplink = "foodtable://recipe?rid=${recipe.id}"
+                    ocVm.sendRecipeShare(
+                        roomId = targetRoomId,
+                        senderUid = FirebaseAuth.getInstance().currentUser!!.uid,
+                        title = recipe.name,
+                        thumbUrl = recipe.imageResId,
+                        deeplink = deeplink
+                    )
+                },
+                onDismiss = { showShareSheet = false },
+                // 친구불러오기 연결 (기본 파라미터 쓰면 빈 리스트라서 꼭 연결)
+                fetchFriends = { uid -> ocVm.fetchFriends(uid) }
+            )
+        }
+
     }
 }
 
@@ -1693,7 +1746,257 @@ suspend fun urlToByteArray(url: String): ByteArray {
         }
     }
 }
+// 🔹 DragHandle 대체(버전 무관)
+@Composable
+private fun SheetHandle(color: Color) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .padding(top = 8.dp, bottom = 12.dp)
+                .size(width = 36.dp, height = 4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color)
+        )
+    }
+}
+
+// 🔸 WarmLightColorScheme를 시트 내부에만 적용
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShareRecipeSheet(
+    myUid: String,
+    recipeId: String,
+    recipeTitle: String,
+    recipeThumb: String?,
+    onSendDm: suspend (targetUid: String) -> Unit,
+    onSendOpenRoom: suspend (roomId: String) -> Unit,
+    onDismiss: () -> Unit,
+    fetchFriends: suspend (String) -> List<Friend>
+) {
 
 
+    MaterialTheme(colorScheme = WarmLightColorScheme) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        var tab by remember { mutableStateOf(0) }
+        val scope = rememberCoroutineScope()
+        val ctx = LocalContext.current
 
+        val primary = MaterialTheme.colorScheme.primary
+        val onPrimary = MaterialTheme.colorScheme.onPrimary
+        val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+        val listContainer = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+        val cardColor = MaterialTheme.colorScheme.surface
 
+        var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
+        var rooms by remember { mutableStateOf<List<OpenChatRoom>>(emptyList()) }
+        var loading by remember { mutableStateOf(true) }
+
+        LaunchedEffect(myUid) {
+            loading = true
+            try {
+                friends = if (myUid.isNotBlank()) fetchFriends(myUid) else emptyList()
+                val db = FirebaseFirestore.getInstance()
+                val snap = db.collection("openRooms")
+                    .whereArrayContains("memberIds", myUid)
+                    .get().await()
+                rooms = snap.documents.mapNotNull { it.toObject(OpenChatRoom::class.java)?.copy(id = it.id) }
+            } finally {
+                loading = false
+            }
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { SheetHandle(color = primary.copy(alpha = 0.55f)) }
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                // 헤더
+                Text(
+                    "레시피 공유",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+
+                // 탭
+                TabRow(
+                    selectedTabIndex = tab,
+                    containerColor = Color.Transparent,
+                    contentColor = primary,
+                    indicator = { positions ->
+                        TabRowDefaults.Indicator(
+                            modifier = Modifier.tabIndicatorOffset(positions[tab]),
+                            color = primary
+                        )
+                    },
+                    divider = {}
+                ) {
+                    Tab(
+                        selected = tab == 0,
+                        onClick = { tab = 0 },
+                        selectedContentColor = primary,
+                        unselectedContentColor = onSurfaceVariant
+                    ) { Text("개인채팅", modifier = Modifier.padding(vertical = 10.dp)) }
+
+                    Tab(
+                        selected = tab == 1,
+                        onClick = { tab = 1 },
+                        selectedContentColor = primary,
+                        unselectedContentColor = onSurfaceVariant
+                    ) { Text("오픈채팅", modifier = Modifier.padding(vertical = 10.dp)) }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                if (loading) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(listContainer),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator(color = primary) }
+                } else {
+                    if (tab == 0) {
+                        if (friends.isEmpty()) {
+                            EmptyState(text = "보낼 친구가 없어요.")
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(listContainer),
+                                contentPadding = PaddingValues(vertical = 6.dp)
+                            ) {
+                                items(friends, key = { it.uid }) { f ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                                        shape = RoundedCornerShape(12.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                        modifier = Modifier
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        ListItem(
+                                            headlineContent = { Text(f.name, color = MaterialTheme.colorScheme.onSurface) },
+                                            trailingContent = {
+                                                Button(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            runCatching { onSendDm(f.uid) }
+                                                                .onSuccess {
+                                                                    Toast.makeText(ctx, "개인채팅으로 보냈어요.", Toast.LENGTH_SHORT).show()
+                                                                    onDismiss()
+                                                                }
+                                                                .onFailure {
+                                                                    Toast.makeText(ctx, it.message ?: "전송 실패", Toast.LENGTH_SHORT).show()
+                                                                }
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = primary,
+                                                        contentColor = onPrimary
+                                                    )
+                                                ) { Text("보내기") }
+                                            },
+                                            colors = ListItemDefaults.colors(
+                                                containerColor = Color.Transparent,
+                                                headlineColor = MaterialTheme.colorScheme.onSurface,
+                                                supportingColor = onSurfaceVariant
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        if (rooms.isEmpty()) {
+                            EmptyState(text = "참여중인 오픈채팅이 없어요.")
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(listContainer),
+                                contentPadding = PaddingValues(vertical = 6.dp)
+                            ) {
+                                items(rooms, key = { it.id }) { r ->
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                                        shape = RoundedCornerShape(12.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                        modifier = Modifier
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    ) {
+                                        ListItem(
+                                            headlineContent = {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(r.title, color = MaterialTheme.colorScheme.onSurface)
+                                                    if (r.ownerUid == myUid) {
+                                                        Spacer(Modifier.width(6.dp))
+                                                        Icon(
+                                                            imageVector = Icons.Default.Verified,
+                                                            contentDescription = null,
+                                                            tint = primary
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            supportingContent = {
+                                                Text("${(r.memberIds?.size ?: 0)}명", color = onSurfaceVariant)
+                                            },
+                                            trailingContent = {
+                                                Button(
+                                                    onClick = {
+                                                        scope.launch {
+                                                            runCatching { onSendOpenRoom(r.id) }
+                                                                .onSuccess {
+                                                                    Toast.makeText(ctx, "오픈채팅으로 보냈어요.", Toast.LENGTH_SHORT).show()
+                                                                    onDismiss()
+                                                                }
+                                                                .onFailure {
+                                                                    Toast.makeText(ctx, it.message ?: "전송 실패", Toast.LENGTH_SHORT).show()
+                                                                }
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = primary,
+                                                        contentColor = onPrimary
+                                                    )
+                                                ) { Text("보내기") }
+                                            },
+                                            colors = ListItemDefaults.colors(
+                                                containerColor = Color.Transparent,
+                                                headlineColor = MaterialTheme.colorScheme.onSurface,
+                                                supportingColor = onSurfaceVariant
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 공통 빈상태
+@Composable
+private fun EmptyState(text: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
+            .padding(horizontal = 16.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
