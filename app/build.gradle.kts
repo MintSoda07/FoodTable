@@ -80,7 +80,10 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     // 통계
     implementation("com.github.tehras:charts:0.2.4-alpha")
-    
+
+    // QR 생성용
+    implementation("com.google.zxing:core:3.5.3")
+
     // 기타 유틸
     implementation(libs.glide)
     implementation(libs.gson)
