@@ -1770,7 +1770,6 @@ fun MoreButton(onClick: () -> Unit) {
     }
 }
 
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeContent(
@@ -1791,6 +1790,9 @@ fun HomeContent(
 
     val calorieVm: RecipeCalorieViewModel = viewModel()
     var purchasedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // 헤더/리스트 좌우 패딩 통일
+    val headerHPad = 8.dp
 
     LaunchedEffect(uid) {
         if (uid == null) return@LaunchedEffect
@@ -1858,7 +1860,7 @@ fun HomeContent(
             )
         }
 
-        // ✅ 섹션(RecipeList 제외)을 item{}로 추가
+        // 섹션(RecipeList 제외)
         sectionOrder.forEachIndexed { index, section ->
             if (section is HomeSection.RecipeList) return@forEachIndexed
 
@@ -1881,7 +1883,7 @@ fun HomeContent(
                                             change.consume()
                                             offsetY += dragAmount.y
                                             val targetIndex = (index + (offsetY / 150).toInt())
-                                                .coerceIn(0, sectionOrder.lastIndex - 1) // 마지막(RecipeList) 앞까지만
+                                                .coerceIn(0, sectionOrder.lastIndex - 1)
                                             if (targetIndex != index &&
                                                 sectionOrder.getOrNull(targetIndex) !is HomeSection.RecipeList
                                             ) {
@@ -1904,7 +1906,7 @@ fun HomeContent(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        .padding(horizontal = headerHPad, vertical = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
@@ -1926,15 +1928,16 @@ fun HomeContent(
                             }
 
                             is HomeSection.TrendRecipes -> {
-                                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                                Column(Modifier.padding(vertical = 8.dp)) { // ⬅ 수평 패딩 제거
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                                            .padding(horizontal = headerHPad, vertical = 2.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("인기 레시피",
+                                        Text(
+                                            "인기 레시피",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -1949,11 +1952,12 @@ fun HomeContent(
                                         Text(
                                             text = "불러오는 중...",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = headerHPad)
                                         )
                                     } else {
                                         LazyRow(
-                                            contentPadding = PaddingValues(horizontal = 0.dp),
+                                            contentPadding = PaddingValues(horizontal = headerHPad),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             items(topClickedRecipes) { recipe ->
@@ -1976,11 +1980,12 @@ fun HomeContent(
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                                            .padding(horizontal = headerHPad, vertical = 2.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text("추천 레시피",
+                                        Text(
+                                            "추천 레시피",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
@@ -1991,7 +1996,7 @@ fun HomeContent(
                                         )
                                     }
                                     LazyRow(
-                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                        contentPadding = PaddingValues(horizontal = headerHPad, vertical = 8.dp),
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
                                         items(recommendedRecipes) { recipe ->
@@ -2002,7 +2007,7 @@ fun HomeContent(
                                             )
                                         }
                                         item {
-                                            MoreButton { nav.navigate("recommendRecipes") } // ✅ 소문자
+                                            MoreButton { nav.navigate("recommendRecipes") }
                                         }
                                     }
                                 }
@@ -2012,7 +2017,7 @@ fun HomeContent(
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                        .padding(horizontal = headerHPad, vertical = 2.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
@@ -2056,7 +2061,7 @@ fun HomeContent(
             }
         }
 
-        // ✅ RecipeList: 여기서만 Lazy 아이템으로 렌더
+        // RecipeList
         if (filteredRecipes.isEmpty()) {
             item {
                 Box(

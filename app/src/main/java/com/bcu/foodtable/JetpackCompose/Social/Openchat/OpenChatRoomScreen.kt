@@ -6,13 +6,21 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.GetContent
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -49,6 +57,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -391,30 +400,33 @@ fun OpenChatRoomScreen(
                 contentPadding = PaddingValues(vertical = 12.dp, horizontal = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(messages, key = { it.id }) { msg ->
+                itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
+                    val prev = messages.getOrNull(index - 1)
+                    val sameSender = prev?.senderUid == msg.senderUid
+                    val within1Min = prev != null && (msg.timestamp - prev.timestamp) < 60_000
+                    // 연속 발화면 중간 것들은 시간/숫자 숨김
+                    val showTime = !(sameSender && within1Min)
+
                     when (msg.type) {
                         "system" -> SystemBubble(text = msg.text ?: "")
-                        "recipe" -> {
-                            RecipeShareBubble(
-                                message = ChatMessage( // RoomMessage → 필요한 필드만 매핑
-                                    id = msg.id,
-                                    senderUid = msg.senderUid,
-                                    text = msg.text,
-                                    imageUrl = msg.imageUrl,
-                                    timestamp = msg.timestamp,
-                                    type = "recipe",
-                                    deeplink = msg.deeplink
-                                ),
-                                onOpen = { rid ->
-                                    navController.navigate("recipe_by_id/${Uri.encode(rid)}")
-                                }
+                        "recipe" -> RecipeShareBubble(
+                            message = ChatMessage(
+                                id = msg.id, senderUid = msg.senderUid, text = msg.text, imageUrl = msg.imageUrl,
+                                timestamp = msg.timestamp, type = "recipe", deeplink = msg.deeplink
+                            ),
+                            onOpen = { rid -> navController.navigate("recipe_by_id/${Uri.encode(rid)}") }
+                        )
+                        else -> {
+                            val unreadCount = if (showTime)
+                                (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
+                            else 0L
+                            RoomMessageBubble(
+                                message = msg,
+                                isMe = msg.senderUid == myUid,
+                                unreadCount = unreadCount,
+                                showTime = showTime
                             )
                         }
-                        else -> RoomMessageBubble(
-                            message = msg,
-                            isMe = msg.senderUid == myUid,
-                            unreadCount = (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
-                        )
                     }
                 }
             }
@@ -626,7 +638,12 @@ private fun SystemBubble(text: String) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: Long) {
+private fun RoomMessageBubble(
+    message: RoomMessage,
+    isMe: Boolean,
+    unreadCount: Long,
+    showTime: Boolean
+) {
     val ctx = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val timeFormatter = remember { java.text.SimpleDateFormat("HH:mm", java.util.Locale.KOREA) }
@@ -639,18 +656,15 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
     val shape = MaterialTheme.shapes.medium
 
     if (isMe) {
-        // 내가 보낸 메시지: 시간은 왼쪽(버블 왼쪽)
+        // === 내 메시지 : [읽음/숫자 배지 & 시간(세로)]  [버블]
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.Bottom
         ) {
-            Text(
-                timeText,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray,
-                modifier = Modifier.padding(end = 6.dp)
-            )
+            if (showTime) {
+                GroupReadIndicator(unreadCount = unreadCount, timeText = timeText)
+            }
             Box(modifier = Modifier.widthIn(max = 280.dp)) {
                 Surface(color = bubbleColor, shape = shape) {
                     Column(
@@ -674,29 +688,18 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
                                 modifier = Modifier.sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
                             )
                         }
-                        AnimatedVisibility(visible = unreadCount > 0) {
-                            Text(
-                                "안 읽은 사람: $unreadCount",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
-                            )
-                        }
                     }
                 }
             }
         }
     } else {
-        // 상대가 보낸 메시지: 닉네임은 버블 '위', 시간은 버블 오른쪽 하단
+        // === 상대 메시지 : [버블]  [시간]  (배지는 없음)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.Bottom
         ) {
-            Column(
-                horizontalAlignment = Alignment.Start,
-                modifier = Modifier.padding(end = 6.dp)
-            ) {
+            Column(horizontalAlignment = Alignment.Start, modifier = Modifier.padding(end = 6.dp)) {
                 Text(
                     message.senderNickname,
                     style = MaterialTheme.typography.labelMedium,
@@ -730,16 +733,46 @@ private fun RoomMessageBubble(message: RoomMessage, isMe: Boolean, unreadCount: 
                     }
                 }
             }
-            Text(
-                timeText,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray,
-                modifier = Modifier.padding(start = 6.dp)
-            )
+            if (showTime) {
+                Text(
+                    timeText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+            }
         }
     }
 }
 
+@Composable
+private fun GroupReadIndicator(unreadCount: Long, timeText: String) {
+    //  텍스트만 보여주는 컴팩트
+    Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
+        AnimatedContent(
+            targetState = unreadCount > 0, // true면 숫자, false면 "읽음"
+            transitionSpec = {
+                (fadeIn(animationSpec = tween(150)) + slideInVertically { it / 2 }) togetherWith
+                        (fadeOut(animationSpec = tween(150)) + slideOutVertically { -it / 2 })
+            },
+            label = "groupReadIndicatorNoBg",
+            modifier = Modifier.offset(y = 6.dp)
+        ) { hasUnread ->
+            if (hasUnread) {
+                val label = if (unreadCount > 99) "99+" else unreadCount.toString()
+                Text(
+                    label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Text("읽음", fontSize = 11.sp, color = Color.Gray)
+            }
+        }
+        Text(timeText, fontSize = 10.sp, color = Color.Gray)
+    }
+}
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MembersBottomSheet(

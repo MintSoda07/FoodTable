@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -307,7 +309,7 @@ fun HomeTopAppBar(
             actions = {
                 // ← 오픈채팅 진입 버튼
                 IconButton(onClick = onOpenChatClick) {
-                    Icon(Icons.Default.Chat, contentDescription = "오픈채팅")
+                    Icon(Icons.Outlined.Forum, contentDescription = "오픈채팅")
                 }
                 // 기존: UID로 친구 추가
                 IconButton(onClick = onMyUidClick) {

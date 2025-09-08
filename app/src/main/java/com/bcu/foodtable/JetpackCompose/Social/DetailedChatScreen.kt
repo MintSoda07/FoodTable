@@ -132,6 +132,7 @@ fun DetailedChatScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+
     // 현재 방 트래킹 (FCM 억제)
     DisposableEffect(targetUid) {
         AppState.setCurrentChat(targetUid)
@@ -415,6 +416,20 @@ fun SharedPlaceMessageBubble(
     ) {
         if (isMe) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
+                AnimatedContent(
+                    targetState = message.read,
+                    transitionSpec = {
+                        (fadeIn(tween(150)) + slideInVertically { it / 2 }) togetherWith
+                                (fadeOut(tween(150)) + slideOutVertically { -it / 2 })
+                    },
+                    label = "readReceiptPlaceNoBg"
+                ) { read ->
+                    if (read) {
+                        Text("읽음", fontSize = 11.sp, color = Color.Gray)
+                    } else {
+                        Text("1", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 Text(timeText, fontSize = 10.sp, color = Color.Gray)
             }
         }
@@ -437,9 +452,7 @@ fun SharedPlaceMessageBubble(
                             Toast.makeText(context, "지도를 열 수 없습니다.", Toast.LENGTH_SHORT).show()
                         }
                     } ?: Toast.makeText(context, "주소가 없습니다.", Toast.LENGTH_SHORT).show()
-                }) {
-                    Text("카카오맵으로 보기")
-                }
+                }) { Text("카카오맵으로 보기") }
             }
         }
 
@@ -555,31 +568,25 @@ fun ChatMessageBubble(
     ) {
         if (isMe) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
-                // ✅ 읽음 표시 애니메이션 (읽기 전: '1' 배지, 읽은 후: "읽음")
+
                 AnimatedContent(
-                    targetState = message.read,
+                    targetState = message.read, // true -> "읽음", false -> 숫자 "1"
                     transitionSpec = {
                         (fadeIn(tween(150)) + slideInVertically { it / 2 }) togetherWith
                                 (fadeOut(tween(150)) + slideOutVertically { -it / 2 })
                     },
-                    label = "readReceipt"
+                    label = "readReceiptDMNoBg",
+                    modifier = Modifier.offset(y = 6.dp)
                 ) { read ->
                     if (read) {
-                        Text("읽음", fontSize = 10.sp, color = Color.Gray)
+                        Text("읽음", fontSize = 11.sp, color = Color.Gray)
                     } else {
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                "1",
-                                fontSize = 10.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            "1", // DM은 미읽음 1표시
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
                 Text(timeText, fontSize = 10.sp, color = Color.Gray)

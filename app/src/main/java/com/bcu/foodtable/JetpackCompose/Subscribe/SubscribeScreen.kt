@@ -1,5 +1,7 @@
 package com.bcu.foodtable.JetpackCompose.Subscribe
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -21,15 +23,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState // animateItemPlacement를 위해 추가
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
+import com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelCard
 import com.bcu.foodtable.useful.Channel
 
@@ -44,10 +52,31 @@ fun SubscribeScreen(
     val myChannels by viewModel.myChannels.collectAsState()
     val recommendedChannels by viewModel.recommendedChannels.collectAsState()
     Log.d("SubscribeUI", "UI에서 받은 채널 수: ${myChannels.size}")
+
+    val context = LocalContext.current
+    val hasChannel = remember(myChannels) { myChannels.isNotEmpty() }
     LaunchedEffect(Unit) {
         viewModel.fetchSubscribedChannels()
         viewModel.fetchMyChannels()
         viewModel.fetchRecommendedChannels()
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.fetchSubscribedChannels()
+                viewModel.fetchMyChannels()
+                viewModel.fetchRecommendedChannels()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    //채널 생성으로 이동 함수
+    fun navigateToChannelCreation(context: Context) {
+        val intent = Intent(context, ChannelCreationActivity::class.java)
+        context.startActivity(intent)
     }
 
     // LazyColumn 배경색 및 패딩 조정
@@ -80,7 +109,13 @@ fun SubscribeScreen(
         sectionContent(subscribedChannels, navController, "구독한 채널이 없습니다.", "관심 있는 채널을 구독하면 여기에 표시됩니다!")
         sectionSpacer()
 
-        sectionHeader("내 채널")
+        sectionHeaderWithAction("내 채널") {
+            AssistChip(
+                onClick = { navigateToChannelCreation(context) },
+                label = { Text(if (hasChannel) "새 채널" else "채널 만들기") },
+                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
+            )
+        }
         sectionContent(myChannels, navController, "내가 만든 채널이 없습니다.", "직접 만든 채널은 여기에 표시됩니다.")
         sectionSpacer()
 
@@ -92,7 +127,29 @@ fun SubscribeScreen(
         }
     }
 }
-
+private fun LazyListScope.sectionHeaderWithAction(
+    title: String,
+    action: @Composable RowScope.() -> Unit
+) {
+    item {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            // 오른쪽 끝 액션 자리
+            action()
+        }
+    }
+}
 private fun LazyListScope.sectionHeader(title: String) {
     item {
         Text(
