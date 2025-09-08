@@ -70,71 +70,100 @@ fun StoreInfoScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.padding(padding).fillMaxSize()
         ) {
+            // 기본 정보
             item {
                 ElevatedCard {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("기본 정보", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         OutlinedTextField(
-                            value = p.storeName, onValueChange = { p = p.copy(storeName = it) },
-                            label = { Text("상호명") }, singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Store, null) }, modifier = Modifier.fillMaxWidth()
+                            value = p.storeName,
+                            onValueChange = { p = p.copy(storeName = it) },
+                            label = { Text("상호명") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Store, null) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = p.category, onValueChange = { p = p.copy(category = it.ifBlank { "미분류" }) },
-                            label = { Text("업종/카테고리") }, singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.LocalDining, null) }, modifier = Modifier.fillMaxWidth()
+                            value = p.category,
+                            onValueChange = { p = p.copy(category = it) }, // ❗미분류 강제 제거
+                            label = { Text("업종/카테고리") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.LocalDining, null) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = p.description, onValueChange = { p = p.copy(description = it) },
+                            value = p.description,
+                            onValueChange = { p = p.copy(description = it) },
                             label = { Text("소개/설명") },
-                            leadingIcon = { Icon(Icons.Default.Info, null) }, modifier = Modifier.fillMaxWidth()
+                            leadingIcon = { Icon(Icons.Default.Info, null) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
 
+            // 연락처 · 정책
             item {
                 ElevatedCard {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("연락처 · 정책", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         OutlinedTextField(
                             value = p.phone,
-                            onValueChange = { p = p.copy(phone = it.filter { ch -> ch.isDigit() || ch == '-' }) },
-                            label = { Text("전화번호") }, singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Phone, null) }, modifier = Modifier.fillMaxWidth()
+                            onValueChange = { s -> p = p.copy(phone = s.filter { ch -> ch.isDigit() || ch == '-' }) },
+                            label = { Text("전화번호") },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Phone, null) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
-                            value = p.address, onValueChange = { p = p.copy(address = it) },
+                            value = p.address,
+                            onValueChange = { p = p.copy(address = it) },
                             label = { Text("주소") },
-                            leadingIcon = { Icon(Icons.Default.LocationOn, null) }, modifier = Modifier.fillMaxWidth()
+                            leadingIcon = { Icon(Icons.Default.LocationOn, null) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                            // ❗ Long? ↔ 입력필드: 빈칸이면 null 저장
+                            val minOrderText = p.minOrderPrice?.toString() ?: ""
                             OutlinedTextField(
-                                value = if (p.minOrderPrice == 0L) "" else p.minOrderPrice.toString(),
-                                onValueChange = { txt -> p = p.copy(minOrderPrice = txt.filter { it.isDigit() }.toLongOrNull() ?: 0) },
-                                label = { Text("최소주문금액(원)") }, singleLine = true,
+                                value = minOrderText,
+                                onValueChange = { txt ->
+                                    val digits = txt.filter { it.isDigit() }
+                                    p = p.copy(minOrderPrice = digits.takeIf { it.isNotEmpty() }?.toLong())
+                                },
+                                label = { Text("최소주문금액(원)") },
+                                singleLine = true,
                                 leadingIcon = { Icon(Icons.Default.AttachMoney, null) },
                                 modifier = Modifier.weight(1f)
                             )
+                            // ❗ Double? ↔ 입력필드: 빈칸이면 null 저장, 범위 0~30 제한
+                            val taxText = p.taxPercent?.toString() ?: ""
                             OutlinedTextField(
-                                value = p.taxPercent.toString(),
+                                value = taxText,
                                 onValueChange = { txt ->
                                     val v = txt.replace(',', '.').toDoubleOrNull()
-                                    if (v != null) p = p.copy(taxPercent = v.coerceIn(0.0, 30.0))
+                                    p = p.copy(taxPercent = v?.coerceIn(0.0, 30.0))
                                 },
-                                label = { Text("부가세(%)") }, singleLine = true,
+                                label = { Text("부가세(%)") },
+                                singleLine = true,
                                 leadingIcon = { Icon(Icons.Default.Percent, null) },
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                        // ❗ Boolean? 표시만 기본(false), 저장은 선택 값 그대로
+                        val online = p.onlineOrderEnabled ?: false
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(checked = p.onlineOrderEnabled, onCheckedChange = { p = p.copy(onlineOrderEnabled = it) })
+                            Switch(
+                                checked = online,
+                                onCheckedChange = { p = p.copy(onlineOrderEnabled = it) }
+                            )
                             Spacer(Modifier.width(8.dp)); Text("온라인 주문 허용")
                         }
                     }
                 }
             }
 
+            // 주간 영업시간
             item {
                 ElevatedCard {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,11 +175,16 @@ fun StoreInfoScreen(
                             }
                             Spacer(Modifier.height(6.dp))
                         }
-                        Text("※ 휴무일은 가게관리 > 휴무일 설정에서 선택하세요.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text(
+                            "※ 휴무일은 가게관리 > 휴무일 설정에서 선택하세요.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
                 }
             }
 
+            // 가게 상태
             item {
                 ElevatedCard {
                     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -164,6 +198,7 @@ fun StoreInfoScreen(
                 }
             }
 
+            // 하단 버튼
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("취소") }
@@ -183,11 +218,31 @@ private fun BusinessHourRow(
     hours: BusinessHours,
     onChange: (BusinessHours) -> Unit
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(48.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
-            OutlinedTextField(value = hours.open, onValueChange = { t -> onChange(hours.copy(open = t.take(5))) }, label = { Text("오픈") }, singleLine = true, modifier = Modifier.weight(1f))
-            OutlinedTextField(value = hours.close, onValueChange = { t -> onChange(hours.copy(close = t.take(5))) }, label = { Text("마감") }, singleLine = true, modifier = Modifier.weight(1f))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            OutlinedTextField(
+                value = hours.open,
+                onValueChange = { t -> onChange(hours.copy(open = t.take(5))) },
+                label = { Text("오픈") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = hours.close,
+                onValueChange = { t -> onChange(hours.copy(close = t.take(5))) },
+                label = { Text("마감") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = hours.closed, onCheckedChange = { onChange(hours.copy(closed = it)) })

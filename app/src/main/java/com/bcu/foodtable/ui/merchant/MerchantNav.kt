@@ -1,4 +1,4 @@
-// MerchantNav.kt
+// navigation/MerchantNav.kt
 package com.bcu.foodtable.ui.merchant
 
 import androidx.compose.runtime.Composable
@@ -13,33 +13,30 @@ fun MerchantRoot() {
     val nav = rememberNavController()
 
     NavHost(navController = nav, startDestination = "home") {
-
         // 홈
         composable("home") {
             MerchantHomeGrid(
                 onStoreManage = { storeId -> nav.navigate("storeMgmt/$storeId") },
-                onQrPay = { storeId -> nav.navigate("qrpay/$storeId") },
-                onSales = { /* TODO */ },
-                onStoreInfo = { storeId -> nav.navigate("storeInfo/$storeId") },
-                onOrders = { /* TODO */ },
-                onProducts = { storeId -> nav.navigate("products/$storeId") },
-                onStaff = { storeId -> nav.navigate("staff/$storeId") },
-                onCoupons = { storeId -> nav.navigate("coupons/$storeId") },
-                onSettlements = { /* TODO */ },
-                onReports = { /* TODO */ },
-                onSettings = { /* TODO */ },
+                onQrPay      = { storeId -> nav.navigate("qrpay/$storeId") },
+                onSales      = { storeId -> nav.navigate("sales/$storeId") },
+                onStoreInfo  = { storeId -> nav.navigate("storeInfo/$storeId") },
+                onOrders     = { storeId -> nav.navigate("orders/$storeId") },
+                onProducts   = { storeId -> nav.navigate("products/$storeId") },
+                onStaff      = { storeId -> nav.navigate("staff/$storeId") },
+                onCoupons    = { storeId -> nav.navigate("coupons/$storeId") },
+                onSettlements= { storeId -> nav.navigate("settlements/$storeId") },
+                onReports    = { storeId -> nav.navigate("reports/$storeId") },
+                onSettings   = { nav.navigate("settings") },
             )
         }
-        // MerchantNav.kt (또는 MerchantRoot가 있는 파일)
+
+        // QR 주문
         composable(
             route = "qrpay/{storeId}",
             arguments = listOf(navArgument("storeId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val storeId = backStackEntry.arguments?.getString("storeId").orEmpty()
-            QrOrderScreen(
-                storeId = storeId,
-                onBack = { nav.popBackStack() }
-            )
+        ) { b ->
+            val storeId = b.arguments?.getString("storeId").orEmpty()
+            QrOrderScreen(storeId = storeId, onBack = { nav.popBackStack() })
         }
 
         // 가게관리
@@ -61,10 +58,7 @@ fun MerchantRoot() {
             arguments = listOf(navArgument("storeId") { type = NavType.StringType })
         ) { b ->
             val storeId = b.arguments?.getString("storeId").orEmpty()
-            StoreInfoScreen(
-                storeId = storeId,
-                onBack = { nav.popBackStack() }
-            )
+            StoreInfoScreen(storeId = storeId, onBack = { nav.popBackStack() })
         }
 
         // 상품관리
@@ -73,10 +67,7 @@ fun MerchantRoot() {
             arguments = listOf(navArgument("storeId") { type = NavType.StringType })
         ) { b ->
             val storeId = b.arguments?.getString("storeId").orEmpty()
-            ProductManagementScreen(
-                storeId = storeId,
-                onBack = { nav.popBackStack() }
-            )
+            ProductManagementScreen(storeId = storeId, onBack = { nav.popBackStack() })
         }
 
         // 쿠폰/프로모션
@@ -85,10 +76,7 @@ fun MerchantRoot() {
             arguments = listOf(navArgument("storeId") { type = NavType.StringType })
         ) { b ->
             val storeId = b.arguments?.getString("storeId").orEmpty()
-            CouponPromotionScreen(
-                storeId = storeId,
-                onBack = { nav.popBackStack() }
-            )
+            CouponPromotionScreen(storeId = storeId, onBack = { nav.popBackStack() })
         }
 
         // 직원관리
@@ -97,10 +85,40 @@ fun MerchantRoot() {
             arguments = listOf(navArgument("storeId") { type = NavType.StringType })
         ) { b ->
             val storeId = b.arguments?.getString("storeId").orEmpty()
-            StaffManagementScreen(
-                storeId = storeId,
-                onBack = { nav.popBackStack() }
-            )
+            StaffManagementScreen(storeId = storeId, onBack = { nav.popBackStack() })
+        }
+
+        // ── 새로 추가된 미구현 분량
+        composable(
+            "sales/{storeId}",
+            arguments = listOf(navArgument("storeId") { type = NavType.StringType })
+        ) { b ->
+            val storeId = b.arguments?.getString("storeId").orEmpty()
+            SalesDashboardScreen(storeId = storeId, onBack = { nav.popBackStack() })
+        }
+        composable(
+            "orders/{storeId}",
+            arguments = listOf(navArgument("storeId") { type = NavType.StringType })
+        ) { b ->
+            val storeId = b.arguments?.getString("storeId").orEmpty()
+            OrdersScreen(storeId = storeId, onBack = { nav.popBackStack() })
+        }
+        composable(
+            "settlements/{storeId}",
+            arguments = listOf(navArgument("storeId") { type = NavType.StringType })
+        ) { b ->
+            val storeId = b.arguments?.getString("storeId").orEmpty()
+            SettlementsScreen(storeId = storeId, onBack = { nav.popBackStack() })
+        }
+        composable(
+            "reports/{storeId}",
+            arguments = listOf(navArgument("storeId") { type = NavType.StringType })
+        ) { b ->
+            val storeId = b.arguments?.getString("storeId").orEmpty()
+            ReportsScreen(storeId = storeId, onBack = { nav.popBackStack() })
+        }
+        composable("settings") {
+            SettingsScreen(onBack = { nav.popBackStack() })
         }
     }
 }
