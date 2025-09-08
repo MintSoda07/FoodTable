@@ -27,10 +27,13 @@ fun StoreManageScreen(
 
     LaunchedEffect(storeId) {
         if (storeId.isBlank()) return@LaunchedEffect
-        db.collection("merchants").document(storeId).get().addOnSuccessListener { snap ->
-            profile = snap.toObject(StoreProfile::class.java)?.copy(storeId = storeId) ?: StoreProfile(storeId = storeId)
-            loading = false
-        }.addOnFailureListener { loading = false }
+        db.collection("merchants").document(storeId).get()
+            .addOnSuccessListener { snap ->
+                profile = snap.toObject(StoreProfile::class.java)?.copy(storeId = storeId)
+                    ?: StoreProfile(storeId = storeId)
+                loading = false
+            }
+            .addOnFailureListener { loading = false }
     }
 
     fun savePatch(patch: Map<String, Any?>) {
@@ -41,8 +44,16 @@ fun StoreManageScreen(
         topBar = {
             TopAppBar(
                 title = { Text("가게관리") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "뒤로") } },
-                actions = { IconButton(onClick = onEditInfo) { Icon(Icons.Default.Edit, contentDescription = "가게정보관리") } }
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEditInfo) {
+                        Icon(Icons.Default.Edit, contentDescription = "가게정보관리")
+                    }
+                }
             )
         }
     ) { padding ->
@@ -54,7 +65,13 @@ fun StoreManageScreen(
         }
         val p = profile ?: StoreProfile(storeId = storeId)
 
-        // ✅ 스크롤 가능 리스트
+        // 널-안전 표시용 로컬 값
+        val openNow = p.openNow ?: false
+        val onlineOrderEnabled = p.onlineOrderEnabled ?: false
+        val takeoutEnabled = p.takeoutEnabled ?: false
+        val dineInEnabled = p.dineInEnabled ?: false
+        val daysOff = p.daysOff ?: emptyList()
+
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -62,28 +79,57 @@ fun StoreManageScreen(
         ) {
             item {
                 ElevatedCard {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(p.storeName.ifBlank { "가맹점" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatusChip(label = if (p.openNow) "영업중" else "영업종료", icon = if (p.openNow) Icons.Default.CheckCircle else Icons.Default.DoNotDisturb)
-                            StatusChip(label = if (p.onlineOrderEnabled) "주문가능" else "주문중지", icon = Icons.Default.Wifi)
-                            StatusChip(label = p.category.ifBlank { "미분류" }, icon = Icons.Default.LocalDining)
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            if (p.storeName.isBlank()) "가맹점" else p.storeName,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            StatusChip(
+                                label = if (openNow) "영업중" else "영업종료",
+                                icon = if (openNow) Icons.Default.CheckCircle else Icons.Default.DoNotDisturb
+                            )
+                            StatusChip(
+                                label = if (onlineOrderEnabled) "주문가능" else "주문중지",
+                                icon = Icons.Default.Wifi
+                            )
+                            StatusChip(
+                                label = if (p.category.isBlank()) "미분류" else p.category,
+                                icon = Icons.Default.LocalDining
+                            )
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilledTonalButton(
                                 onClick = {
-                                    profile = p.copy(openNow = !p.openNow)
-                                    savePatch(mapOf("openNow" to !p.openNow))
+                                    val next = !openNow
+                                    profile = p.copy(openNow = next)
+                                    savePatch(mapOf("openNow" to next))
                                 },
                                 modifier = Modifier.weight(1f)
-                            ) { Icon(Icons.Default.Schedule, null); Spacer(Modifier.width(6.dp)); Text(if (p.openNow) "지금 영업종료" else "지금 영업시작") }
+                            ) {
+                                Icon(Icons.Default.Schedule, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (openNow) "지금 영업종료" else "지금 영업시작")
+                            }
                             FilledTonalButton(
                                 onClick = {
-                                    profile = p.copy(onlineOrderEnabled = !p.onlineOrderEnabled)
-                                    savePatch(mapOf("onlineOrderEnabled" to !p.onlineOrderEnabled))
+                                    val next = !onlineOrderEnabled
+                                    profile = p.copy(onlineOrderEnabled = next)
+                                    savePatch(mapOf("onlineOrderEnabled" to next))
                                 },
                                 modifier = Modifier.weight(1f)
-                            ) { Icon(Icons.Default.ShoppingCart, null); Spacer(Modifier.width(6.dp)); Text(if (p.onlineOrderEnabled) "주문 일시중지" else "주문 재개") }
+                            ) {
+                                Icon(Icons.Default.ShoppingCart, null)
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (onlineOrderEnabled) "주문 일시중지" else "주문 재개")
+                            }
                         }
                     }
                 }
@@ -91,12 +137,15 @@ fun StoreManageScreen(
 
             item {
                 ElevatedCard {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text("운영 채널", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        SwitchRow("포장(Takeout) 허용", p.takeoutEnabled) {
+                        SwitchRow("포장(Takeout) 허용", takeoutEnabled) {
                             profile = p.copy(takeoutEnabled = it); savePatch(mapOf("takeoutEnabled" to it))
                         }
-                        SwitchRow("매장 식사(Dine-In) 허용", p.dineInEnabled) {
+                        SwitchRow("매장 식사(Dine-In) 허용", dineInEnabled) {
                             profile = p.copy(dineInEnabled = it); savePatch(mapOf("dineInEnabled" to it))
                         }
                     }
@@ -105,9 +154,12 @@ fun StoreManageScreen(
 
             item {
                 ElevatedCard {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text("휴무일 설정", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        WeekdayMultiSelector(selected = p.daysOff.toSet()) { sel ->
+                        WeekdayMultiSelector(selected = daysOff.toSet()) { sel ->
                             profile = p.copy(daysOff = sel.toList()); savePatch(mapOf("daysOff" to sel.toList()))
                         }
                     }
@@ -116,12 +168,25 @@ fun StoreManageScreen(
 
             item {
                 ElevatedCard {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text("고객 안내", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         KeyValueRow("전화번호", p.phone)
                         KeyValueRow("주소", p.address)
-                        KeyValueRow("최소주문금액", if (p.minOrderPrice > 0) "${p.minOrderPrice}원" else "없음")
-                        KeyValueRow("부가세율", "${p.taxPercent}%")
+                        KeyValueRow(
+                            "최소주문금액",
+                            when {
+                                p.minOrderPrice == null -> "-"
+                                p.minOrderPrice <= 0L -> "없음"
+                                else -> "%,d원".format(p.minOrderPrice)
+                            }
+                        )
+                        KeyValueRow(
+                            "부가세율",
+                            p.taxPercent?.let { "${it}%" } ?: "-"   // 미설정 시 "-"
+                        )
                     }
                 }
             }
@@ -146,3 +211,6 @@ fun StoreManageScreen(
         Text(value.ifBlank { "-" }, style = MaterialTheme.typography.bodyMedium)
     }
 }
+
+/** 간단한 요일 멀티 선택 (FlowRow 없이 Row 두 줄로) */
+

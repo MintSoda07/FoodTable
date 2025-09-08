@@ -58,7 +58,9 @@ fun ProfileMainScreen(
 ) {
     val context = LocalContext.current
     val cs = MaterialTheme.colorScheme
-
+    val unityPlayerActivityClass = remember {
+        Class.forName("com.unity3d.player.UnityPlayerActivity")
+    }
     val user by viewModel.user.collectAsState()
     val hasChannel by viewModel.hasChannel.collectAsState()
     val imageUri by viewModel.imageUri.collectAsState()
@@ -209,7 +211,10 @@ fun ProfileMainScreen(
                     // ───────── 건강 | 밥상 | 냉장 (연결된 바 + 실선 구분) ─────────
                     SegmentedTripleRow(
                         onHealth = { viewModel.navigateToHealth(navController) },
-                        onBapsang = null, // TODO: 밥상 라우트 구현되면 예: { navController.navigate("table") }
+                        onBapsang = {
+                            val intent = Intent(context, unityPlayerActivityClass)
+                            context.startActivity(intent)
+                        }, // TODO: 밥상 라우트 구현되면 예: { navController.navigate("table") }
                         onFridge = { navController.navigate("fridge") }
                     )
 

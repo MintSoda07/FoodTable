@@ -1,6 +1,5 @@
 package com.bcu.foodtable.ui.merchant
 
-import ads_mobile_sdk.dp
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -15,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentChange
@@ -30,7 +28,6 @@ import kotlin.math.floor
 import kotlin.random.Random
 
 /* ───────────────────────── 주문 라인(장바구니) ───────────────────────── */
-
 data class OrderLine(
     val productId: String,
     val name: String,
@@ -58,7 +55,6 @@ private fun calculateDiscount(subtotal: Long, coupon: Coupon?): Long {
 }
 
 /* ───────────────────────── 메인 화면 ───────────────────────── */
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QrOrderScreen(
@@ -108,9 +104,12 @@ fun QrOrderScreen(
     var appliedCoupon: Coupon? by remember { mutableStateOf(null) }
     var applying by remember { mutableStateOf(false) }
 
+    // ✅ taxPercent는 nullable → 로컬에서 안전 값으로 고정
+    val taxPercent: Double = profile.taxPercent ?: 0.0
+
     // 금액 계산: 총 결제금액 = 표시가(부가세포함) 합 - 할인 (세금은 표시만)
     val subtotal = cart.sumOf { it.amount }
-    val shownVatSum = cart.sumOf { splitTax(it.amount, profile.taxPercent).second }
+    val shownVatSum = cart.sumOf { splitTax(it.amount, taxPercent).second }
     val discount = calculateDiscount(subtotal, appliedCoupon)
     val total = (subtotal - discount).coerceAtLeast(0)
 
@@ -164,15 +163,16 @@ fun QrOrderScreen(
             put("type", "OFFLINE_ORDER_QR"); put("ver", 1)
             put("storeId", storeId); put("storeName", profile.storeName)
             put("orderId", orderId); put("currency", "KRW")
-            put("subtotal", subtotal)               // 표시가 합
-            put("vatShown", shownVatSum)            // 표시용 부가세 합
+            put("subtotal", subtotal)    // 표시가 합
+            put("vatShown", shownVatSum) // 표시용 부가세 합
             put("discount", discount)
-            put("total", total)                     // 결제금액 (표시가 - 할인)
+            put("total", total)          // 결제금액 (표시가 - 할인)
             put("coupon", appliedCoupon?.code ?: "")
             put("ts", Timestamp.now().seconds)
             put("items", itemsArr)
         }.toString()
     }
+
     fun generateQr() {
         val json = buildPayload()
         qrBitmap = generateQrImageBitmap(json, sizePx = 900)
@@ -197,7 +197,6 @@ fun QrOrderScreen(
             )
         },
         floatingActionButton = {
-            // ExtendedFloatingActionButton 은 enabled 파라미터가 없어 클릭 가드 + 색상으로 표현
             ExtendedFloatingActionButton(
                 onClick = { if (cart.isNotEmpty()) generateQr() },
                 icon = { Icon(Icons.Default.QrCode, null) },
@@ -213,11 +212,7 @@ fun QrOrderScreen(
                 CircularProgressIndicator()
             }
         } else {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
+            Column(Modifier.fillMaxSize().padding(padding)) {
                 // 1) 상단 요약
                 SummaryBar(
                     profile = profile,
@@ -227,20 +222,19 @@ fun QrOrderScreen(
                     total = total
                 )
 
-                // 2) 가운데: 메뉴(카테고리 접기/펼치기)
-                //    weight 없이 fraction으로 공간 배분
+                // 2) 메뉴 선택 패널
                 ProductPickerPanelCollapsible(
                     products = products.filter { it.available },
                     onTap = ::addToCart,
-                    fractionHeight = 0.60f // 화면의 60% 차지
+                    fractionHeight = 0.60f
                 )
 
-                // 3) 하단: 주문서(고정 높이 + 접기/펼치기)
+                // 3) 하단 주문서
                 Spacer(Modifier.height(8.dp))
                 OrderCartPaneBottom(
                     heightDp = if (cartExpanded) CART_EXPANDED_HEIGHT else CART_COLLAPSED_HEIGHT,
                     cart = cart,
-                    taxPercent = profile.taxPercent,
+                    taxPercent = taxPercent, // non-null Double
                     couponCode = couponCode,
                     appliedCoupon = appliedCoupon,
                     applying = applying,
@@ -275,12 +269,11 @@ fun QrOrderScreen(
 }
 
 /* ───────────────────────── 상단 요약 바 ───────────────────────── */
-
 @Composable
 private fun SummaryBar(
     profile: StoreProfile,
-    subtotal: Long,   // 표시가 합(부가세 포함)
-    vatShown: Long,   // 표시용 부가세 합
+    subtotal: Long,
+    vatShown: Long,
     discount: Long,
     total: Long
 ) {
@@ -297,7 +290,7 @@ private fun SummaryBar(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    "부가세 ${profile.taxPercent.toInt()}% (표시)",
+                    profile.taxPercent?.let { "부가세 ${it.toInt()}% (표시)" } ?: "부가세 미설정",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -314,7 +307,6 @@ private fun SummaryBar(
 }
 
 /* ───────────────────────── 메뉴(카테고리 접기/펼치기) ───────────────────────── */
-
 @Composable
 private fun ProductPickerPanelCollapsible(
     products: List<Product>,
@@ -324,14 +316,14 @@ private fun ProductPickerPanelCollapsible(
     val heightFrac = remember(fractionHeight) { fractionHeight.coerceIn(0f, 1f) }
     var query by remember { mutableStateOf("") }
 
-    // 검색 필터링
+    // 검색
     val filtered = remember(products, query) {
         val q = query.trim()
         if (q.isBlank()) products
         else products.filter { it.name.contains(q, true) || it.category.contains(q, true) }
     }
 
-    // 카테고리 그룹
+    // 그룹
     val grouped = remember(filtered) {
         filtered.groupBy { it.category.ifBlank { "미분류" } }
             .toSortedMap(compareBy<String> { if (it == "미분류") "zzz" else it.lowercase() })
@@ -348,36 +340,24 @@ private fun ProductPickerPanelCollapsible(
             .fillMaxWidth()
             .fillMaxHeight(heightFrac)
     ) {
-        // 🔹 상단 UI: 검색(1행) + 펼치기/접기 버튼행(2행)
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
                 placeholder = { Text("메뉴 검색") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                supportingText = {
-                }
+                modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FilledTonalButton(onClick = { grouped.keys.forEach { expandedMap[it] = true } }) {
-                    Icon(Icons.Default.UnfoldMore, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("전체 펼치기")
+                    Icon(Icons.Default.UnfoldMore, null); Spacer(Modifier.width(8.dp)); Text("전체 펼치기")
                 }
                 Spacer(Modifier.width(8.dp))
                 FilledTonalButton(onClick = { grouped.keys.forEach { expandedMap[it] = false } }) {
-                    Icon(Icons.Default.UnfoldLess, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("전체 접기")
+                    Icon(Icons.Default.UnfoldLess, null); Spacer(Modifier.width(6.dp)); Text("전체 접기")
                 }
-                // 필요하면 여유 공간 채우기
                 Spacer(Modifier.weight(1f))
             }
         }
@@ -391,15 +371,10 @@ private fun ProductPickerPanelCollapsible(
                 item(key = "hdr_$cat") {
                     ElevatedCard(onClick = { expandedMap[cat] = !(expandedMap[cat] ?: true) }) {
                         Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                if (expandedMap[cat] == true) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = null
-                            )
+                            Icon(if (expandedMap[cat] == true) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 cat,
@@ -408,38 +383,22 @@ private fun ProductPickerPanelCollapsible(
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f)
                             )
-                            AssistChip(
-                                onClick = {},
-                                label = { Text("${list.size}개") },
-                                leadingIcon = { Icon(Icons.Default.Inventory2, null) }
-                            )
+                            AssistChip(onClick = {}, label = { Text("${list.size}개") }, leadingIcon = { Icon(Icons.Default.Inventory2, null) })
                         }
                     }
                 }
-
                 if (expandedMap[cat] == true) {
                     items(list, key = { it.id }) { p ->
                         ElevatedCard(onClick = { onTap(p) }) {
                             Box(Modifier.fillMaxWidth().padding(12.dp)) {
                                 Column(
-                                    modifier = Modifier
-                                        .align(Alignment.CenterStart)
-                                        .padding(end = 96.dp)
+                                    modifier = Modifier.align(Alignment.CenterStart).padding(end = 96.dp)
                                 ) {
                                     Text(p.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                                    Text(
-                                        "부가세 포함 %,d원".format(p.price),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
-                                    )
+                                    Text("부가세 포함 %,d원".format(p.price), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                 }
-                                FilledTonalButton(
-                                    onClick = { onTap(p) },
-                                    modifier = Modifier.align(Alignment.CenterEnd)
-                                ) {
-                                    Icon(Icons.Default.AddShoppingCart, null)
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("담기")
+                                FilledTonalButton(onClick = { onTap(p) }, modifier = Modifier.align(Alignment.CenterEnd)) {
+                                    Icon(Icons.Default.AddShoppingCart, null); Spacer(Modifier.width(6.dp)); Text("담기")
                                 }
                             }
                         }
@@ -451,13 +410,10 @@ private fun ProductPickerPanelCollapsible(
     }
 }
 
-
 /* ───────────────────────── 하단 주문서(고정 높이, 토글) ───────────────────────── */
-
-// 2) 컴포저블 시그니처/내용 교체
 @Composable
 private fun OrderCartPaneBottom(
-    heightDp: androidx.compose.ui.unit.Dp,   // ← Dp 로 수정
+    heightDp: androidx.compose.ui.unit.Dp,
     cart: MutableList<OrderLine>,
     taxPercent: Double,
     couponCode: String,
@@ -473,57 +429,37 @@ private fun OrderCartPaneBottom(
 ) {
     Surface(tonalElevation = 3.dp) {
         Column(
-            Modifier
-                .fillMaxWidth()
-                .height(heightDp)               // ← 여기도 Dp 사용
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+            Modifier.fillMaxWidth().height(heightDp).padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            // weight 대신 SpaceBetween 사용
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("주문서", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                IconButton(onClick = onToggle) {
-                    Icon(Icons.Default.SwapVert, contentDescription = "크기 전환")
-                }
+                IconButton(onClick = onToggle) { Icon(Icons.Default.SwapVert, contentDescription = "크기 전환") }
             }
 
             if (cart.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("메뉴를 선택해 담아주세요.")
-                }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("메뉴를 선택해 담아주세요.") }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
                     items(cart, key = { it.productId }) { line ->
                         val (base, vat) = splitTax(line.amount, taxPercent)
                         ElevatedCard {
                             Box(Modifier.fillMaxWidth().padding(12.dp)) {
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.CenterStart)
-                                        .padding(end = 140.dp)
-                                ) {
+                                Column(Modifier.align(Alignment.CenterStart).padding(end = 140.dp)) {
                                     Text(line.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                                     Text(
                                         "%,d원 × %d = %,d원".format(line.unitPrice, line.qty, line.amount),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline
                                     )
                                     Text(
                                         "기본가 %,d + 부가세 %,d".format(base, vat),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
+                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline
                                     )
                                 }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.align(Alignment.CenterEnd)
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.CenterEnd)) {
                                     IconButton(onClick = { onDec(line.productId) }) { Icon(Icons.Default.RemoveCircle, null) }
                                     Text("${line.qty}", modifier = Modifier.padding(horizontal = 6.dp))
                                     IconButton(onClick = { onInc(line.productId) }) { Icon(Icons.Default.AddCircle, null) }
@@ -539,11 +475,8 @@ private fun OrderCartPaneBottom(
                         if (appliedCoupon == null) {
                             Column {
                                 OutlinedTextField(
-                                    value = couponCode,
-                                    onValueChange = onChangeCoupon,
-                                    placeholder = { Text("쿠폰 코드") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth()
+                                    value = couponCode, onValueChange = onChangeCoupon,
+                                    placeholder = { Text("쿠폰 코드") }, singleLine = true, modifier = Modifier.fillMaxWidth()
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -555,17 +488,9 @@ private fun OrderCartPaneBottom(
                             }
                         } else {
                             ElevatedCard {
-                                Row(
-                                    Modifier.fillMaxWidth().padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Column(Modifier.weight(1f, fill = false)) {
-                                        Text(
-                                            "쿠폰 적용됨",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
+                                        Text("쿠폰 적용됨", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                                         Text("${appliedCoupon.code} · ${appliedCoupon.title}", style = MaterialTheme.typography.bodySmall)
                                     }
                                     TextButton(onClick = onClearCoupon) { Text("해제") }
@@ -579,4 +504,3 @@ private fun OrderCartPaneBottom(
         }
     }
 }
-

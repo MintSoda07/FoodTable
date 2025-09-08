@@ -1,3 +1,4 @@
+// home/MerchantHomeGrid.kt
 package com.bcu.foodtable.ui.merchant
 
 import androidx.compose.foundation.background
@@ -10,13 +11,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.saveable.rememberSaveable
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
@@ -27,16 +28,16 @@ import com.google.firebase.ktx.Firebase
 fun MerchantHomeGrid(
     onStoreManage: (String) -> Unit = {},
     onQrPay: (String) -> Unit = {},
-    onSales: () -> Unit = {},
+    onSales: (String) -> Unit = {},
     onStoreInfo: (String) -> Unit = {},
-    onOrders: () -> Unit = {},
+    onOrders: (String) -> Unit = {},
     onProducts: (String) -> Unit = {},
-    onStaff: (String) -> Unit = {},      // ✅ String 받도록
-    onCoupons: (String) -> Unit = {},    // ✅ String 받도록
-    onSettlements: () -> Unit = {},
-    onReports: () -> Unit = {},
+    onStaff: (String) -> Unit = {},
+    onCoupons: (String) -> Unit = {},
+    onSettlements: (String) -> Unit = {},
+    onReports: (String) -> Unit = {},
     onSettings: () -> Unit = {},
-)  {
+) {
     val db = Firebase.firestore
     val uid = Firebase.auth.currentUser?.uid.orEmpty()
 
@@ -74,7 +75,7 @@ fun MerchantHomeGrid(
         }.addOnFailureListener { userLoaded = true }
     }
 
-    // 다이얼로그는 로딩 완료 이후 판단 (깜빡임 방지)
+    // 다이얼로그는 로딩 완료 이후 판단
     var showSetup by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(userLoaded, storeId, storeName, roleLabel) {
         if (!userLoaded) return@LaunchedEffect
@@ -121,18 +122,17 @@ fun MerchantHomeGrid(
                     onClick = {
                         when (tile.key) {
                             "store_mgmt" -> storeId?.let(onStoreManage) ?: run { if (userLoaded) showSetup = true }
-                            "qr_pay"     -> storeId?.let(onQrPay)      ?: run { if (userLoaded) showSetup = true } // ✅
-                            "sales"      -> onSales()
-                            "store_info" -> storeId?.let(onStoreInfo) ?: run { if (userLoaded) showSetup = true }
-                            "orders"     -> onOrders()
-                            "products"   -> storeId?.let(onProducts)  ?: run { if (userLoaded) showSetup = true }
-                            "staff"      -> storeId?.let(onStaff)     ?: run { if (userLoaded) showSetup = true }   // ✅ 변경
-                            "coupons"    -> storeId?.let(onCoupons)   ?: run { if (userLoaded) showSetup = true }   // ✅ 변경
-                            "settlement" -> onSettlements()
-                            "reports"    -> onReports()
+                            "qr_pay"     -> storeId?.let(onQrPay)      ?: run { if (userLoaded) showSetup = true }
+                            "sales"      -> storeId?.let(onSales)      ?: run { if (userLoaded) showSetup = true }
+                            "store_info" -> storeId?.let(onStoreInfo)  ?: run { if (userLoaded) showSetup = true }
+                            "orders"     -> storeId?.let(onOrders)     ?: run { if (userLoaded) showSetup = true }
+                            "products"   -> storeId?.let(onProducts)   ?: run { if (userLoaded) showSetup = true }
+                            "staff"      -> storeId?.let(onStaff)      ?: run { if (userLoaded) showSetup = true }
+                            "coupons"    -> storeId?.let(onCoupons)    ?: run { if (userLoaded) showSetup = true }
+                            "settlement" -> storeId?.let(onSettlements)?: run { if (userLoaded) showSetup = true }
+                            "reports"    -> storeId?.let(onReports)    ?: run { if (userLoaded) showSetup = true }
                             "settings"   -> onSettings()
                         }
-
                     }
                 )
             }
@@ -145,7 +145,6 @@ fun MerchantHomeGrid(
             onDismiss = { showSetup = false },
             onConfirm = { inputName ->
                 val sid = storeId ?: "store_${uid}"
-                val db = Firebase.firestore
                 val batch = db.batch()
                 val storeRef = db.collection("merchants").document(sid)
                 val userRef = db.collection("user").document(uid)
