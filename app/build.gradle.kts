@@ -40,6 +40,9 @@ android {
                 "proguard-rules.pro"
             ) // 누들 순한맛 분모자토핑 // 밥 순한맛 x2
         }
+        debug {
+            matchingFallbacks.add("release")
+        }
     }
 
     compileOptions {
@@ -66,7 +69,7 @@ android {
 dependencies {
     // 1) Firebase BoM으로 버전 일괄 관리
     implementation(platform(libs.firebase.bom))
-
+    implementation(project(":unityLibrary"))
     // 2) Firebase 핵심 모듈들 (BoM이 버전을 관리)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.analytics)

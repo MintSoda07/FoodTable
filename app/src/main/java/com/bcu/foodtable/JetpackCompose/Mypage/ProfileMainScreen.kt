@@ -48,7 +48,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.text.input.ImeAction
 import kotlinx.coroutines.launch
-
+import com.unity3d.player.UnityPlayerGameActivity
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProfileMainScreen(
@@ -58,9 +58,8 @@ fun ProfileMainScreen(
 ) {
     val context = LocalContext.current
     val cs = MaterialTheme.colorScheme
-//    val unityPlayerActivityClass = remember {
-//        Class.forName("com.unity3d.player.UnityPlayerActivity")
-//    }
+
+
     val user by viewModel.user.collectAsState()
 
     val imageUri by viewModel.imageUri.collectAsState()
@@ -212,8 +211,8 @@ fun ProfileMainScreen(
                     SegmentedTripleRow(
                         onHealth = { viewModel.navigateToHealth(navController) },
                         onBapsang = {
-//                            val intent = Intent(context, unityPlayerActivityClass)
-//                            context.startActivity(intent)
+                            val intent = Intent(context, UnityPlayerGameActivity::class.java)
+                            context.startActivity(intent)
                         }, // TODO: 밥상 라우트 구현되면 예: { navController.navigate("table") }
                         onFridge = { navController.navigate("fridge") }
                     )

@@ -19,8 +19,11 @@ dependencyResolutionManagement {
         maven("https://jitpack.io")
         maven { url = java.net.URI("https://devrepo.kakao.com/nexus/content/groups/public/")}
         maven { url = java.net.URI("https://devrepo.kakao.com/nexus/repository/kakaomap-releases/")}
+        flatDir { dirs("unity/Final_AR_Library/unityLibrary/libs") }
     }
 }
 
 rootProject.name = "FoodTable"
 include(":app")
+include(":unityLibrary")
+project(":unityLibrary").projectDir = file("unity/Final_AR_Library/unityLibrary")
