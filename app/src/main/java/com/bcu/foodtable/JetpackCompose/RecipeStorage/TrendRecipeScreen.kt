@@ -1,6 +1,7 @@
 package com.bcu.foodtable.JetpackCompose.RecipeStorage
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,17 +28,30 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingActivity
 import com.bcu.foodtable.R
+import com.bcu.foodtable.RecipePurchaseDialogExact
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun TrendRecipeScreen(
     viewModel: TrendRecipeViewModel = viewModel(),
     navController: NavController
 ) {
+
     val context = LocalContext.current
     val topRecipes by viewModel.topRecipes.collectAsState()
     val channelInfo by viewModel.channelInfo.collectAsState()
     val categoryTrends by viewModel.categoryTrends.collectAsState()
     val channelOwners by viewModel.channelOwners.collectAsState()
+
+    val db = FirebaseFirestore.getInstance()
+    val uid = FirebaseAuth.getInstance().currentUser?.uid
+    val scope = rememberCoroutineScope()
+
+    var showPurchase by remember { mutableStateOf(false) }
+    var pendingRecipe by remember { mutableStateOf<RecipeItem?>(null) }
 
     val excludedCategories = setOf("쉬움", "어려움", "보통")
     val filteredCategories = categoryTrends
@@ -49,6 +63,33 @@ fun TrendRecipeScreen(
     LaunchedEffect(Unit) {
         viewModel.loadTrendData()
     }
+
+    fun openOrPrompt(recipe: RecipeItem) {
+        if (uid == null) {
+            Toast.makeText(context, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        scope.launch {
+            try {
+                val p = db.collection("user").document(uid)
+                    .collection("purchased").document(recipe.id).get().await()
+                val purchased = p.getBoolean("purchased") == true
+                if (purchased) {
+                    context.startActivity(
+                        Intent(context, RecipeCookingActivity::class.java).apply {
+                            putExtra("recipe_id", recipe.id)
+                        }
+                    )
+                } else {
+                    pendingRecipe = recipe
+                    showPurchase = true
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "구매 여부 확인 실패", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
 
     LazyColumn(
         modifier = Modifier
@@ -84,11 +125,7 @@ fun TrendRecipeScreen(
                     val ownerName = channelOwners[channel?.name] ?: "알 수 없음"
 
                     TrendHighlightCard(recipe, channel, ownerName) {
-                        context.startActivity(
-                            Intent(context, RecipeCookingActivity::class.java).apply {
-                                putExtra("recipe_id", recipe.id)
-                            }
-                        )
+                        openOrPrompt(recipe)
                     }
                 }
             }
@@ -137,13 +174,25 @@ fun TrendRecipeScreen(
 
         items(topRecipes.drop(3)) { recipe ->
             RecipePreviewCard(recipe = recipe) {
+                openOrPrompt(recipe)
+            }
+
+        }
+    }
+    if (showPurchase && pendingRecipe != null) {
+        RecipePurchaseDialogExact(
+            recipe = pendingRecipe!!,
+            onPurchased = {
+                showPurchase = false
+
                 context.startActivity(
                     Intent(context, RecipeCookingActivity::class.java).apply {
-                        putExtra("recipe_id", recipe.id)
+                        putExtra("recipe_id", pendingRecipe!!.id)
                     }
                 )
-            }
-        }
+            },
+            onDismiss = { showPurchase = false }
+        )
     }
 }
 @Composable

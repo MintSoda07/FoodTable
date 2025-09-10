@@ -682,7 +682,7 @@ fun DraggableHolographicIngredientCard(
                 scaleX = scale
                 scaleY = scale
                 alpha = if (isDragging) 0.8f else 1f
-                shadowElevation = if (isDragging) 16f else 4f
+                // shadowElevation = if (isDragging) 16f else 4f
             }
             .pointerInput(Unit) {
                 detectDragGestures(
@@ -947,13 +947,13 @@ fun FloatingIngredientChip(
                 alpha = if (isDragging) 0.8f else 1f
                 scaleX = if (isDragging) 1.1f else 1f
                 scaleY = if (isDragging) 1.1f else 1f
-                shadowElevation = if (isDragging) 12f else 4f
+                // shadowElevation = if (isDragging) 12f else 4f
             },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFFF5F5F5)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(Modifier.fillMaxSize()) {
             // 1. 삭제버튼
