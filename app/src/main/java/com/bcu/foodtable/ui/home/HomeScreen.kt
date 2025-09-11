@@ -214,6 +214,8 @@ import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeViewModel
+import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentDetailScreen
+import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentHomeScreen
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.CreateOpenChatScreen
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatHomeScreen
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoomScreen
@@ -1117,7 +1119,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val rid = backStackEntry.arguments?.getString("rid")!!
                 RecipeByIdScreen(rid = rid, navController = navController)
             }
-
+            composable("appointments") {
+                AppointmentHomeScreen(navController)
+            }
+            composable("appointment/{id}") { backStackEntry ->
+                val apptId = backStackEntry.arguments?.getString("id")!!
+                AppointmentDetailScreen(apptId = apptId, nav = navController)
+            }
 
             composable(
                 route = "profile/{uid}",

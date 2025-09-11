@@ -58,6 +58,7 @@ import java.util.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.sp
+import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentInviteBubble
 import com.bcu.foodtable.RecipePurchaseDialogExact
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -417,6 +418,17 @@ fun OpenChatRoomScreen(
                             ),
                             onOpen = { rid -> navController.navigate("recipe_by_id/${Uri.encode(rid)}") }
                         )
+                        "appointment" -> {
+                            val cm = ChatMessage(
+                                id = msg.id, senderUid = msg.senderUid, text = msg.text,
+                                placeName = msg.placeName, placeUrl = msg.placeUrl,
+                                deeplink = msg.deeplink, timestamp = msg.timestamp, type = "appointment"
+                            )
+                            AppointmentInviteBubble(
+                                message = cm,
+                                onOpen = { apptId -> navController.navigate("appointment/$apptId") }
+                            )
+                        }
                         else -> {
                             val unreadCount = if (showTime)
                                 (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
