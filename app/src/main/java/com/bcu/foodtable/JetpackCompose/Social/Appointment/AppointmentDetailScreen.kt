@@ -1,6 +1,10 @@
 package com.bcu.foodtable.JetpackCompose.Social.Appointment
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -12,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.google.firebase.auth.FirebaseAuth
@@ -98,6 +103,36 @@ fun AppointmentDetailScreen(
         return
     }
 
+    // ---- 캘린더 권한/요청 런처 ----
+    val calendarPerms = arrayOf(
+        Manifest.permission.READ_CALENDAR,
+        Manifest.permission.WRITE_CALENDAR
+    )
+    var hasCalPerm by remember {
+        mutableStateOf(calendarPerms.all {
+            ContextCompat.checkSelfPermission(ctx, it) == PackageManager.PERMISSION_GRANTED
+        })
+    }
+    var pendingAdd by remember { mutableStateOf(false) } // 권한 허용 후 자동 추가용
+
+    val permLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { res ->
+        hasCalPerm = res.values.all { it }
+        if (hasCalPerm && pendingAdd) {
+            // 권한 방금 허용됨 → 실제 추가 실행
+            scope.launch {
+                val ok = runCatching { addToDeviceCalendarAndMap(ctx, apptId, a) }.getOrDefault(false)
+                inDevice = ok
+                pendingAdd = false
+                Toast.makeText(ctx, if (ok) "캘린더에 추가됨" else "추가 실패(캘린더 없음/쓰기불가)", Toast.LENGTH_SHORT).show()
+            }
+        } else if (!hasCalPerm) {
+            pendingAdd = false
+            Toast.makeText(ctx, "캘린더 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -178,11 +213,16 @@ fun AppointmentDetailScreen(
                     onCheckedChange = { checked ->
                         scope.launch {
                             if (checked) {
+                                if (!hasCalPerm) {
+                                    pendingAdd = true
+                                    permLauncher.launch(calendarPerms)
+                                    return@launch
+                                }
                                 val ok = runCatching { addToDeviceCalendarAndMap(ctx, apptId, a) }.getOrDefault(false)
                                 inDevice = ok
                                 Toast.makeText(
                                     ctx,
-                                    if (ok) "캘린더에 추가됨" else "추가 실패",
+                                    if (ok) "캘린더에 추가됨" else "추가 실패(캘린더 없음/쓰기불가)",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } else {
