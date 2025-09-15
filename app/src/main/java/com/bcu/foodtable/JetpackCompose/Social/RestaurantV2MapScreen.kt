@@ -11,6 +11,7 @@ import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -792,6 +793,7 @@ fun RestaurantKakaoMap(
     apSeed?.let { seed ->
         val apVm: AppointmentViewModel = viewModel()
         val scope = rememberCoroutineScope()
+        val ctx = LocalContext.current
 
         AppointmentCreateDialog(
             defaultTitle = seed.title,
@@ -802,23 +804,24 @@ fun RestaurantKakaoMap(
             onDismiss = { apSeed = null },
 
             onConfirm = { ap, dmTargets, openRoomId ->
-                val me = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser!!.uid
-
-                //  절대 scope.launch {} 로 감싸지 마세요 (구성 종료 시 취소 + 스레드 혼동)
-                apVm.createAndInviteAsync(
-                    creatorUid = me,
-                    ap = ap,
-                    dmTargets = dmTargets,
-                    openchatRoomId = openRoomId
-                ) { result ->
-                    result.onSuccess {
-                        android.widget.Toast.makeText(context, "약속 초대를 전송했어요.", android.widget.Toast.LENGTH_SHORT).show()
-                        apSeed = null
-                    }.onFailure { e ->
-                        android.util.Log.e("ApptInvite", "전송 실패", e)
-                        android.widget.Toast.makeText(context, "전송 실패: ${e.message ?: "알 수 없는 오류"}", android.widget.Toast.LENGTH_LONG).show()
-                    }
+                val me = FirebaseAuth.getInstance().currentUser!!.uid
+                runCatching {
+                    apVm.createAndInvite(
+                        creatorUid = me,
+                        ap = ap,
+                        dmTargets = dmTargets,
+                        openchatRoomId = openRoomId
+                    )
                 }
+                    .onSuccess {
+                        // (선택) 성공 토스트
+                        Toast.makeText(ctx, "약속 초대를 전송했어요.", Toast.LENGTH_SHORT).show()
+                    }
+                    .onFailure { e ->
+                        // (선택) 실패 토스트
+                        Toast.makeText(ctx, e.message ?: "전송 실패", Toast.LENGTH_LONG).show()
+                    }
+                    .isSuccess // ← 성공이면 true 반환 → 다이얼로그 자동 닫힘
             }
         )
     }
