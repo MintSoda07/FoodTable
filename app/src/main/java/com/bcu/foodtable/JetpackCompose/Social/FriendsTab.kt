@@ -139,6 +139,9 @@ fun FriendsTab(
                     onTabSelected = { selectedTab = it },
                     onOpenChatClick = {
                         navController.navigate("openchat_home")
+                    },
+                    onOpenAppointment = {
+                        navController.navigate("appointments")
                     }
                 )
             },
@@ -299,6 +302,7 @@ fun HomeTopAppBar(
     onMyUidClick: () -> Unit,
     onTabSelected: (Int) -> Unit,
     onOpenChatClick: () -> Unit,
+    onOpenAppointment: () -> Unit
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val titles = listOf("친구", "검색", "받은 요청")
@@ -307,6 +311,10 @@ fun HomeTopAppBar(
         CenterAlignedTopAppBar(
             title = { Text("친구", fontWeight = FontWeight.Bold) },
             actions = {
+                //약속
+                IconButton(onClick = onOpenAppointment) {
+                    Icon(Icons.Default.Event, contentDescription = "약속")
+                }
                 // ← 오픈채팅 진입 버튼
                 IconButton(onClick = onOpenChatClick) {
                     Icon(Icons.Outlined.Forum, contentDescription = "오픈채팅")

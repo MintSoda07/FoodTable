@@ -57,7 +57,9 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 import com.bcu.foodtable.JetpackCompose.HomeViewModel
+import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentInviteBubble
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeShareBubble
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
@@ -78,7 +80,8 @@ data class ChatMessage(
     val placeUrl: String? = null,
     val openchatRoomId: String? = null,
     val openchatTitle: String? = null,
-    val deeplink: String? = null
+    val deeplink: String? = null,
+    val appointmentId: String? = null
 )
 
 private val ChatColorScheme = lightColorScheme(
@@ -307,6 +310,12 @@ fun DetailedChatScreen(
                                 modifier = Modifier.animateItemPlacement()
                             ) {
                                 when {
+                                    msg.type == "appointment" -> {
+                                        AppointmentInviteBubble(
+                                            message = msg,
+                                            onOpen = { apptId -> navController.navigate("appointment/$apptId") }
+                                        )
+                                    }
                                     msg.type == "openchat_invite" -> {
                                         OpenChatInviteBubble(
                                             message = msg,
@@ -784,7 +793,8 @@ suspend fun sendMessage(
     toUid: String,
     message: ChatMessage
 ) {
-    val batch = db.batch()
+    val now = if (message.timestamp > 0) message.timestamp else System.currentTimeMillis()
+
     val senderMsgRef = db.collection("user").document(fromUid)
         .collection("chats").document(toUid)
         .collection("messages").document()
@@ -792,18 +802,39 @@ suspend fun sendMessage(
         .collection("chats").document(fromUid)
         .collection("messages").document(senderMsgRef.id)
 
-    batch.set(senderMsgRef, message)
-    batch.set(receiverMsgRef, message)
-    batch.commit().await()
+    val msgId = senderMsgRef.id
 
-    // ✅ Firestore 저장 완료 후 FCM 발송 함수 호출
-    // 기존 흐름을 따르면 chatUid는 상대방 목록에서 '대화방 식별자'로 fromUid를 사용 중입니다.
-    // 별도의 방 ID가 있다면 그 값을 넣으세요.
+    // 미리보기(최근 메시지) 텍스트
+    val preview = when (message.type) {
+        "appointment" -> "[약속] ${message.text.orEmpty()}"
+        "recipe"      -> "[레시피] ${message.text.orEmpty()}"
+        "image"       -> "사진"
+        else          -> message.text?.take(50).orEmpty()
+    }
+
+    // 양쪽 문서에 같은 ID로 쓰되, 읽음 플래그는 분리
+    val senderPayload   = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = true)
+    val receiverPayload = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = false)
+
+    // 채팅방(문서) 메타: 최근 메시지/시간 갱신 (둘 다)
+    val senderChatMeta = mapOf("lastAt" to now, "lastMessage" to preview)
+    val receiverChatMeta = mapOf("lastAt" to now, "lastMessage" to preview)
+
+    db.runBatch { b ->
+        b.set(senderMsgRef, senderPayload)
+        b.set(receiverMsgRef, receiverPayload)
+
+        // /user/{from}/chats/{to}  와  /user/{to}/chats/{from} 문서에 메타 병합
+        b.set(senderMsgRef.parent.parent!!, senderChatMeta, SetOptions.merge())
+        b.set(receiverMsgRef.parent.parent!!, receiverChatMeta, SetOptions.merge())
+    }.await()
+
+    // FCM
     callSendChat(
         toUid  = toUid,
-        chatUid = fromUid,              // 방 ID가 따로 있으면 그걸로 교체
+        chatUid = fromUid,          // 방 ID가 따로 있으면 그 값으로 교체
         title  = "새 메시지",
-        body   = message.text
+        body   = preview
     )
 }
 private suspend fun callSendChat(

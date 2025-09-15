@@ -58,6 +58,8 @@ import java.util.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.sp
+import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentInviteBubble
+import com.bcu.foodtable.RecipePurchaseDialogExact
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -416,6 +418,17 @@ fun OpenChatRoomScreen(
                             ),
                             onOpen = { rid -> navController.navigate("recipe_by_id/${Uri.encode(rid)}") }
                         )
+                        "appointment" -> {
+                            val cm = ChatMessage(
+                                id = msg.id, senderUid = msg.senderUid, text = msg.text,
+                                placeName = msg.placeName, placeUrl = msg.placeUrl,
+                                deeplink = msg.deeplink, timestamp = msg.timestamp, type = "appointment"
+                            )
+                            AppointmentInviteBubble(
+                                message = cm,
+                                onOpen = { apptId -> navController.navigate("appointment/$apptId") }
+                            )
+                        }
                         else -> {
                             val unreadCount = if (showTime)
                                 (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
@@ -1000,62 +1013,11 @@ fun RecipeByIdScreen(rid: String, navController: NavController) {
     }
 
     // 미구매 → 구매 다이얼로그 (가격/보유 포인트 표시 + 트랜잭션)
-    if (askPurchase) {
-        val cost = recipe?.cost ?: 0
-        val have = currentPoint ?: 0L
-        val lack = (cost - have).coerceAtLeast(0).toLong()
-
-        AlertDialog(
-            onDismissRequest = { navController.popBackStack() },
-            title = { Text("레시피 구매 필요") },
-            text = {
-                Column {
-                    Text("이 레시피를 보려면 구매가 필요합니다.")
-                    Spacer(Modifier.height(8.dp))
-                    Divider()
-                    Spacer(Modifier.height(8.dp))
-                    Text("가격: ${cost} 소금", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                    Text("보유: ${have} 소금", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (lack > 0) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "부족: ${lack} 소금",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                val canBuy = uid != null && recipe != null
-                Button(
-                    enabled = canBuy,
-                    onClick = {
-                        if (uid == null || recipe == null) {
-                            Toast.makeText(ctx, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show()
-                            return@Button
-                        }
-                        scope.launch {
-                            try {
-                                purchaseRecipeWithPoints(
-                                    db = db,
-                                    uid = uid,
-                                    recipeId = rid,
-                                    cost = recipe!!.cost
-                                )
-                                askPurchase = false
-                                purchased = true
-                                Toast.makeText(ctx, "구매 완료! 🎉", Toast.LENGTH_SHORT).show()
-                            } catch (e: Exception) {
-                                Toast.makeText(ctx, e.message ?: "구매 실패", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
-                ) { Text("구매하기") }
-            },
-            dismissButton = {
-                TextButton(onClick = { navController.popBackStack() }) { Text("취소") }
-            }
+    if (askPurchase && recipe != null) {
+        RecipePurchaseDialogExact(
+            recipe = recipe!!,
+            onPurchased = { askPurchase = false; purchased = true },
+            onDismiss = { navController.popBackStack() }
         )
         return
     }

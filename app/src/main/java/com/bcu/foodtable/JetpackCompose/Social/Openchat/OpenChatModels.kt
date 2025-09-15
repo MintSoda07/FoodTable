@@ -35,7 +35,12 @@ data class RoomMessage(
     val readBy: Map<String, Boolean> = emptyMap(),
     val recipeTitle: String? = null,
     val recipeThumb: String? = null,
-    val deeplink: String? = null
+    val deeplink: String? = null,
+    // 약속 공유
+    val placeName: String? = null,
+    val placeUrl: String? = null,
+    val appointmentId: String? = null
+
 )
 
 /** 친구 초대용 간단 모델 */

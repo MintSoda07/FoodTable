@@ -185,7 +185,17 @@ class OpenChatViewModel : ViewModel() {
         // 마지막에 방 자체 삭제
         roomRef.delete().await()
     }
-
+    fun markReadMany(roomId: String, uid: String, msgIds: List<String>) {
+        if (msgIds.isEmpty()) return
+        viewModelScope.launch {
+            val batch = db.batch()
+            msgIds.forEach { id ->
+                val ref = rooms.document(roomId).collection("messages").document(id)
+                batch.set(ref, mapOf("readBy.$uid" to true), SetOptions.merge())
+            }
+            batch.commit().await()
+        }
+    }
     /** 메시지 리스너 */
     fun listenMessages(roomId: String) {
         if (currentRoomId == roomId) return
@@ -395,36 +405,7 @@ class OpenChatViewModel : ViewModel() {
         val targetNames = fetchUsersByIds(targetUids).joinToString(", ") { it.second }
         sendSystem(roomId, "invite", targetNames)
     }
-    // 읽음: 단일
-    suspend fun markRead(roomId: String, uid: String, msgId: String) {
-        rooms.document(roomId).collection("messages").document(msgId)
-            .set(mapOf("readBy.$uid" to true), SetOptions.merge()).await()
-    }
 
-    // 읽음: 여러 개(배치)
-    suspend fun markReadMany(roomId: String, uid: String, msgIds: List<String>) {
-        if (msgIds.isEmpty()) return
-        val batch = db.batch()
-        msgIds.forEach { id ->
-            val ref = rooms.document(roomId).collection("messages").document(id)
-            batch.set(ref, mapOf("readBy.$uid" to true), SetOptions.merge())
-        }
-        batch.commit().await()
-    }
-
-    // 읽음: 리스트 전체(최초 진입 등)
-    fun markAllRead(roomId: String, uid: String, list: List<RoomMessage>) {
-        viewModelScope.launch {
-            val batch = db.batch()
-            list.forEach { m ->
-                if (m.type != "system" && m.readBy[uid] != true) {
-                    val ref = rooms.document(roomId).collection("messages").document(m.id)
-                    batch.set(ref, mapOf("readBy.$uid" to true), SetOptions.merge())
-                }
-            }
-            batch.commit().await()
-        }
-    }
     override fun onCleared() {
         super.onCleared()
         discoverListener?.remove()
