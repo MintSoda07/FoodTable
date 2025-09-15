@@ -33,7 +33,7 @@ object DeviceCalendarSync {
             Calendars.ACCOUNT_NAME,
             Calendars.ACCOUNT_TYPE
         )
-        val selection = "${Calendars.VISIBLE}=1" // ✨ SYNC_EVENTS 조건 제거
+        val selection = "${Calendars.VISIBLE}=1" //  SYNC_EVENTS 조건 제거
         return try {
             cr.query(Calendars.CONTENT_URI, projection, selection, null, null)?.use { c ->
                 var primary: Long? = null
