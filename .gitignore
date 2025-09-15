@@ -33,3 +33,8 @@ google-services.json
 # Android Profiling
 *.hprof
 
+unity/Final_AR_Library/launcher/build.gradle
+unity/Final_AR_Library/unityLibrary/build.gradle
+unity/Final_AR_Library/unityLibrary/src/main/Il2CppOutputProject/Source/il2cppOutput/compile-data.json
+unity/Final_AR_Library/unityLibrary/src/main/jniLibs/arm64-v8a/libil2cpp.so
+unity/Final_AR_Library/unityLibrary/symbols/arm64-v8a/libil2cpp.so
