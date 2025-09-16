@@ -1,4 +1,3 @@
-// home/MerchantHomeGrid.kt
 package com.bcu.foodtable.ui.merchant
 
 import androidx.compose.foundation.background
@@ -18,6 +17,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bcu.foodtable.ui.merchant.realtime.MerchantOrderRealtimeBanner
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
@@ -53,6 +53,7 @@ fun MerchantHomeGrid(
             userLoaded = true
             return@LaunchedEffect
         }
+
         db.collection("user").document(uid).get().addOnSuccessListener { snap ->
             userName = snap.getString("name") ?: "사용자"
             val roles = (snap.get("roles") as? List<*>)?.map { it.toString() } ?: emptyList()
@@ -103,38 +104,63 @@ fun MerchantHomeGrid(
     Scaffold(
         topBar = { TopBarMerchant(storeName = storeName, role = roleLabel, userName = userName) }
     ) { padding ->
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            contentPadding = PaddingValues(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Column(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            items(items = tiles, key = { it.key }, span = { GridItemSpan(it.span) }) { tile ->
-                MerchantTileCard(
-                    title = tile.title,
-                    icon = tile.icon,
+            // 🔔 실시간 주문/결제 배너 (storeId 있을 때만)
+            if (!storeId.isNullOrBlank()) {
+                MerchantOrderRealtimeBanner(
+                    storeId = storeId!!,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(tile.height),
-                    onClick = {
-                        when (tile.key) {
-                            "store_mgmt" -> storeId?.let(onStoreManage) ?: run { if (userLoaded) showSetup = true }
-                            "qr_pay"     -> storeId?.let(onQrPay)      ?: run { if (userLoaded) showSetup = true }
-                            "sales"      -> storeId?.let(onSales)      ?: run { if (userLoaded) showSetup = true }
-                            "store_info" -> storeId?.let(onStoreInfo)  ?: run { if (userLoaded) showSetup = true }
-                            "orders"     -> storeId?.let(onOrders)     ?: run { if (userLoaded) showSetup = true }
-                            "products"   -> storeId?.let(onProducts)   ?: run { if (userLoaded) showSetup = true }
-                            "staff"      -> storeId?.let(onStaff)      ?: run { if (userLoaded) showSetup = true }
-                            "coupons"    -> storeId?.let(onCoupons)    ?: run { if (userLoaded) showSetup = true }
-                            "settlement" -> storeId?.let(onSettlements)?: run { if (userLoaded) showSetup = true }
-                            "reports"    -> storeId?.let(onReports)    ?: run { if (userLoaded) showSetup = true }
-                            "settings"   -> onSettings()
-                        }
-                    }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    onTapGoOrders = { onOrders(storeId!!) }
                 )
+            }
+
+            // 본문 그리드
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                if (!storeId.isNullOrBlank()) {
+                    item(span = { GridItemSpan(2) }, key = "live_orders_panel") {
+                        MerchantLiveOrdersPanel(
+                            storeId = storeId!!,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                items(items = tiles, key = { it.key }, span = { GridItemSpan(it.span) }) { tile ->
+                    MerchantTileCard(
+                        title = tile.title,
+                        icon = tile.icon,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(tile.height),
+                        onClick = {
+                            when (tile.key) {
+                                "store_mgmt" -> storeId?.let(onStoreManage) ?: run { if (userLoaded) showSetup = true }
+                                "qr_pay"     -> storeId?.let(onQrPay)      ?: run { if (userLoaded) showSetup = true }
+                                "sales"      -> storeId?.let(onSales)      ?: run { if (userLoaded) showSetup = true }
+                                "store_info" -> storeId?.let(onStoreInfo)  ?: run { if (userLoaded) showSetup = true }
+                                "orders"     -> storeId?.let(onOrders)     ?: run { if (userLoaded) showSetup = true }
+                                "products"   -> storeId?.let(onProducts)   ?: run { if (userLoaded) showSetup = true }
+                                "staff"      -> storeId?.let(onStaff)      ?: run { if (userLoaded) showSetup = true }
+                                "coupons"    -> storeId?.let(onCoupons)    ?: run { if (userLoaded) showSetup = true }
+                                "settlement" -> storeId?.let(onSettlements)?: run { if (userLoaded) showSetup = true }
+                                "reports"    -> storeId?.let(onReports)    ?: run { if (userLoaded) showSetup = true }
+                                "settings"   -> onSettings()
+                            }
+                        }
+                    )
+                }
             }
         }
     }

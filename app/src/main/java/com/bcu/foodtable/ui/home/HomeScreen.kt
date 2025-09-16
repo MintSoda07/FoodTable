@@ -223,6 +223,7 @@ import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeByIdScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
 import com.bcu.foodtable.RecipePurchaseDialogExact
+import com.bcu.foodtable.ui.merchant.QrPayScannerScreen
 
 import com.bcu.foodtable.useful.PromotionItem
 import com.google.gson.Gson
@@ -1126,7 +1127,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 val apptId = backStackEntry.arguments?.getString("id")!!
                 AppointmentDetailScreen(apptId = apptId, nav = navController)
             }
-
+            composable("qrPayScanner"){ QrPayScannerScreen(onBack = { navController.popBackStack() }) }
             composable(
                 route = "profile/{uid}",
                 arguments = listOf(navArgument("uid") {

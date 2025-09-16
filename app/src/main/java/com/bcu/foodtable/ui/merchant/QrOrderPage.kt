@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.BottomSheetDefaults.DragHandle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,7 +55,6 @@ private fun calculateDiscount(subtotal: Long, coupon: Coupon?): Long {
     }
 }
 
-/* ───────────────────────── 메인 화면 ───────────────────────── */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QrOrderScreen(
@@ -113,9 +113,16 @@ fun QrOrderScreen(
     val discount = calculateDiscount(subtotal, appliedCoupon)
     val total = (subtotal - discount).coerceAtLeast(0)
 
-    // QR 모달
+    // QR 모달 + 결제 완료 자동 피드백
     var qrBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
     var showQr by remember { mutableStateOf(false) }
+    var awaitingOrderId by remember { mutableStateOf<String?>(null) }
+    var awaitingStoreId by remember { mutableStateOf<String?>(null) }
+
+    var showAutoResult by remember { mutableStateOf(false) }
+    var autoResultMessage by remember { mutableStateOf<String?>(null) }
+    var autoPaidOrderId by remember { mutableStateOf<String?>(null) }
+    val autoResultSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     fun addToCart(p: Product) {
         val idx = cart.indexOfFirst { it.productId == p.id }
@@ -175,8 +182,39 @@ fun QrOrderScreen(
 
     fun generateQr() {
         val json = buildPayload()
+        // 생성한 주문 id 추적
+        val orderId = JSONObject(json).getString("orderId")
+        awaitingOrderId = orderId
+        awaitingStoreId = storeId
+
         qrBitmap = generateQrImageBitmap(json, sizePx = 900)
         showQr = true
+    }
+
+    // ✅ 결제 완료 실시간 감지: 생성한 order 문서를 구독
+    DisposableEffect(awaitingOrderId, awaitingStoreId) {
+        val sId = awaitingStoreId
+        val oId = awaitingOrderId
+        if (sId.isNullOrBlank() || oId.isNullOrBlank()) return@DisposableEffect onDispose { }
+        val reg = Firebase.firestore
+            .collection("merchants").document(sId)
+            .collection("orders").document(oId)
+            .addSnapshotListener { doc, _ ->
+                if (doc != null && doc.exists()) {
+                    val status = doc.getString("status") ?: ""
+                    if (status == "PAID") {
+                        // 결제 확인됨 → QR 닫고 결과 표출
+                        showQr = false
+                        autoPaidOrderId = oId
+                        autoResultMessage = "결제가 완료되었습니다."
+                        showAutoResult = true
+                        // 한 번만
+                        awaitingOrderId = null
+                        awaitingStoreId = null
+                    }
+                }
+            }
+        onDispose { reg.remove() }
     }
 
     // 하단 주문서 높이(접힘/펼침)
@@ -250,6 +288,7 @@ fun QrOrderScreen(
         }
     }
 
+    // ▶ QR 모달
     if (showQr) {
         AlertDialog(
             onDismissRequest = { showQr = false },
@@ -265,6 +304,47 @@ fun QrOrderScreen(
             },
             confirmButton = { TextButton(onClick = { showQr = false }) { Text("닫기") } }
         )
+    }
+
+    // ✅ 손님 결제 완료 자동 피드백 바텀시트
+    if (showAutoResult && autoResultMessage != null) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                showAutoResult = false
+                autoResultMessage = null
+                autoPaidOrderId = null
+            },
+            sheetState = autoResultSheet,
+            dragHandle = { DragHandle() }
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(Icons.Filled.Celebration, contentDescription = null, modifier = Modifier.size(56.dp))
+                Text("결제 완료!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                Text(autoResultMessage!!, style = MaterialTheme.typography.bodyMedium)
+
+                ElevatedCard {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        KeyRow("주문번호", autoPaidOrderId ?: "-", strong = true)
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        showAutoResult = false
+                        autoResultMessage = null
+                        autoPaidOrderId = null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("확인") }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
     }
 }
 

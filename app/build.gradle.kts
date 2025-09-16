@@ -85,7 +85,15 @@ dependencies {
     implementation("com.github.tehras:charts:0.2.4-alpha")
 
     // QR 생성용
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
     implementation("com.google.zxing:core:3.5.3")
+
+    // CameraX
+    implementation ("androidx.camera:camera-core:1.3.4")
+    implementation ("androidx.camera:camera-camera2:1.3.4")
+    implementation ("androidx.camera:camera-lifecycle:1.3.4")
+    implementation ("androidx.camera:camera-view:1.3.4")
+
 
     // 기타 유틸
     implementation(libs.glide)
