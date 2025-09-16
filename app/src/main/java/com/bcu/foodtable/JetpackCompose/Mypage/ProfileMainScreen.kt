@@ -45,6 +45,7 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.text.input.ImeAction
 import kotlinx.coroutines.launch
@@ -204,7 +205,12 @@ fun ProfileMainScreen(
                         balanceText = "%,d G".format((user.point ?: 0)),
                         onPayClick = { viewModel.navigateToPurchase(context) }
                     )
+                    Spacer(Modifier.height(12.dp))
 
+// ───────── QR 결제 바로가기 (소금 아래) ─────────
+                    QrPayCard(
+                        onQrPayClick = { navController.navigate("qrPayScanner") }
+                    )
                     Spacer(Modifier.height(16.dp))
 
                     // ───────── 건강 | 밥상 | 냉장 (연결된 바 + 실선 구분) ─────────
@@ -304,7 +310,7 @@ private fun SaltPayCard(
                     containerColor = cs.primary,
                     contentColor = cs.onPrimary
                 )
-            ) { Text("결제") } // 라벨
+            ) { Text("충전") } // 라벨
         }
     }
 }
@@ -396,6 +402,69 @@ private fun SegmentCell(
                 style = MaterialTheme.typography.labelLarge,
                 color = cs.onSurface.copy(alpha = alpha)
             )
+        }
+    }
+}
+@Composable
+private fun QrPayCard(
+    onQrPayClick: () -> Unit
+) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = cs.surface,
+        tonalElevation = 2.dp,
+        border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "QR 결제",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = cs.onSurface
+                )
+                Spacer(Modifier.weight(1f))
+                // 얇은 세로 실선
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(cs.outline.copy(alpha = 0.35f))
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "스캔하여 결제",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = cs.onSurfaceVariant
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Button(
+                onClick = onQrPayClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = cs.primary,
+                    contentColor = cs.onPrimary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.QrCode2,
+                    contentDescription = null
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("QR 결제하기")
+            }
         }
     }
 }
