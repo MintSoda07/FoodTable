@@ -1,3 +1,5 @@
+package com.bcu.foodtable.ui
+
 import android.content.pm.PackageManager
 import android.util.Base64
 import android.util.Log
@@ -25,7 +27,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
@@ -38,6 +39,15 @@ import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
 import java.security.MessageDigest
+import androidx.fragment.app.FragmentActivity
+import com.bcu.foodtable.JetpackCompose.LoginViewModel
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,10 +64,13 @@ fun LoginScreenImproved(
     onSignUpClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
     onGoogleLoginClick: () -> Unit,
-    onKakaoLoginClick: () -> Unit
+    onKakaoLoginClick: () -> Unit,
+    onDebugBio: (android.content.Context) -> Unit,
+    // 생체 로그인 콜백(복호화된 토큰 전달)
+    onBiometricLoginWithToken: (tokenPlain: ByteArray) -> Unit,
+    // ViewModel
+    vm: LoginViewModel
 ) {
-
-
     val primaryColor = Color(0xFFE76F51)
     val backgroundColorStart = Color(0xFFFFF7F0)
     val backgroundColorEnd = Color(0xFFFFF1E6)
@@ -69,13 +82,40 @@ fun LoginScreenImproved(
     var passwordVisible by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
 
-    // Lottie 애니메이션 구성
+    // Lottie
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.food2))
     val progress by animateLottieCompositionAsState(
         composition = composition,
         iterations = LottieConstants.IterateForever
     )
 
+    // 🔐 생체 상태
+    val context = LocalContext.current
+    val activity = remember(context) { context.findFragmentActivity() } // 안전 캐스팅
+    var bioAvailable by remember { mutableStateOf(false) }
+    var bioStored by remember { mutableStateOf(false) }
+
+    // VM 이벤트 수신
+    LaunchedEffect(Unit) {
+        vm.events.collect { ev ->
+            when (ev) {
+                is LoginViewModel.Event.ShowSnack -> Log.d("BIO", ev.msg)
+                is LoginViewModel.Event.BiometricReady -> {
+                    bioAvailable = ev.available
+                    bioStored = ev.hasStored
+                }
+                LoginViewModel.Event.BiometricLoginSuccess -> { /* 네비게이션 등 필요시 */ }
+            }
+        }
+    }
+
+    // 초기 가용/저장 상태 체크
+    LaunchedEffect(activity) {
+        activity?.let {
+            vm.refreshBiometricState(it)
+            onDebugBio(it.applicationContext)
+        }
+    }
     PrintKakaoKeyHash()
 
     Box(
@@ -247,9 +287,11 @@ fun LoginScreenImproved(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
+                    // 소셜 로그인 버튼
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
                             onClick = onGoogleLoginClick,
@@ -269,6 +311,106 @@ fun LoginScreenImproved(
                             border = BorderStroke(1.dp, Color(0xFFFEE500))
                         ) {
                             Text("K", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3C1E1E))
+                        }
+                    }
+
+                    // 🔽🔽 소셜 버튼 '아래'에 가로 상태 + 액션 Row
+                    Spacer(Modifier.height(12.dp))
+
+                    // 설정 화면 → 복귀 시 상태 리프레시
+                    val enrollLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.StartActivityForResult()
+                    ) { activity?.let { vm.refreshBiometricState(it) } }
+
+                    // ✅ Keystore 설정과 일치하도록 STRONG | DEVICE_CREDENTIAL 사용
+                    val enrollAllow = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // 왼쪽: 상태 텍스트
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fingerprint,
+                                contentDescription = null,
+                                tint = if (bioAvailable) Color(0xFF2E7D32) else Color(0xFFD32F2F)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "생체 로그인 상태 · 기기 지원: ${if (bioAvailable) "가능" else "미설정"} · 저장된 토큰: ${if (bioStored) "있음" else "없음"}",
+                                fontSize = 13.sp,
+                                color = Color(0xFF555555),
+                                maxLines = 1
+                            )
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        // 오른쪽: 상황별 액션
+                        when {
+                            !bioAvailable -> {
+                                OutlinedButton(
+                                    onClick = {
+                                        try {
+                                            val intent = Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
+                                                putExtra(
+                                                    Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
+                                                    enrollAllow // ✅ 여기!
+                                                )
+                                            }
+                                            enrollLauncher.launch(intent)
+                                        } catch (_: Exception) {
+                                            // OS < 11 등 폴백
+                                            enrollLauncher.launch(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) { Text("설정 열기", fontSize = 13.sp) }
+                            }
+                            bioAvailable && !bioStored -> {
+                                AssistChip(
+                                    onClick = { /* 안내용 */ },
+                                    label = { Text("먼저 이메일/비번으로 1회 로그인", fontSize = 12.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                )
+                            }
+                            else -> {
+                                // bioAvailable && bioStored → 아래에 실제 생체 로그인 버튼이 뜸
+                                Spacer(Modifier.width(0.dp))
+                            }
+                        }
+                    }
+                    // 🔼🔼 가로 상태 Row 끝
+
+                    // 생체 로그인 버튼: 기기 지원 & 저장된 토큰이 있을 때 노출
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (bioAvailable && bioStored) {
+                        OutlinedButton(
+                            onClick = {
+                                activity?.let { a ->
+                                    onDebugBio(a.applicationContext)
+                                    vm.startBiometricLogin(a) { tokenPlain ->
+                                        onBiometricLoginWithToken(tokenPlain)
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Icon(Icons.Default.Face, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("얼굴/지문으로 로그인")
                         }
                     }
                 }
@@ -297,9 +439,9 @@ fun LoginScreenImproved(
                 Box(
                     modifier = Modifier
                         .size(160.dp)
-                        .clip(CircleShape) // ✅ 클리핑 경계
+                        .clip(CircleShape)
                         .background(Color.White)
-                        .border(BorderStroke(2.dp, Color(0xFFE0E0E0)), shape = CircleShape), // 테두리
+                        .border(BorderStroke(2.dp, Color(0xFFE0E0E0)), shape = CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     LottieAnimation(
@@ -307,16 +449,12 @@ fun LoginScreenImproved(
                         progress = { progress },
                         modifier = Modifier
                             .fillMaxSize()
-                            .scale(1.2f) // ✅ 클리핑보다 크게 만들어서 바깥이 잘리는 효과
+                            .scale(1.2f)
                     )
                 }
-
             }
         }
-
-
     }
-
 }
 
 @Composable
@@ -346,3 +484,10 @@ fun PrintKakaoKeyHash() {
     }
 }
 
+/** Context에서 안전하게 FragmentActivity 찾기 (ContextWrapper 중첩 대응) */
+private tailrec fun Context.findFragmentActivity(): FragmentActivity? =
+    when (this) {
+        is FragmentActivity -> this
+        is ContextWrapper -> baseContext.findFragmentActivity()
+        else -> null
+    }

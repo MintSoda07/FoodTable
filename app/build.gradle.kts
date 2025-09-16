@@ -175,5 +175,8 @@ dependencies {
     implementation ("com.google.mlkit:text-recognition-korean:16.0.1")
     implementation ("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    //생체 관련
+    implementation ("androidx.biometric:biometric:1.2.0-alpha05") // or newer
+    implementation ("androidx.security:security-crypto:1.1.0-alpha06")
 
 }
