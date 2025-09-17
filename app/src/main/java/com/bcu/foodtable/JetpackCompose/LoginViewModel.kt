@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import com.bcu.foodtable.JetpackCompose.biometric.BiometricAuthManager
+import com.bcu.foodtable.JetpackCompose.biometric.SecretStore
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch

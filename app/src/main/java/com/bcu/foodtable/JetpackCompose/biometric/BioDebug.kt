@@ -1,8 +1,7 @@
-package com.bcu.foodtable.JetpackCompose
+package com.bcu.foodtable.JetpackCompose.biometric
 import android.content.Context
 import android.util.Log
 import androidx.biometric.BiometricManager
-import com.bcu.foodtable.JetpackCompose.SecretStore
 
 fun debugDumpBio(context: Context) {
     val pair = SecretStore.loadEncryptedToken(context)

@@ -19,8 +19,7 @@ import com.bcu.foodtable.JetpackCompose.LoginViewModel
 // 실제 경로로 교체
 import com.bcu.foodtable.ui.merchant.MerchantPage
 import com.bcu.foodtable.ui.merchant.MerchantSetupActivity
-import com.bcu.foodtable.HomeActivity
-import com.bcu.foodtable.JetpackCompose.debugDumpBio
+import com.bcu.foodtable.JetpackCompose.biometric.debugDumpBio
 import com.bcu.foodtable.ui.LoginScreenImproved
 
 class LoginActivity : AppCompatActivity() {

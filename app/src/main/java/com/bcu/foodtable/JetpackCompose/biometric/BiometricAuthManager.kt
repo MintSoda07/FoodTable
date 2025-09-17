@@ -1,4 +1,4 @@
-package com.bcu.foodtable.JetpackCompose
+package com.bcu.foodtable.JetpackCompose.biometric
 
 import android.content.Context
 import android.os.Build
