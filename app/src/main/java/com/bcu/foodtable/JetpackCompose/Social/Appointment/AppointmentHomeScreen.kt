@@ -33,7 +33,12 @@ fun AppointmentHomeScreen(
 
     // 🚧 UI 방어 로직: 혹시라도 잘못 들어온 데이터가 있어도 내가 수락한 것만 표시
     val acceptedOnly by remember(me, list) {
-        mutableStateOf(list.filter { it.acceptedIds.contains(me) }.sortedBy { it.startAt })
+        mutableStateOf(
+            list
+                .filter { it.acceptedIds.contains(me) }
+                .filter { ap -> !(ap.paidBy?.contains(me) ?: false) }
+                .sortedBy { it.startAt }
+        )
     }
 
     if (acceptedOnly.isEmpty()) {

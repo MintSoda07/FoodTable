@@ -15,13 +15,15 @@ data class Appointment(
     val createdAt: Long = System.currentTimeMillis(),
     val participantIds: List<String> = emptyList(),
     val acceptedIds: List<String> = emptyList(),
+    val paidBy: List<String> = emptyList()
 )
 
 data class AppointmentParticipant(
     val uid: String = "",
     val role: String = "member",
     val status: String = "pending",
-    val respondedAt: com.google.firebase.Timestamp? = null
+    val respondedAt: com.google.firebase.Timestamp? = null,
+    val paidAt: com.google.firebase.Timestamp? = null
 )
 
 data class DeviceEventMapping(
