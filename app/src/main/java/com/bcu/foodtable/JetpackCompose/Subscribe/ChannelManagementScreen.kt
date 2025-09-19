@@ -8,8 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -20,12 +19,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
-import com.github.tehras.charts.bar.*
+import com.github.tehras.charts.bar.BarChart
+import com.github.tehras.charts.bar.BarChartData
 import com.github.tehras.charts.bar.renderer.bar.SimpleBarDrawer
 import com.github.tehras.charts.bar.renderer.label.SimpleValueDrawer
 import com.github.tehras.charts.bar.renderer.xaxis.SimpleXAxisDrawer
@@ -33,6 +33,7 @@ import com.github.tehras.charts.bar.renderer.yaxis.SimpleYAxisDrawer
 import com.github.tehras.charts.piechart.PieChart
 import com.github.tehras.charts.piechart.PieChartData
 import com.github.tehras.charts.piechart.animation.simpleChartAnimation
+import com.github.tehras.charts.piechart.renderer.SimpleSliceDrawer
 import kotlin.math.roundToInt
 
 @Composable
@@ -71,144 +72,133 @@ fun ChannelManagementScreen(
         if (isLoading) {
             LottieLoading(R.raw.chart)
         } else {
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(12.dp)
+            // ✅ 스크롤 & 하단 패딩으로 잘림 방지
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 헤더
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = channelName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "채널 대시보드",
-                            color = Color.Gray,
-                            fontSize = 16.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.weight(0.35f)) //
-
-                    // 중앙: 날짜 박스
-                    Surface(
-                        color = Color(0xFF282B37),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .shadow(2.dp)
-                            .align(Alignment.CenterVertically)
+                item {
+                    // 헤더
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = channelName,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "채널 대시보드",
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // 날짜 박스
+                        Surface(
+                            color = Color(0xFF282B37),
+                            shape = MaterialTheme.shapes.small,
                         ) {
                             Text(
                                 text = nowDateString(),
                                 color = Color.White,
                                 fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.weight(0.65f)) // 오른쪽 Spacer 비율 ↓
-                    // 오른쪽: 수정 버튼
-                    IconButton(
-                        onClick = { onEditClick() },
-                        modifier = Modifier
-                            .padding(start = 6.dp)
-                            .size(34.dp)
-                            .align(Alignment.CenterVertically)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "채널 수정",
-                            tint = Color(0xFF282B37)
-                        )
-                    }
-                }
-
-
-                Spacer(Modifier.height(12.dp))
-
-                // 상단 카드 요약 + 변화율
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    metricTabs.forEachIndexed { idx, metric ->
-                        val value = when (idx) {
-                            0 -> stats.totalViews
-                            1 -> stats.totalLikes
-                            2 -> stats.totalPurchases
-                            3 -> stats.totalUploads
-                            else -> stats.totalRevenue
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = onEditClick,
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "채널 수정",
+                                tint = Color(0xFF282B37)
+                            )
                         }
-                        val changePercent = stats.percentChange.getOrNull(idx) ?: 0f
-                        MetricSummaryCardPro(
-                            metric,
-                            value,
-                            accentColors[idx],
-                            highlight = selectedTab == idx,
-                            percent = changePercent,
-                            onClick = { selectedTab = idx }
-                        )
                     }
                 }
-                Spacer(Modifier.height(10.dp))
 
-                // ----------- 분류 토글버튼 --------------
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    periodOptions.forEach { option ->
-                        val selected = periodType == option
-                        val animatedColor by animateColorAsState(
-                            if (selected) accentColors[selectedTab] else Color.LightGray
-                        )
-                        Text(
-                            option,
-                            color = animatedColor,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 2.dp)
-                                .clickable { periodType = option }
-                        )
+                item {
+                    // 상단 카드 요약 + 변화율
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        metricTabs.forEachIndexed { idx, metric ->
+                            val value = when (idx) {
+                                0 -> stats.totalViews
+                                1 -> stats.totalLikes
+                                2 -> stats.totalPurchases
+                                3 -> stats.totalUploads
+                                else -> stats.totalRevenue
+                            }
+                            val changePercent = stats.percentChange.getOrNull(idx) ?: 0f
+                            MetricSummaryCardPro(
+                                title = metric,
+                                value = value,
+                                color = accentColors[idx],
+                                highlight = selectedTab == idx,
+                                percent = changePercent,
+                                onClick = { selectedTab = idx }
+                            )
+                        }
                     }
                 }
-                Spacer(Modifier.height(4.dp))
 
-                // ----------- 동적 차트+트렌드 -------------
-                DynamicChartSection(
-                    stats = stats,
-                    selectedTab = selectedTab,
-                    accentColors = accentColors,
-                    metricTabs = metricTabs,
-                    periodType = periodType,
-                    showCount = showCount
-                )
+                item {
+                    // ----------- 분류 토글버튼 --------------
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        periodOptions.forEach { option ->
+                            val selected = periodType == option
+                            val animatedColor by animateColorAsState(
+                                if (selected) accentColors[selectedTab] else Color.LightGray,
+                                label = "period"
+                            )
+                            Text(
+                                option,
+                                color = animatedColor,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp, vertical = 2.dp)
+                                    .clickable { periodType = option }
+                            )
+                        }
+                    }
+                }
 
-                Spacer(Modifier.height(18.dp))
+                item {
+                    // ----------- 동적 차트+트렌드 -------------
+                    DynamicChartSection(
+                        stats = stats,
+                        selectedTab = selectedTab,
+                        accentColors = accentColors,
+                        metricTabs = metricTabs,
+                        periodType = periodType,
+                        showCount = showCount
+                    )
+                }
 
-                // ----------- 동적 진행률, 파이차트 -----------
-                DynamicAdvancedMetricsSection(
-                    stats = stats,
-                    accentColors = accentColors,
-                    periodType = periodType,
-                    showCount = showCount
-                )
+                item {
+                    // ----------- 동적 진행률, 파이차트 -----------
+                    DynamicAdvancedMetricsSection(
+                        stats = stats,
+                        accentColors = accentColors,
+                        periodType = periodType,
+                        showCount = showCount
+                    )
+                }
             }
         }
     }
@@ -243,15 +233,14 @@ fun DynamicChartSection(
         )[selectedTab]
     }
 
-    // 항상 showCount개만 보여주기 (최근 n개)
     val slicedLabels = labels.toList().takeLast(showCount)
     val data = slicedLabels.associateWith { valuesMap.getOrElse(labels.indexOf(it)) { "0" }.toFloatOrNull() ?: 0f }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+            .shadow(4.dp, MaterialTheme.shapes.large),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
@@ -276,11 +265,10 @@ fun DynamicChartSection(
                 data = data,
                 color = color,
                 labelFormatter = {
-                    // 날짜 포맷 일/월/연도별 보기 쉽게!
                     when (periodType) {
-                        "일간" -> it.substringAfter("-").replace("-", "/") // MM-dd or yy-MM-dd → MM/dd
-                        "월간" -> it.substringAfter("-") // MM or yy-MM
-                        else -> it // 연도
+                        "일간" -> it.substringAfter("-").replace("-", "/")
+                        "월간" -> it.substringAfter("-")
+                        else -> it
                     }
                 }
             )
@@ -288,7 +276,7 @@ fun DynamicChartSection(
     }
 }
 
-// --------- 동적 프로그래스바+PieChart ---------
+// --------- 동적 진행률, PieChart ---------
 @Composable
 fun DynamicAdvancedMetricsSection(
     stats: ChannelStats,
@@ -296,12 +284,11 @@ fun DynamicAdvancedMetricsSection(
     periodType: String,
     showCount: Int
 ) {
-    Spacer(Modifier.height(4.dp))
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(3.dp, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+            .shadow(3.dp, MaterialTheme.shapes.large),
+        shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(3.dp)
     ) {
         Column(Modifier.padding(18.dp)) {
@@ -329,63 +316,62 @@ fun DynamicAdvancedMetricsSection(
                 val maxTarget = maxTargets.getOrNull(i)?.takeIf { it > 0 } ?: value
                 val ratio = if (maxTarget == 0f) 0f else (value / maxTarget)
                 MetricProgressBar(
-                    name, value, ratio, accentColors[i]
+                    label = name, value = value, ratio = ratio, color = accentColors[i]
                 )
                 Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(12.dp))
 
-            // PieChart
+            Spacer(Modifier.height(12.dp))
             Text(
                 "카테고리별 비중",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold
             )
+
+            // ✅ 파이차트: 높이 보장 + 도넛 두께로 겹침 방지
             Spacer(Modifier.height(8.dp))
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(150.dp),
+                    .height(220.dp)
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
                 contentAlignment = Alignment.Center
             ) {
                 val pieData = PieChartData(
                     slices = listOf(
-                        PieChartData.Slice(latestMetric[2], accentColors[2]),
-                        PieChartData.Slice(latestMetric[1], accentColors[1]),
-                        PieChartData.Slice(latestMetric[3], accentColors[3]),
-                        PieChartData.Slice(latestMetric[0], accentColors[0]),
-                        PieChartData.Slice(latestMetric[4], accentColors[4])
+                        PieChartData.Slice(latestMetric[2], accentColors[2]), // 구매수
+                        PieChartData.Slice(latestMetric[1], accentColors[1]), // 좋아요
+                        PieChartData.Slice(latestMetric[3], accentColors[3]), // 업로드수
+                        PieChartData.Slice(latestMetric[0], accentColors[0]), // 조회수
+                        PieChartData.Slice(latestMetric[4], accentColors[4])  // 수익
                     )
                 )
                 PieChart(
                     pieChartData = pieData,
-                    modifier = Modifier.fillMaxSize().padding(6.dp),
+                    modifier = Modifier.fillMaxSize(),
                     animation = simpleChartAnimation(),
-                    sliceDrawer = com.github.tehras.charts.piechart.renderer.SimpleSliceDrawer()
+                    sliceDrawer = SimpleSliceDrawer(sliceThickness = 26f) // ✅ 도넛 두께
                 )
             }
-            Spacer(Modifier.height(4.dp))
+
+            // ✅ 범례 간격 & 카드 하단 여백
+            Spacer(Modifier.height(6.dp))
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
-                listOf("구매수", "좋아요", "업로드수", "조회수", "수익").forEachIndexed { i, label ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(12.dp)
-                                .background(accentColors[i], shape = CircleShape)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(label, fontSize = 11.sp, color = Color.Gray)
-                    }
-                }
+                LegendDot(accentColors[2], "구매수")
+                LegendDot(accentColors[1], "좋아요")
+                LegendDot(accentColors[3], "업로드수")
+                LegendDot(accentColors[0], "조회수")
+                LegendDot(accentColors[4], "수익")
             }
+            Spacer(Modifier.height(4.dp))
         }
     }
 }
 
-// --------- 고급 카드, 트렌드, 애니/바 차트/진행률 유틸 ---------
+// --------- 유틸 컴포넌트들 ---------
 @Composable
 fun MetricSummaryCardPro(
     title: String,
@@ -404,15 +390,15 @@ fun MetricSummaryCardPro(
         modifier = Modifier
             .width(75.dp)
             .height(82.dp)
-            .shadow(if (highlight) 7.dp else 1.dp, RoundedCornerShape(13.dp))
+            .shadow(if (highlight) 7.dp else 1.dp, MaterialTheme.shapes.medium)
             .border(
                 width = if (highlight) 2.dp else 1.dp,
                 color = if (highlight) color else color.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(13.dp)
+                shape = MaterialTheme.shapes.medium
             )
             .background(animatedBg)
             .clickable { onClick() },
-        shape = RoundedCornerShape(13.dp),
+        shape = MaterialTheme.shapes.medium,
         color = animatedBg
     ) {
         Column(
@@ -445,7 +431,7 @@ fun ChangeRateBadge(percent: Float, color: Color) {
     val bg = if (percent >= 0) color.copy(alpha = 0.13f) else Color(0xFFE53935).copy(alpha = 0.14f)
     val txtColor = if (percent >= 0) color else Color(0xFFE53935)
     Surface(
-        shape = CircleShape,
+        shape = MaterialTheme.shapes.small,
         color = bg,
         border = BorderStroke(0.7.dp, txtColor),
     ) {
@@ -464,7 +450,7 @@ fun TrendChip(percent: Float, color: Color) {
     val icon = if (percent >= 0) "▲" else "▼"
     val txtColor = if (percent >= 0) color else Color(0xFFE53935)
     Surface(
-        shape = RoundedCornerShape(50),
+        shape = MaterialTheme.shapes.large,
         color = txtColor.copy(alpha = 0.10f),
         border = BorderStroke(1.dp, txtColor)
     ) {
@@ -538,9 +524,8 @@ fun MetricProgressBar(
                 modifier = Modifier
                     .height(11.dp)
                     .weight(1f)
-                    .clip(RoundedCornerShape(50))
+                    .clip(MaterialTheme.shapes.large)
             )
-
             Spacer(Modifier.width(12.dp))
             Text(
                 String.format("%,.0f", value),
@@ -549,6 +534,19 @@ fun MetricProgressBar(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Composable
+private fun LegendDot(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier
+                .size(10.dp)
+                .background(color, shape = MaterialTheme.shapes.small)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(label, fontSize = 11.sp, color = Color.Gray)
     }
 }
 
