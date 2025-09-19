@@ -21,8 +21,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -892,43 +894,167 @@ fun MiniGameTab(navController: NavController? = null) {
 @Composable
 fun MenuGameList(navController: NavController? = null) {
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("메뉴 정하기 게임", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
-        GameButton("룰렛 돌리기", Icons.Default.Casino) { navController?.navigate("rouletteGame") }
-        GameButton("음식 카드 뽑기", Icons.Default.Style) { navController?.navigate("cardGame") }
+        MiniGameSectionHeader(
+            title = "메뉴 정하기",
+            subtitle = "가볍게 돌리고 바로 결정! 오늘 메뉴를 재밌게 고르세요."
+        )
+
+        MiniGameCard(
+            icon = Icons.Default.Casino,
+            title = "룰렛 돌리기",
+            description = "후보 메뉴를 입력하고 룰렛으로 한 번에 선택",
+            chips = listOf("소요 10초", "랜덤", "가벼움"),
+            onClick = { navController?.navigate("rouletteGame") }
+        )
+
+        MiniGameCard(
+            icon = Icons.Default.Style,
+            title = "음식 카드 뽑기",
+            description = "셔플된 카드에서 한 장 뽑아 오늘 메뉴 확정",
+            chips = listOf("소요 10초", "랜덤", "카드 뽑기"),
+            onClick = { navController?.navigate("cardGame") }
+        )
+
+        Spacer(Modifier.height(8.dp))
     }
 }
+
 @Composable
 fun PayerGameList(navController: NavController? = null) {
     Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("누가 돈을 낼까요?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
-        GameButton("사다리 타기", Icons.Default.DeviceHub) { navController?.navigate("ladderGame") }
-        GameButton("결제자 룰렛", Icons.Default.Payments) { navController?.navigate("payerRouletteGame") }
+        MiniGameSectionHeader(
+            title = "누가 낼까?",
+            subtitle = "공정하고 재밌게 결제자 뽑기. 모두가 납득하는 방식으로!"
+        )
+
+        MiniGameCard(
+            icon = Icons.Default.DeviceHub,
+            title = "사다리 타기",
+            description = "참여자 입력 → 사다리로 공평하게 추첨",
+            chips = listOf("소요 30초", "다인 참여", "공정성"),
+            onClick = { navController?.navigate("ladderGame") }
+        )
+
+        MiniGameCard(
+            icon = Icons.Default.Payments,
+            title = "결제자 룰렛",
+            description = "룰렛으로 단번에 결제자 랜덤 선택",
+            chips = listOf("소요 10초", "랜덤", "가벼움"),
+            onClick = { navController?.navigate("payerRouletteGame") }
+        )
+
+        Spacer(Modifier.height(8.dp))
     }
 }
+
+/* 기존 GameButton 시그니처 유지(호출부 호환 위해).
+   내부 구현만 카드의 CTA용으로 재활용 가능하도록 래핑 */
 @Composable
 fun GameButton(text: String, icon: ImageVector? = null, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(0.8f).height(56.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
         shape = RoundedCornerShape(12.dp),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = text, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+            Icon(icon, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
         }
-        Text(text, style = MaterialTheme.typography.titleMedium)
+        Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
+}
+
+/* ---------------- 보조 컴포넌트 ---------------- */
+
+@Composable
+private fun MiniGameSectionHeader(title: String, subtitle: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun MiniGameCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    chips: List<String>,
+    onClick: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // 보조 정보(소요시간/특성) — 한눈에 특징 전달
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                chips.forEach { InfoChip(it) }
+            }
+
+            // CTA
+            GameButton(text = "바로 시작", onClick = onClick)
+        }
+    }
+}
+
+@Composable
+private fun InfoChip(text: String) {
+    AssistChip(
+        onClick = {},
+        label = { Text(text, style = MaterialTheme.typography.labelMedium) },
+        leadingIcon = null,
+        enabled = false // 읽기용 배지(탭되면 혼동되므로 disabled)
+    )
 }
 @Composable
 fun ChallengeTab() {
