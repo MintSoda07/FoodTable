@@ -812,8 +812,8 @@ suspend fun sendMessage(
         else          -> message.text?.take(50).orEmpty()
     }
 
-    // 양쪽 문서에 같은 ID로 쓰되, 읽음 플래그는 분리
-    val senderPayload   = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = true)
+    // 변경 → 둘 다 false로 시작 (상대가 읽을 때 수신자 클라이언트가 양쪽 문서를 true로 바꿔줌)
+    val senderPayload   = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = false)
     val receiverPayload = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = false)
 
     // 채팅방(문서) 메타: 최근 메시지/시간 갱신 (둘 다)

@@ -403,45 +403,61 @@ fun OpenChatRoomScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
-                    val prev = messages.getOrNull(index - 1)
-                    val sameSender = prev?.senderUid == msg.senderUid
-                    val within1Min = prev != null && (msg.timestamp - prev.timestamp) < 60_000
-                    // 연속 발화면 중간 것들은 시간/숫자 숨김
-                    val showTime = !(sameSender && within1Min)
+                    val next = messages.getOrNull(index + 1)
+                    val sameSenderNext = next?.senderUid == msg.senderUid
+                    val within1MinNext = next != null && (next.timestamp - msg.timestamp) < 60_000
+
+                    // 다음 메시지가 같은 발신자 + 1분 이내면 지금 메시지는 묶음 중간 → 메타 숨김
+                    val showMeta = !(sameSenderNext && within1MinNext)
 
                     when (msg.type) {
                         "system" -> SystemBubble(text = msg.text ?: "")
+
                         "recipe" -> RecipeShareBubble(
                             message = ChatMessage(
-                                id = msg.id, senderUid = msg.senderUid, text = msg.text, imageUrl = msg.imageUrl,
-                                timestamp = msg.timestamp, type = "recipe", deeplink = msg.deeplink
+                                id = msg.id,
+                                senderUid = msg.senderUid,
+                                text = msg.text,
+                                imageUrl = msg.imageUrl,
+                                timestamp = msg.timestamp,
+                                type = "recipe",
+                                deeplink = msg.deeplink
                             ),
                             onOpen = { rid -> navController.navigate("recipe_by_id/${Uri.encode(rid)}") }
                         )
+
                         "appointment" -> {
                             val cm = ChatMessage(
-                                id = msg.id, senderUid = msg.senderUid, text = msg.text,
-                                placeName = msg.placeName, placeUrl = msg.placeUrl,
-                                deeplink = msg.deeplink, timestamp = msg.timestamp, type = "appointment"
+                                id = msg.id,
+                                senderUid = msg.senderUid,
+                                text = msg.text,
+                                placeName = msg.placeName,
+                                placeUrl = msg.placeUrl,
+                                deeplink = msg.deeplink,
+                                timestamp = msg.timestamp,
+                                type = "appointment"
                             )
                             AppointmentInviteBubble(
                                 message = cm,
                                 onOpen = { apptId -> navController.navigate("appointment/$apptId") }
                             )
                         }
+
                         else -> {
-                            val unreadCount = if (showTime)
+                            val unreadCount = if (showMeta)
                                 (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
                             else 0L
+
                             RoomMessageBubble(
                                 message = msg,
                                 isMe = msg.senderUid == myUid,
                                 unreadCount = unreadCount,
-                                showTime = showTime
+                                showTime = showMeta
                             )
                         }
                     }
                 }
+
             }
         }
     }
