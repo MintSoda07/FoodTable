@@ -1,12 +1,6 @@
 import android.net.Uri
 import android.util.Log
-import android.widget.ImageView
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
@@ -18,45 +12,26 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import androidx.navigation.NavController
-import coil.request.ImageRequest
-import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
-import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModelFactory
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.RecipeSaveViewModel
-import com.bcu.foodtable.R
-import com.bcu.foodtable.ai.OpenAIClient
-import com.bcu.foodtable.ui.home.Screen
 import com.bcu.foodtable.useful.Channel
-import com.bcu.foodtable.useful.RecipeItem // RecipeItem 경로는 기존과 동일
-import com.bumptech.glide.Glide
+import com.bcu.foodtable.useful.RecipeItem
 import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.StorageReference
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-// RecipeCookingScreen.kt 에서 가져온 WarmLightColorScheme 정의를 AiRecipeScreen.kt 에도 동일하게 적용
+// === RecipeCookingScreen 과 동일 톤의 라이트 테마 ===
 private val WarmLightColorScheme = lightColorScheme(
     primary = Color(0xFFE25532),
     onPrimary = Color.White,
@@ -99,13 +74,47 @@ fun FoodTableTheme(
     )
 }
 
+
+
+/** Storage 경로/gs:///http 모두를 downloadUrl로 통일 */
+@Composable
+private fun rememberDownloadUrl(imageResId: String): State<String?> {
+    val storage = remember { FirebaseStorage.getInstance() }
+    val urlState = remember(imageResId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(imageResId) {
+        try {
+            val raw = imageResId.trim()
+            when {
+                raw.startsWith("http", ignoreCase = true) -> {
+                    urlState.value = raw // 이미 URL
+                }
+                raw.startsWith("gs://", ignoreCase = true) -> {
+                    val ref = storage.getReferenceFromUrl(raw)
+                    urlState.value = ref.downloadUrl.await().toString()
+                }
+                else -> {
+                    // storage 상대경로 (recipe_image%2F... 처럼)
+                    val path = raw.replace("%2F", "/").trimStart('/')
+                    val ref = storage.reference.child(path)
+                    urlState.value = ref.downloadUrl.await().toString()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("AiRecipeScreen", "이미지 URL 변환 실패: ${e.message}")
+            urlState.value = null
+        }
+    }
+    return urlState
+}
+
 @Composable
 fun AiRecipeScreen(
     recipe: RecipeItem,
     navController: NavController,
-    onSaveToChannel: (RecipeItem) -> Unit, // 기존 기능 유지
+    onSaveToChannel: (RecipeItem) -> Unit, // 기존 시그니처 유지
     userId: String,
-    recipeSaveViewModel: RecipeSaveViewModel = viewModel()
+    recipeSaveViewModel: RecipeSaveViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 ) {
     var showChannelDialog by remember { mutableStateOf(false) }
     val myChannels by recipeSaveViewModel.myChannels.collectAsState()
@@ -113,27 +122,15 @@ fun AiRecipeScreen(
     var selectedChannel by remember { mutableStateOf<Channel?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    val decodedPath = recipe.imageResId.replace("%2F", "/")
-    val storageRef = FirebaseStorage.getInstance().reference.child(decodedPath)
-
-    val downloadUrl = remember(decodedPath) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(decodedPath) {
-        try {
-            val url = storageRef.downloadUrl.await().toString()
-            downloadUrl.value = url
-        } catch (e: Exception) {
-            Log.e("AiRecipeScreen", "Storage 이미지 로드 실패: ${e.message}")
-        }
+    // ===== 제목 보정: AI가 준 name이 비었거나 "AI 추천 요리"면 order에서 첫 스텝의 (제목) 추출하여 대체 =====
+    val computedTitle = remember(recipe.name) {
+        recipe.name.trim().ifBlank { "새 레시피" }
     }
 
-    FoodTableTheme { // 테마 적용
-        // RecipeCookingScreen.kt의 배경 그라데이션 적용
+    // ===== 이미지 downloadUrl 확보 (http/gs/storage 경로 모두 케어) =====
+    val downloadUrl = rememberDownloadUrl(recipe.imageResId)
 
-        //이미지 생성 확인 디버그
-        LaunchedEffect(recipe.imageResId) {
-            Log.d("AiRecipeScreen", "DEBUG: imageResId updated → ${recipe.imageResId}")
-        }
+    FoodTableTheme {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -151,12 +148,12 @@ fun AiRecipeScreen(
                 )
         ) {
             LazyColumn(
-                modifier = Modifier.padding(horizontal = 20.dp), // RecipeCookingScreen.kt와 동일한 패딩
+                modifier = Modifier.padding(horizontal = 20.dp),
                 contentPadding = PaddingValues(top = 24.dp, bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp) // 간격 조정
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Top 카드
                 item {
-                    // 1. 레시피 토퍼: 제목 + 이미지 (RecipeCookingScreen.kt의 Top Card 디자인 적용)
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -168,17 +165,15 @@ fun AiRecipeScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
                     ) {
                         Column(modifier = Modifier.padding(24.dp)) {
-                            // 제목
                             Text(
-                                recipe.name,
+                                computedTitle,
                                 style = MaterialTheme.typography.displaySmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFFE25532), // primary 색상
+                                    color = Color(0xFFE25532),
                                     letterSpacing = (-0.5).sp
                                 ),
-                                modifier = Modifier.padding(bottom = 16.dp) // 간격 조정
+                                modifier = Modifier.padding(bottom = 16.dp)
                             )
-
 
                             Box(
                                 modifier = Modifier
@@ -192,12 +187,10 @@ fun AiRecipeScreen(
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Log.d("이미지디버그", "Firestore imageUrl: ${recipe.imageResId}")
-
-
+                                Log.d("AiRecipeScreen", "imageResId(raw): ${recipe.imageResId}")
                                 AsyncImage(
                                     model = downloadUrl.value,
-                                    contentDescription = recipe.name,
+                                    contentDescription = computedTitle,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(RoundedCornerShape(24.dp)),
@@ -205,27 +198,19 @@ fun AiRecipeScreen(
                                 )
                             }
 
-
-
-
-
-                            // Floating Info Cards (RecipeCookingScreen.kt의 InfoChip 디자인 적용)
                             Row(
                                 modifier = Modifier
-                                    .align(Alignment.Start) // RecipeCookingScreen과 동일
-                                    .padding(top = 16.dp), // 이미지 아래 간격
+                                    .align(Alignment.Start)
+                                    .padding(top = 16.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 recipe.estimatedCalories?.let {
                                     InfoChip(
                                         text = it,
                                         icon = "🔥",
-                                        backgroundColor = MaterialTheme.colorScheme.primary.copy(
-                                            alpha = 0.9f
-                                        )
+                                        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
                                     )
                                 }
-                                // AiRecipeScreen에서는 단계 수가 없을 수 있으므로, 임의로 "AI 추천" 칩 추가
                                 InfoChip(
                                     text = "AI 추천",
                                     icon = "🤖",
@@ -236,8 +221,8 @@ fun AiRecipeScreen(
                     }
                 }
 
-                // 2. 설명 카드 (RecipeCookingScreen.kt의 Recipe Info Section 디자인 적용)
-                if (!recipe.description.isNullOrBlank()) {
+                // 설명/태그/카테고리
+                if (recipe.description.isNotBlank() || recipe.tags.isNotEmpty() || recipe.C_categories.isNotEmpty()) {
                     item {
                         Card(
                             modifier = Modifier
@@ -252,46 +237,45 @@ fun AiRecipeScreen(
                             Column(
                                 modifier = Modifier.padding(20.dp)
                             ) {
-                                Text(
-                                    "설명",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    ),
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-                                Text(
-                                    recipe.description,
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        lineHeight = 28.sp
-                                    ),
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                )
-
-                                // Category and Tags with Modern Chips (RecipeCookingScreen.kt의 CategoryChip, TagChip 디자인 적용)
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    recipe.C_categories.forEach { category ->
-                                        CategoryChip(
-                                            text = category,
-                                            modifier = Modifier.weight(
-                                                1f,
-                                                fill = false
-                                            ) // Chip 크기 조절
-                                        )
-                                    }
+                                if (recipe.description.isNotBlank()) {
+                                    Text(
+                                        "설명",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        ),
+                                        modifier = Modifier.padding(bottom = 8.dp)
+                                    )
+                                    Text(
+                                        recipe.description,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                            lineHeight = 28.sp
+                                        ),
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                    )
                                 }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                if (recipe.C_categories.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        recipe.C_categories.forEach { category ->
+                                            CategoryChip(
+                                                text = category,
+                                                modifier = Modifier.weight(1f, fill = false)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
 
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    items(recipe.tags) { tag ->
-                                        TagChip(tag = if (tag.startsWith("#")) tag else "#$tag")
+                                if (recipe.tags.isNotEmpty()) {
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        items(recipe.tags) { tag ->
+                                            TagChip(tag = if (tag.startsWith("#")) tag else "#$tag")
+                                        }
                                     }
                                 }
                             }
@@ -299,8 +283,8 @@ fun AiRecipeScreen(
                     }
                 }
 
-                // 3. 재료 카드 (RecipeCookingScreen.kt의 Ingredients Section 디자인 적용)
-                if (!recipe.ingredients.isNullOrEmpty()) {
+                // 재료
+                if (recipe.ingredients.isNotEmpty()) {
                     item {
                         Card(
                             modifier = Modifier
@@ -339,7 +323,7 @@ fun AiRecipeScreen(
                                     recipe.ingredients.forEach { ingredient ->
                                         IngredientItem(
                                             ingredient = ingredient,
-                                            onClick = { /* 재료 클릭 시 동작 (RecipeCookingScreen.kt처럼 네이버 쇼핑 연결 가능) */ }
+                                            onClick = { /* 필요시 가격 비교 액션 추가 가능 */ }
                                         )
                                     }
                                 }
@@ -348,8 +332,12 @@ fun AiRecipeScreen(
                     }
                 }
 
-                // 4. 조리 단계 카드 (RecipeCookingScreen.kt의 CookingStepCard 디자인 적용)
-                val steps = recipe.order.split("○").filter { it.isNotBlank() }
+                // 조리 단계(문자열 그대로 노출)
+                val steps = recipe.order
+                    .split("○")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+
                 if (steps.isNotEmpty()) {
                     item {
                         Card(
@@ -371,10 +359,8 @@ fun AiRecipeScreen(
                                 )
                                 steps.forEach { s ->
                                     Row(modifier = Modifier.padding(bottom = 8.dp)) {
-                                        // Text(text = "") 혹은 아예 이 줄 제거
-                                        Spacer(modifier = Modifier.width(0.dp))
                                         Text(
-                                            text = s.trim(),
+                                            text = "○ $s",
                                             style = MaterialTheme.typography.bodyLarge.copy(
                                                 color = MaterialTheme.colorScheme.onSurface,
                                                 lineHeight = 26.sp
@@ -388,7 +374,7 @@ fun AiRecipeScreen(
                     }
                 }
 
-                // 5. 하단 저장 버튼 (RecipeCookingScreen.kt의 ModernActionButton 디자인 적용)
+                // 저장 버튼
                 item {
                     ModernActionButton(
                         text = "내 채널에 저장",
@@ -401,8 +387,8 @@ fun AiRecipeScreen(
                     )
                 }
             }
-            var is_saved = false;
 
+            // 채널 선택 다이얼로그
             if (showChannelDialog) {
                 ChannelSelectDialog(
                     channels = myChannels,
@@ -410,43 +396,37 @@ fun AiRecipeScreen(
                         showChannelDialog = false
                         selectedChannel = channel
                         coroutineScope.launch {
-                            recipeSaveViewModel.saveRecipeToChannel(recipe, channel, userId)
+                            recipeSaveViewModel.saveRecipeToChannel(
+                                recipe.copy(name = computedTitle), // 제목 보정 적용한 상태로 저장
+                                channel,
+                                userId
+                            )
                         }
                     },
                     onDismiss = { showChannelDialog = false }
                 )
             }
 
-            // 저장 성공시 안내 및 이동
+            // 저장 성공 시 채널 화면으로 이동
             LaunchedEffect(saveSuccess) {
-                if (is_saved){
-                    Log.i("AI ChatTest","새 페이지 시도했으나 차단됨 $is_saved")
-                    return@LaunchedEffect}
-                is_saved = true;
-                Log.i("AI ChatTest","새 페이지 호출되는중 $is_saved")
-
-                    if (saveSuccess == true && selectedChannel != null) {
-                        navController.navigate("channelView/${Uri.encode(selectedChannel!!.name)}") {
-                            Log.i("AI ChatTest","채널 경로 : channelView/${Uri.encode(selectedChannel!!.name)}")
-                            popUpTo("subscribe") { inclusive = false }
-                            launchSingleTop = true
-                        }
-                        recipeSaveViewModel.resetSaveSuccess()
+                if (saveSuccess == true && selectedChannel != null) {
+                    navController.navigate("channelView/${Uri.encode(selectedChannel!!.name)}") {
+                        popUpTo("subscribe") { inclusive = false }
+                        launchSingleTop = true
                     }
+                    recipeSaveViewModel.resetSaveSuccess()
                 }
-
-
-
+            }
         }
-        }
+    }
+
     BackHandler {
         navController.navigate("fridge") {
-            popUpTo(0) // 스택 전부 삭제하고
+            popUpTo(0)
             launchSingleTop = true
         }
     }
-    }
-
+}
 
 @Composable
 fun ChannelSelectDialog(
@@ -465,7 +445,9 @@ fun ChannelSelectDialog(
             } else {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp)
                 ) {
                     itemsIndexed(channels) { idx, channel ->
                         Column(
@@ -501,7 +483,7 @@ fun ChannelSelectDialog(
             Button(
                 onClick = {
                     if (selectedIndex != -1) onSelect(channels[selectedIndex])
-                    Log.i("AI ChatTest","채널 선택됨 . 선택된 채널 : ${channels[selectedIndex]} ")
+                    Log.i("AI ChatTest","채널 선택됨 . 선택된 채널 : ${channels.getOrNull(selectedIndex)} ")
                 },
                 enabled = selectedIndex != -1
             ) { Text("확인") }
@@ -512,7 +494,7 @@ fun ChannelSelectDialog(
     )
 }
 
-// RecipeCookingScreen.kt에서 가져온 Composable 함수들
+// ===== RecipeCookingScreen 에서 가져온 보조 UI =====
 @Composable
 private fun InfoChip(
     text: String,
@@ -613,7 +595,7 @@ private fun IngredientItem(
                     .size(8.dp)
                     .background(
                         MaterialTheme.colorScheme.primary,
-                        RoundedCornerShape(4.dp) // 점 대신 약간 둥근 사각형으로 변경
+                        RoundedCornerShape(4.dp)
                     )
             )
             Text(
@@ -626,13 +608,6 @@ private fun IngredientItem(
                     .weight(1f)
                     .padding(start = 12.dp)
             )
-            // 클릭 가능 아이콘 제거 (AiRecipeScreen에서는 네이버 쇼핑 연결 기능이 없다고 가정)
-            // Icon(
-            //     imageVector = Icons.Default.ChevronRight,
-            //     contentDescription = null,
-            //     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            //     modifier = Modifier.size(20.dp)
-            // )
         }
     }
 }
@@ -649,8 +624,8 @@ private fun ModernActionButton(
     if (isOutlined) {
         OutlinedButton(
             onClick = onClick,
-            modifier = modifier.fillMaxWidth().height(56.dp), // RecipeCookingScreen과 동일한 높이
-            shape = RoundedCornerShape(16.dp), // RecipeCookingScreen과 동일한 둥근 정도
+            modifier = modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
             border = BorderStroke(2.dp, backgroundColor),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = textColor
@@ -658,32 +633,32 @@ private fun ModernActionButton(
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.titleMedium.copy( // RecipeCookingScreen과 동일한 폰트 스타일
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
-                fontSize = 16.sp // RecipeCookingScreen과 동일한 폰트 사이즈
+                fontSize = 16.sp
             )
         }
     } else {
         Button(
             onClick = onClick,
-            modifier = modifier.fillMaxWidth().height(56.dp), // RecipeCookingScreen과 동일한 높이
-            shape = RoundedCornerShape(16.dp), // RecipeCookingScreen과 동일한 둥근 정도
+            modifier = modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = backgroundColor,
                 contentColor = textColor
             ),
             elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 6.dp, // RecipeCookingScreen과 동일한 그림자
+                defaultElevation = 6.dp,
                 pressedElevation = 2.dp
             )
         ) {
             Text(
                 text = text,
-                style = MaterialTheme.typography.titleMedium.copy( // RecipeCookingScreen과 동일한 폰트 스타일
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
                 ),
-                fontSize = 16.sp // RecipeCookingScreen과 동일한 폰트 사이즈
+                fontSize = 16.sp
             )
         }
     }

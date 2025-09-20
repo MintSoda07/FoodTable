@@ -580,44 +580,27 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     }
     // Ai추천 전환 (기능 유지)
     // 수정 후
+
+
+
     LaunchedEffect(aiState.resultText, aiState.imageUrl) {
-        if (aiState.resultText.isNotBlank() && !aiState.imageUrl.isNullOrBlank()) {
-            // 1) 레시피 이름·재료·단계 파싱 (기존 로직 그대로)
-            val recipeName = Regex("""◆(.*?)◆""")
-                .find(aiState.resultText)
-                ?.groupValues?.getOrNull(1)
-                ?: "AI 추천 요리"
+        val order = aiState.resultText
+        val image = aiState.imageUrl
+        if (order.isNotBlank() && !image.isNullOrBlank()) {
+            val title = aiState.recipes.firstOrNull()?.trim().takeIf { !it.isNullOrEmpty() } ?: "새 레시피"
 
-            val ingredients = Regex("""◆.*?◆\((.*?)\)""")
-                .find(aiState.resultText)
-                ?.groupValues?.getOrNull(1)
-                ?.split(",")?.map { it.trim() }
-                ?: emptyList()
-
-            val stepRegex = Regex(
-                """^[\u0020\u00A0\u3000]*[○\u25CB\u2460]?\s*\d+\..*""",
-                RegexOption.MULTILINE
-            )
-            val matches = stepRegex.findAll(aiState.resultText).toList()
-            val order = matches.map { it.value.trim() }.joinToString(" ")
-            if (order.isBlank()) {
-                Toast.makeText(context, "AI가 조리 단계를 반환하지 않았어요", Toast.LENGTH_LONG).show()
-                return@LaunchedEffect
-            }
-
-            // 2) imageUrl을 실제로 넣어 줍니다
             val recipe = RecipeItem(
                 id = UUID.randomUUID().toString(),
-                name = recipeName,
+                name = title,
                 description = "AI가 추천한 요리입니다.",
-                imageResId = aiState.imageUrl!!,  // ← 이미지 URL 사용
-                ingredients = ingredients,
+                imageResId = image,
+                ingredients = aiState.ingredients,
                 order = order,
                 tags = listOf("AI추천"),
                 C_categories = listOf("AI")
             )
 
-            // 3) 냉장고 재료 삭제 로직 (기존 그대로)
+            //
             val userId = UserManager.getUser()?.uid ?: ""
             val db = Firebase.firestore
             val batch = db.batch()
@@ -633,20 +616,19 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 .addOnSuccessListener { Log.d("AI", "DB 재료 삭제 완료!") }
                 .addOnFailureListener { e -> Log.e("AI", "DB 재료 삭제 실패: $e") }
 
-            // 4) 정상 네비게이트
+            // 네비게이션
             val encoded = Uri.encode(Gson().toJson(recipe))
             navController.navigate("ai_recipe/$encoded")
 
-            // 5) 트레이 초기화 및 경고 숨기기
             GlobalTray.items.clear()
             aiViewModel.hideWarning()
         }
     }
 
+
 }
 
-// DraggableHolographicIngredientCard, SmartTray, FloatingIngredientChip, getEmojiForIngredient 함수는
-// 이전에 제공해주신 코드와 동일하게 유지됩니다. 아래에 붙여넣습니다.
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
