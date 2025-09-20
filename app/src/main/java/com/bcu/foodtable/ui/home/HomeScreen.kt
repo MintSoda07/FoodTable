@@ -210,6 +210,7 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.ShakeToOpenQR
 import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeScreen
@@ -960,6 +961,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
     }
     // 구독 탭 클릭 효과
     LaunchedEffect(currentRoute) {
+        // ⬇️ QR 스캐너 화면일 땐 마이페이지 탭으로 고정 표시
+        if (currentRoute == "qrPayScanner") {
+            selectedTab = screens.indexOf(Screen.MyPage)
+            return@LaunchedEffect
+        }
+
+        // 기존 라우트 → 탭 동기화 로직 그대로 두기
         when {
             currentRoute == Screen.Subscribe.route ||
                     (currentRoute?.startsWith("channelView/") == true) -> {
@@ -971,7 +979,10 @@ fun HomeScreen(viewModel: HomeViewModel) {
             currentRoute == Screen.Social.route -> {
                 selectedTab = screens.indexOf(Screen.Social)
             }
-            // 필요하면 더 추가!
+            currentRoute == Screen.MyPage.route ||
+                    currentRoute?.startsWith("profile/") == true -> {
+                selectedTab = screens.indexOf(Screen.MyPage)
+            }
         }
     }
     // 홈일때만 바텀 시트 렌더
@@ -1034,6 +1045,11 @@ fun HomeScreen(viewModel: HomeViewModel) {
             detectTapGestures(onTap = { focusManager.clearFocus() })
         }
     ) { paddingValues ->
+        ShakeToOpenQR(
+            navController = navController,
+            routeQR = "qrPayScanner",   // 등록한 라우트와 일치시킴
+            enabled = currentRoute != "qrPayScanner" // QR 화면에선 비활성화
+        )
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
@@ -1140,6 +1156,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                     targetUid = uid
                 )
             }
+
             composable(
                 route = "health/{uid}",
                 arguments = listOf(navArgument("uid") { type = NavType.StringType })
