@@ -1,15 +1,24 @@
+// Gradle (app/build.gradle)
+// dependencies {
+//    implementation("com.airbnb.android:lottie-compose:6.4.0")
+// }
+
 package com.bcu.foodtable.JetpackCompose.Mypage.myFridge
 
 import android.net.Uri
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.*
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,24 +29,25 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.*
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.R
 import com.bcu.foodtable.JetpackCompose.AI.AiHelperViewModel
 import com.bcu.foodtable.ai.OpenAIClient
@@ -48,16 +58,17 @@ import com.google.firebase.firestore.firestore
 import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import kotlin.math.*
 
+// ----- 외부에서 이미 존재한다고 가정되는 타입들 (원본 코드 기준) -----
+
+// --------------------------------------------------------------------
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     val allIngredients = viewModel.ingredientList
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
 
@@ -67,7 +78,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     var dragOffset by remember { mutableStateOf(0f) }
     var isClosing by remember { mutableStateOf(false) }
 
-    // MERGED: 재료 아이템 애니메이션을 위한 상태 추가
+    // MERGED: 재료 아이템 애니메이션을 위한 상태
     var itemsVisible by remember { mutableStateOf(false) }
 
     // 냉장고 섹션
@@ -79,15 +90,54 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
     val aiViewModel: AiHelperViewModel = viewModel(
         factory = object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                @Suppress("UNCHECKED_CAST")
                 return AiHelperViewModel(OpenAIClient()) as T
             }
         }
     )
     val aiState by aiViewModel.uiState.collectAsState()
-    val context = LocalContext.current
     val gson = remember { Gson() }
 
-    var showColdEffect by remember { mutableStateOf(false) }
+    // 로딩 & 로딩 문구 롤링
+    var isLoading by remember { mutableStateOf(true) }
+    val loadingTips = remember {
+        listOf(
+            "신선함을 정렬하는 중...",
+            "냉장고 온도 보정 중...",
+            "식재료 유통기한을 스캔하는 중...",
+            "AI 셰프가 레시피를 예열 중...",
+            "맛의 조합을 시뮬레이션 중..."
+        )
+    }
+    var tipIndex by remember { mutableStateOf(0) }
+
+    LaunchedEffect(isLoading) {
+        while (isLoading) {
+            delay(5_000)
+            tipIndex = (tipIndex + 1) % loadingTips.size
+        }
+    }
+
+    // 문/아이템 글로시·스윙·호버용 무한 애니메이션
+    val inf = rememberInfiniteTransition(label = "inf")
+    val shimmerX by inf.animateFloat(
+        initialValue = -0.6f,
+        targetValue = 1.6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "shimmerX"
+    )
+    val hoverPhase by inf.animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * PI.toFloat()),
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "hoverPhase"
+    )
 
     // 애니메이션 값들
     val doorRotation by animateFloatAsState(
@@ -120,72 +170,61 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
         label = "contentAlpha"
     )
 
-    // 초기 데이터 로드 (기능 유지)
+    // 초기 데이터 로드
     LaunchedEffect(Unit) {
+        isLoading = true
         viewModel.loadIngredients()
     }
 
     LaunchedEffect(allIngredients) {
         fridgeSections.forEach { fridgeMap[it]?.clear() }
         outsideFridge.clear()
-
         allIngredients.forEach { ingredient ->
             val alreadyInFridge = fridgeMap[ingredient.section]?.any { it.id == ingredient.id } ?: false
             val alreadyOutside = outsideFridge.any { it.id == ingredient.id }
-
             if (!alreadyInFridge && !alreadyOutside) {
                 fridgeMap[ingredient.section]?.add(ingredient)
             }
         }
+        isLoading = false
     }
 
-    // MERGED: 문이 열릴 때 아이템 애니메이션 트리거
+    // 문이 열릴 때 아이템 애니메이션 트리거
     LaunchedEffect(isOpen) {
         if (isOpen) {
-            delay(200) // 문이 열리는 애니메이션과 겹치지 않게 살짝 지연
+            delay(200)
             itemsVisible = true
         } else {
             itemsVisible = false
         }
     }
 
-
-    // 재료 이동 함수들 (기능 유지)
+    // 재료 이동 함수들
     fun moveIngredientToOutside(ingredient: Ingredient, fromSection: String) {
-        Log.d("FridgeDebug", "moveIngredientToOutside() called for ${ingredient.name} from $fromSection")
         val removed = fridgeMap[fromSection]?.removeIf { it.id == ingredient.id } == true
         if (removed) {
             outsideFridge.removeAll { it.id == ingredient.id }
             outsideFridge.add(ingredient)
-            Log.d("FridgeDebug", " → outsideFridge now: ${outsideFridge.map { it.name }}")
-        }
-        else {
-            Log.d("FridgeDebug", " → remove failed: not found in $fromSection")
         }
     }
 
     fun moveIngredientToFridge(ingredient: Ingredient, toSection: String) {
-        Log.d("FridgeDebug", "moveIngredientToFridge() called for ${ingredient.name} to $toSection")
         val removed = outsideFridge.removeIf { it.id == ingredient.id }
         val exists = fridgeMap[toSection]?.any { it.id == ingredient.id } == true
-        Log.d("FridgeDebug", " → removed from outside: $removed, already exists in fridge: $exists")
         if (removed && !exists) {
             val updated = ingredient.copy(section = toSection)
             fridgeMap[toSection]?.add(updated)
-            Log.d("FridgeDebug", " → fridgeMap[$toSection] now: ${fridgeMap[toSection]?.map { it.name }}")
             viewModel.updateIngredientSection(ingredient.id, toSection)
         }
     }
 
+    // ======= 메인 레이아웃 =======
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFF5F5F5),
-                        Color(0xFFE8E8E8)
-                    )
+                    colors = listOf(Color(0xFFF5F5F5), Color(0xFFE8E8E8))
                 )
             )
     ) {
@@ -204,23 +243,16 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             Card(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        shadowElevation = 16f
-                    },
+                    .graphicsLayer { shadowElevation = 16f },
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.White
-                ),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawRect(
                             brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    Color(0xFFFAFAFA),
-                                    Color(0xFFF0F0F0)
-                                )
+                                colors = listOf(Color(0xFFFAFAFA), Color(0xFFF0F0F0))
                             )
                         )
                     }
@@ -232,7 +264,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                             .graphicsLayer { alpha = contentAlpha }
                             .padding(16.dp)
                     ) {
-                        // 헤더 영역 (기능 유지)
+                        // 헤더 영역
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -256,7 +288,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = when(selectedSection) {
+                                        text = when (selectedSection) {
                                             "냉장" -> "3°C"
                                             "냉동" -> "-18°C"
                                             else -> "7°C"
@@ -268,29 +300,20 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                 }
                             }
 
+                            // 섹션 토글
                             Card(
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF5F5F5)
-                                )
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(4.dp)
-                                ) {
+                                Row(modifier = Modifier.padding(4.dp)) {
                                     fridgeSections.forEach { section ->
                                         val isSelected = selectedSection == section
                                         Card(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .clickable {
-                                                    selectedSection = section
-                                                    if (section == "냉동") showColdEffect = true
-                                                },
+                                                .clickable { selectedSection = section },
                                             colors = CardDefaults.cardColors(
-                                                containerColor = if (isSelected)
-                                                    Color(0xFF2196F3)
-                                                else
-                                                    Color.Transparent
+                                                containerColor = if (isSelected) Color(0xFF2196F3) else Color.Transparent
                                             )
                                         ) {
                                             Text(
@@ -309,6 +332,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // 재료 그리드
+                        val gridItems = fridgeMap[selectedSection] ?: emptyList()
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(3),
                             modifier = Modifier.weight(1f),
@@ -317,10 +341,9 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             itemsIndexed(
-                                items = fridgeMap[selectedSection] ?: emptyList(),
+                                items = gridItems,
                                 key = { _, item -> item.id }
                             ) { index, ingredient ->
-                                // MERGED: 애니메이션 적용
                                 AnimatedVisibility(
                                     visible = itemsVisible,
                                     enter = slideInVertically(
@@ -332,6 +355,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                     DraggableHolographicIngredientCard(
                                         ingredient = ingredient,
                                         index = index,
+                                        hoverPhase = hoverPhase,
                                         onClick = {
                                             moveIngredientToOutside(ingredient, selectedSection)
                                         },
@@ -347,7 +371,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 }
             }
 
-            // 냉장고 문 (기능 유지)
+            // 냉장고 문 (글로시+스윙)
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -355,6 +379,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         rotationY = doorRotation
                         transformOrigin = TransformOrigin(0f, 0.5f)
                         shadowElevation = doorShadow
+                        rotationZ = if (isOpen) sin(hoverPhase.toDouble()).toFloat() * 0.6f else 0f
                     }
                     .pointerInput(Unit) {
                         detectHorizontalDragGestures(
@@ -371,7 +396,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         if (isOpen) {
                             isClosing = true
                             scope.launch {
-                                kotlinx.coroutines.delay(300)
+                                delay(300)
                                 isOpen = false
                                 isClosing = false
                             }
@@ -383,13 +408,12 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 Card(
                     modifier = Modifier.fillMaxSize(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFE0E0E0)
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE0E0E0)),
                     elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Canvas(modifier = Modifier.fillMaxSize()) {
+                            // 기본 금속 질감
                             drawRect(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
@@ -401,11 +425,11 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                     )
                                 )
                             )
-
+                            // 왼쪽 soft highlight
                             drawRect(
                                 brush = Brush.linearGradient(
                                     colors = listOf(
-                                        Color.White.copy(alpha = 0.3f),
+                                        Color.White.copy(alpha = 0.28f),
                                         Color.Transparent,
                                         Color.White.copy(alpha = 0.1f)
                                     ),
@@ -413,6 +437,24 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                     end = Offset(size.width * 0.5f, size.height)
                                 )
                             )
+                            // NEW: 대각선 글로시 라이트 스윕
+                            val w = size.width
+                            val h = size.height
+                            val stripeWidth = w * 0.28f
+                            val x = w * shimmerX
+                            rotate(degrees = -22f) {
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        0f to Color.Transparent,
+                                        0.45f to Color.White.copy(alpha = 0.22f),
+                                        0.5f to Color.White.copy(alpha = 0.32f),
+                                        0.55f to Color.White.copy(alpha = 0.22f),
+                                        1f to Color.Transparent
+                                    ),
+                                    topLeft = Offset(x - stripeWidth, h * -0.1f),
+                                    size = Size(stripeWidth * 2f, h * 1.2f)
+                                )
+                            }
                         }
 
                         Column(
@@ -427,9 +469,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                 shadowElevation = 4.dp,
                                 modifier = Modifier.size(80.dp)
                             ) {
-                                Box(
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = Icons.Default.Kitchen,
                                         contentDescription = "Fridge",
@@ -438,9 +478,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                                     )
                                 }
                             }
-
                             Spacer(modifier = Modifier.height(16.dp))
-
                             Text(
                                 text = "Smart Fridge",
                                 style = MaterialTheme.typography.titleMedium,
@@ -449,6 +487,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                             )
                         }
 
+                        // 손잡이
                         Box(
                             modifier = Modifier
                                 .width(8.dp)
@@ -472,13 +511,10 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                         if (!isOpen) {
                             Card(
                                 shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color.Black.copy(alpha = 0.6f)
-                                ),
+                                colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.6f)),
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(bottom = 32.dp)
-                                    .alpha(if (!isOpen) 1f else 0f)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -504,12 +540,12 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             }
         }
 
-        // AI 추천 버튼 (기능 유지)
+        // AI 추천 버튼
         Box(Modifier.fillMaxSize()) {
             AnimatedVisibility(
                 visible = isOpen && GlobalTray.items.isNotEmpty(),
-                enter = fadeIn() + slideInVertically(initialOffsetY = { -it/2 }),
-                exit  = fadeOut() + slideOutVertically(targetOffsetY = { -it/2 }),
+                enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 2 }),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
@@ -528,7 +564,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             }
         }
 
-        // 하단 트레이 (기능 유지)
+        // 하단 트레이
         AnimatedVisibility(
             visible = isOpen && GlobalTray.items.isNotEmpty(),
             enter = slideInVertically { it } + fadeIn(),
@@ -539,6 +575,7 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 items = outsideFridge,
                 onItemReturn = { ingredient ->
                     moveIngredientToFridge(ingredient, selectedSection)
+                    GlobalTray.items.removeAll { it.id == ingredient.id }
                 },
                 onItemDelete = { ingredient ->
                     viewModel.deleteIngredientFromTray(ingredient)
@@ -548,11 +585,11 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             )
         }
 
-        // 재료 추가 버튼 (기능 유지)
+        // 재료 추가 버튼
         AnimatedVisibility(
             visible = isOpen,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-            exit  = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 40.dp, bottom = 100.dp)
@@ -565,10 +602,19 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 Icon(Icons.Default.Add, contentDescription = "재료 추가", modifier = Modifier.size(24.dp))
             }
         }
+
+        // Lottie 로딩 오버레이 (isLoading 또는 AI 진행 시에도 재사용 가능)
+        val showLoader = isLoading // || (aiState.isLoading == true)
+        if (showLoader) {
+            LoadingOverlay(
+                tip = loadingTips[tipIndex],
+                rawRes = R.raw.food_prep
+            )
+        }
     }
 
-    // AI 추천 다이얼로그 (기능 유지)
-    showDialog.value?.let { selectedIngredient ->
+    // AI 추천 다이얼로그
+    showDialog.value?.let { _ ->
         FuturisticDialog(
             ingredients = GlobalTray.items,
             recipes = emptyList(),
@@ -578,17 +624,13 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             onDismiss = { showDialog.value = null }
         )
     }
-    // Ai추천 전환 (기능 유지)
-    // 수정 후
 
-
-
+    // Ai추천 전환
     LaunchedEffect(aiState.resultText, aiState.imageUrl) {
         val order = aiState.resultText
         val image = aiState.imageUrl
         if (order.isNotBlank() && !image.isNullOrBlank()) {
             val title = aiState.recipes.firstOrNull()?.trim().takeIf { !it.isNullOrEmpty() } ?: "새 레시피"
-
             val recipe = RecipeItem(
                 id = UUID.randomUUID().toString(),
                 name = title,
@@ -600,7 +642,6 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 C_categories = listOf("AI")
             )
 
-            //
             val userId = UserManager.getUser()?.uid ?: ""
             val db = Firebase.firestore
             val batch = db.batch()
@@ -616,7 +657,6 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
                 .addOnSuccessListener { Log.d("AI", "DB 재료 삭제 완료!") }
                 .addOnFailureListener { e -> Log.e("AI", "DB 재료 삭제 실패: $e") }
 
-            // 네비게이션
             val encoded = Uri.encode(Gson().toJson(recipe))
             navController.navigate("ai_recipe/$encoded")
 
@@ -624,17 +664,14 @@ fun FridgeScreen(viewModel: FridgeViewModel, navController: NavController) {
             aiViewModel.hideWarning()
         }
     }
-
-
 }
-
-
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DraggableHolographicIngredientCard(
     ingredient: Ingredient,
     index: Int,
+    hoverPhase: Float,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onDragEnd: () -> Unit
@@ -643,34 +680,46 @@ fun DraggableHolographicIngredientCard(
     var isDragging by remember { mutableStateOf(false) }
     var offset by remember { mutableStateOf(Offset.Zero) }
 
+    val pulse by rememberInfiniteTransition().animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
     val scale by animateFloatAsState(
         targetValue = when {
             isDragging -> 1.15f
-            isPressed -> 0.95f
+            isPressed -> 0.96f
             else -> 1f
         },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
-        )
+        ),
+        label = "cardScale"
     )
+
+    val tilt = if (isDragging) 6f else sin((hoverPhase + index * 0.6f).toDouble()).toFloat() * 1.2f
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
-            .offset { IntOffset(offset.x.toInt(), offset.y.toInt()) }
+            .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                alpha = if (isDragging) 0.8f else 1f
-                // shadowElevation = if (isDragging) 16f else 4f
+                scaleX = scale * if (!isDragging) pulse else 1f
+                scaleY = scale * if (!isDragging) pulse else 1f
+                alpha = if (isDragging) 0.9f else 1f
+                rotationZ = tilt
             }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
                         isDragging = true
-
                     },
                     onDragEnd = {
                         if (offset.getDistance() > 100f) {
@@ -702,63 +751,74 @@ fun DraggableHolographicIngredientCard(
                     }
                 )
             },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDragging)
-                Color(0xFF2196F3).copy(alpha = 0.1f)
-            else
-                Color.White
+            containerColor = if (isDragging) Color(0xFF2196F3).copy(alpha = 0.10f) else Color.White
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isDragging) 8.dp else 2.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDragging) 8.dp else 3.dp)
     ) {
-        Column(
+        // 테두리 글로우
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = getEmojiForIngredient(ingredient.name),
-                fontSize = 32.sp,
-                modifier = Modifier.graphicsLayer {
-                    if (isDragging) {
-                        rotationZ = 10f
-                    }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = ingredient.name,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF424242),
-                maxLines = 1
-            )
-
-            Card(
-                shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF5F5F5)
-                ),
-                modifier = Modifier.padding(top = 4.dp)
-            ) {
-                Text(
-                    text = "${ingredient.quantity}",
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color(0xFF666666),
-                    fontWeight = FontWeight.SemiBold
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFB3E5FC).copy(alpha = 0.6f),
+                            Color(0xFFE1BEE7).copy(alpha = 0.6f),
+                            Color(0xFFC8E6C9).copy(alpha = 0.6f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset.Infinite
+                    ),
+                    shape = RoundedCornerShape(14.dp)
                 )
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.White,
+                            Color(0xFFF9FBFF)
+                        )
+                    )
+                )
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = getEmojiForIngredient(ingredient.name),
+                    fontSize = 32.sp,
+                    modifier = Modifier.graphicsLayer {
+                        if (isDragging) rotationZ = 10f
+                    }
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = ingredient.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF424242),
+                    maxLines = 1
+                )
+                Card(
+                    shape = RoundedCornerShape(6.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F6FF)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.padding(top = 6.dp)
+                ) {
+                    Text(
+                        text = "${ingredient.quantity}",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF3F51B5),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }
 }
-
 
 @Composable
 fun SmartTray(
@@ -778,21 +838,27 @@ fun SmartTray(
     val trayHeightPx = trayHeightExpandedPx - trayHeightCollapsedPx
     val animatedOffsetY by animateFloatAsState(
         targetValue = if (isExpanded) 0f else trayHeightPx,
-        animationSpec = spring()
+        animationSpec = spring(),
+        label = "trayOffset"
     )
 
+    // 배경 유리(Glass) 느낌
     Box(
         Modifier
             .fillMaxWidth()
             .height(trayHeightExpanded)
             .offset { IntOffset(0, animatedOffsetY.roundToInt()) }
-            .background(Color.White, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .border(
+                1.dp,
+                Brush.verticalGradient(listOf(Color(0x22000000), Color(0x11000000))),
+                RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            )
             .shadow(12.dp, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onVerticalDrag = { change, dragAmount ->
-                        offsetY += dragAmount
-                        offsetY = offsetY.coerceIn(0f, trayHeightPx)
+                    onVerticalDrag = { _, dragAmount ->
+                        offsetY = (offsetY + dragAmount).coerceIn(0f, trayHeightPx)
                     },
                     onDragEnd = {
                         isExpanded = offsetY < trayHeightPx / 2
@@ -812,7 +878,6 @@ fun SmartTray(
                     .background(Color.LightGray, RoundedCornerShape(3.dp))
                     .align(Alignment.CenterHorizontally)
             )
-
             Spacer(Modifier.height(6.dp))
 
             Row(
@@ -837,9 +902,7 @@ fun SmartTray(
                 }
                 Card(
                     shape = CircleShape,
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF2196F3).copy(alpha = 0.1f)
-                    )
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2196F3).copy(alpha = 0.1f))
                 ) {
                     Text(
                         text = "${items.size}",
@@ -850,12 +913,10 @@ fun SmartTray(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Log.d("SmartTray", "items = " + items.joinToString { "${it.id}:${it.name}" })
 
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(
                     items = items,
                     key = { it.id }
@@ -870,14 +931,12 @@ fun SmartTray(
                             onItemDelete(ing)
                             GlobalTray.items.removeAll { it.id == ing.id }
                         }
-
                     )
                 }
             }
         }
     }
 }
-
 
 @Composable
 fun FloatingIngredientChip(
@@ -891,12 +950,7 @@ fun FloatingIngredientChip(
     Card(
         modifier = Modifier
             .size(width = 90.dp, height = 80.dp)
-            .offset {
-                IntOffset(
-                    offset.x.toInt(),
-                    offset.y.toInt()
-                )
-            }
+            .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = {
@@ -904,18 +958,9 @@ fun FloatingIngredientChip(
                         Log.d("FridgeDebug", "Drag started on ${ingredient.name}")
                     },
                     onDragEnd = {
-                        Log.d(
-                            "FridgeDebug",
-                            "Drag ended on ${ingredient.name} with offset y=${offset.y}"
-                        )
+                        Log.d("FridgeDebug", "Drag ended on ${ingredient.name} y=${offset.y}")
                         if (offset.y < -100f) {
-                            Log.d("FridgeDebug", " → offset threshold passed, calling onReturn()")
                             onReturn()
-                        } else {
-                            Log.d(
-                                "FridgeDebug",
-                                " → offset threshold NOT passed, cancelling return"
-                            )
                         }
                         offset = Offset.Zero
                         isDragging = false
@@ -926,19 +971,16 @@ fun FloatingIngredientChip(
                 )
             }
             .graphicsLayer {
-                alpha = if (isDragging) 0.8f else 1f
-                scaleX = if (isDragging) 1.1f else 1f
-                scaleY = if (isDragging) 1.1f else 1f
-                // shadowElevation = if (isDragging) 12f else 4f
+                alpha = if (isDragging) 0.9f else 1f
+                scaleX = if (isDragging) 1.06f else 1f
+                scaleY = if (isDragging) 1.06f else 1f
             },
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFF5F5F5)
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F7FA)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(Modifier.fillMaxSize()) {
-            // 1. 삭제버튼
+            // 삭제버튼
             IconButton(
                 onClick = { onDelete(ingredient) },
                 modifier = Modifier
@@ -951,7 +993,7 @@ fun FloatingIngredientChip(
                     tint = Color(0xFFE57373)
                 )
             }
-            // 2. 실제 내용(이모지, 텍스트 등)을 Box 안에!
+            // 내용
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -959,10 +1001,7 @@ fun FloatingIngredientChip(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = getEmojiForIngredient(ingredient.name),
-                    fontSize = 24.sp
-                )
+                Text(text = getEmojiForIngredient(ingredient.name), fontSize = 24.sp)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = ingredient.name,
@@ -984,63 +1023,129 @@ fun FloatingIngredientChip(
     }
 }
 
+@Composable
+fun LoadingOverlay(
+    tip: String,
+    rawRes: Int
+) {
+    // 반투명 블러 느낌 오버레이
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCCFFFFFF))
+    ) {
+        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(rawRes))
+        val progress by animateLottieCompositionAsState(
+            composition = composition,
+            iterations = LottieConstants.IterateForever,
+            speed = 1.0f
+        )
+
+        Card(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(24.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Lottie
+                LottieAnimation(
+                    composition = composition,
+                    progress = { progress },
+                    modifier = Modifier
+                        .size(140.dp)
+                        .padding(top = 8.dp, bottom = 8.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                // 텍스트 (5초마다 바뀜)
+                Text(
+                    text = tip,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF3949AB),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "잠시만 기다려 주세요",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF616161)
+                )
+                Spacer(Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    trackColor = Color(0xFFE8EAF6),
+                    color = Color(0xFF3F51B5)
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+    }
+}
+
 fun getEmojiForIngredient(name: String): String {
     return when (name) {
         // 단백질류
-        "계란"              -> "🥚"
-        "소고기"            -> "🥩"
-        "닭고기", "치킨"    -> "🍗"
-        "돼지고기"          -> "🥓"
+        "계란" -> "🥚"
+        "소고기" -> "🥩"
+        "닭고기", "치킨" -> "🍗"
+        "돼지고기" -> "🥓"
         "생선", "참치", "연어" -> "🐟"
-        "새우"              -> "🦐"
-        "오징어"            -> "🦑"
-        "문어"              -> "🐙"
-        "조개"              -> "🦪"
+        "새우" -> "🦐"
+        "오징어" -> "🦑"
+        "문어" -> "🐙"
+        "조개" -> "🦪"
 
         // 채소류
-        "당근"              -> "🥕"
-        "상추", "양배추"     -> "🥬"
-        "브로콜리"          -> "🥦"
-        "감자"              -> "🥔"
-        "고구마"            -> "🍠"
-        "양파"              -> "🧅"
-        "마늘"              -> "🧄"
-        "고추", "피망"      -> "🌶️"
-        "토마토"            -> "🍅"
-        "버섯"              -> "🍄"
-        "호박"              -> "🎃"
-        "옥수수"            -> "🌽"
+        "당근" -> "🥕"
+        "상추", "양배추" -> "🥬"
+        "브로콜리" -> "🥦"
+        "감자" -> "🥔"
+        "고구마" -> "🍠"
+        "양파" -> "🧅"
+        "마늘" -> "🧄"
+        "고추", "피망" -> "🌶️"
+        "토마토" -> "🍅"
+        "버섯" -> "🍄"
+        "호박" -> "🎃"
+        "옥수수" -> "🌽"
 
         // 과일류
-        "사과"              -> "🍎"
-        "바나나"            -> "🍌"
-        "수박"              -> "🍉"
-        "포도"              -> "🍇"
-        "딸기"              -> "🍓"
-        "키위"              -> "🥝"
-        "파인애플"          -> "🍍"
+        "사과" -> "🍎"
+        "바나나" -> "🍌"
+        "수박" -> "🍉"
+        "포도" -> "🍇"
+        "딸기" -> "🍓"
+        "키위" -> "🥝"
+        "파인애플" -> "🍍"
 
         // 유제품·가공품
-        "우유", "요거트"     -> "🥛"
-        "치즈"              -> "🧀"
-        "버터"              -> "🧈"
-        "아이스크림"        -> "🍨"
+        "우유", "요거트" -> "🥛"
+        "치즈" -> "🧀"
+        "버터" -> "🧈"
+        "아이스크림" -> "🍨"
 
         // 곡류·빵·간식
-        "쌀", "밥"          -> "🍚"
-        "빵", "토스트"      -> "🍞"
-        "케이크"            -> "🎂"
-        "쿠키"              -> "🍪"
-        "초코", "초콜릿"    -> "🍫"
+        "쌀", "밥" -> "🍚"
+        "빵", "토스트" -> "🍞"
+        "케이크" -> "🎂"
+        "쿠키" -> "🍪"
+        "초코", "초콜릿" -> "🍫"
 
         // 패스트푸드·간편식
-        "피자"              -> "🍕"
-        "햄버거"            -> "🍔"
-        "핫도그", "소시지"  -> "🌭"
-        "샌드위치"          -> "🥪"
-        "타코"              -> "🌮"
-        "라면"              -> "🍜"
-        "스파게티", "파스타"-> "🍝"
+        "피자" -> "🍕"
+        "햄버거" -> "🍔"
+        "핫도그", "소시지" -> "🌭"
+        "샌드위치" -> "🥪"
+        "타코" -> "🌮"
+        "라면" -> "🍜"
+        "스파게티", "파스타" -> "🍝"
 
         else -> "🍽️"
     }
