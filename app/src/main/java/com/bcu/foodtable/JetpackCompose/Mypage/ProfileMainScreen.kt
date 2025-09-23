@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.bcu.foodtable.JetpackCompose.Mypage
 
 import android.content.Intent
@@ -9,9 +11,15 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
@@ -22,34 +30,35 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity
 import com.bcu.foodtable.R
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.ui.focus.onFocusEvent
-import androidx.compose.ui.text.input.ImeAction
+import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
+import com.bcu.foodtable.JetpackCompose.coach.CoachStep
+import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import com.bcu.foodtable.JetpackCompose.coach.coachTarget
 import kotlinx.coroutines.launch
 import com.unity3d.player.UnityPlayerGameActivity
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ProfileMainScreen(
@@ -60,18 +69,28 @@ fun ProfileMainScreen(
     val context = LocalContext.current
     val cs = MaterialTheme.colorScheme
 
-
     val user by viewModel.user.collectAsState()
-
     val imageUri by viewModel.imageUri.collectAsState()
     val isEditing by viewModel.isEditing.collectAsState()
     val editedDescription by viewModel.editedDescription.collectAsState()
+
     val scrollState = rememberScrollState()
-    val bringIntoViewRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
+
+    // 스크롤 영역 전체를 스크롤-투-뷰 대상으로: 코치마크에서 자동 스크롤에 사용
+    val coachBringer = remember { BringIntoViewRequester() }
+
+    // 텍스트필드 포커스용(기존)
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri -> uri?.let { viewModel.uploadImageToFirebase(it, context) } }
+
+    // 코치마크
+    val store = remember { CoachmarkStoreDataStore(context) }
+    val targets = remember { CoachTargets() }
+    var showCoach by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) { viewModel.checkIfChannelExists() }
 
@@ -80,12 +99,15 @@ fun ProfileMainScreen(
             modifier = Modifier
                 .padding(inner)
                 .fillMaxSize()
-                .verticalScroll(scrollState)  //
+                .verticalScroll(scrollState)
+                .bringIntoViewRequester(coachBringer) // ⬅️ 코치마크 자동 스크롤용 requester 부착
                 .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
-        ){
+        ) {
             Card(
-                modifier = Modifier.fillMaxWidth().animateContentSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateContentSize(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = cs.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
@@ -98,9 +120,17 @@ fun ProfileMainScreen(
                             .padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = {
-                            if (isEditing) viewModel.cancelEdit() else viewModel.startEdit()
-                        }) {
+                        IconButton(
+                            onClick = {
+                                if (isEditing) viewModel.cancelEdit() else viewModel.startEdit()
+                            },
+                            modifier = Modifier.coachTarget(
+                                id = "prof_edit",
+                                targets = targets,
+                                bringer = coachBringer, // ⬅️ 화면 밖이면 스크롤
+                                expandPx = 12f
+                            )
+                        ) {
                             Icon(
                                 imageVector = if (isEditing) Icons.Rounded.Close else Icons.Rounded.Edit,
                                 contentDescription = if (isEditing) "편집 취소" else "편집",
@@ -135,6 +165,12 @@ fun ProfileMainScreen(
                             .clip(CircleShape)
                             .background(cs.primary.copy(alpha = 0.12f))
                             .clickable { imagePicker.launch("image/*") }
+                            .coachTarget(
+                                id = "prof_avatar",
+                                targets = targets,
+                                bringer = coachBringer, // ⬅️ 화면 밖이면 스크롤
+                                expandPx = 16f
+                            )
                     )
 
                     Spacer(Modifier.height(14.dp))
@@ -158,18 +194,16 @@ fun ProfileMainScreen(
                             label = { Text("자기소개") },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 56.dp, max = 160.dp) // ⬅ 너무 커지지 않도록 상한
+                                .heightIn(min = 56.dp, max = 160.dp)
                                 .bringIntoViewRequester(bringIntoViewRequester)
-                                .onFocusEvent { if (it.isFocused) scope.launch { bringIntoViewRequester.bringIntoView() } },
-                            maxLines = 6,          // ⬅ 줄 수 제한
+                                .onFocusEvent {
+                                    if (it.isFocused) scope.launch { bringIntoViewRequester.bringIntoView() }
+                                },
+                            maxLines = 6,
                             singleLine = false,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(
-                                onDone = {
-                                    // 필요 시 저장/포커스 해제 등
-                                    // viewModel.saveChanges()
-                                    // LocalFocusManager.current.clearFocus()
-                                }
+                                onDone = { /* 필요 시 저장/포커스 해제 */ }
                             )
                         )
                         Spacer(Modifier.height(10.dp))
@@ -200,16 +234,26 @@ fun ProfileMainScreen(
 
                     // ───────── 소금페이 영역 ─────────
                     SaltPayCard(
-                        // 기존 user.point
-                        // 사용, null 안전 처리 및 천단위 포맷
                         balanceText = "%,d G".format((user.point ?: 0)),
-                        onPayClick = { viewModel.navigateToPurchase(context) }
+                        onPayClick = { viewModel.navigateToPurchase(context) },
+                        modifier = Modifier.coachTarget(
+                            id = "prof_salt",
+                            targets = targets,
+                            bringer = coachBringer, // ⬅️ 화면 밖이면 스크롤
+                            expandPx = 8f
+                        )
                     )
                     Spacer(Modifier.height(12.dp))
 
-// ───────── QR 결제 바로가기 (소금 아래) ─────────
+                    // ───────── QR 결제 바로가기 (소금 아래) ─────────
                     QrPayCard(
-                        onQrPayClick = { navController.navigate("qrPayScanner") }
+                        onQrPayClick = { navController.navigate("qrPayScanner") },
+                        qrButtonModifier = Modifier.coachTarget(
+                            id = "prof_qr",
+                            targets = targets,
+                            bringer = coachBringer, // ⬅️ 화면 밖이면 스크롤
+                            expandPx = 10f
+                        )
                     )
                     Spacer(Modifier.height(16.dp))
 
@@ -219,25 +263,33 @@ fun ProfileMainScreen(
                         onBapsang = {
                             val intent = Intent(context, UnityPlayerGameActivity::class.java)
                             context.startActivity(intent)
-                        }, // TODO: 밥상 라우트 구현되면 예: { navController.navigate("table") }
+                        },
                         onFridge = { navController.navigate("fridge") }
                     )
 
                     Spacer(Modifier.height(12.dp))
-
-                    /* 채널 생성은 다른 화면에서 처리 예정
-                    if (!hasChannel) {
-                        OutlinedButton(
-                            onClick = { viewModel.navigateToChannelCreation(context) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) { Text("채널 생성하기") }
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    */
-
                 }
             }
         }
+    }
+
+    // 코치마크 오버레이 (항상 최상단)
+    if (showCoach) {
+        CoachmarkOverlay(
+            screen = CoachScreen.PROFILE,
+            steps = listOf(
+                CoachStep("prof_avatar", "프로필 사진", "탭하여 변경할 수 있어요."),
+                CoachStep("prof_edit", "프로필 편집", "소개를 수정하고 저장할 수 있습니다."),
+                CoachStep("prof_salt", "소금페이", "충전하고 콘텐츠를 구매해 보세요."),
+                CoachStep("prof_qr", "QR 결제", "코드를 스캔해 간편 결제!")
+            ),
+            targets = targets,
+            store = store,
+            onClose = { showCoach = false },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(999f) // 맨 위로
+        )
     }
 }
 
@@ -245,7 +297,8 @@ fun ProfileMainScreen(
 @Composable
 private fun SaltPayCard(
     balanceText: String,
-    onPayClick: () -> Unit
+    onPayClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val cs = MaterialTheme.colorScheme
     Surface(
@@ -253,11 +306,11 @@ private fun SaltPayCard(
         color = cs.surface,
         tonalElevation = 2.dp,
         border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.35f)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // 소금페이 관련 위치 조정
+            // 상단 라인
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -282,12 +335,12 @@ private fun SaltPayCard(
 
                 Spacer(Modifier.width(8.dp))
 
-                val amount = balanceText.removeSuffix(" G") //
+                val amount = balanceText.removeSuffix(" G")
                 Text(
                     text = buildAnnotatedString {
-                        append(amount) // 숫자 크게
+                        append(amount)
                         withStyle(SpanStyle(fontSize = 14.sp, color = cs.onSurfaceVariant)) {
-                            append(" G") // 단위 작게
+                            append(" G")
                         }
                     },
                     style = MaterialTheme.typography.headlineSmall.copy(fontSize = 20.sp),
@@ -296,7 +349,6 @@ private fun SaltPayCard(
                     maxLines = 1
                 )
             }
-
 
             Spacer(Modifier.height(10.dp))
 
@@ -310,10 +362,11 @@ private fun SaltPayCard(
                     containerColor = cs.primary,
                     contentColor = cs.onPrimary
                 )
-            ) { Text("충전") } // 라벨
+            ) { Text("충전") }
         }
     }
 }
+
 /** 배민 마이페이지 느낌의 연결형 3분할 세그먼트(가운데는 미구현 비활성) */
 @Composable
 private fun SegmentedTripleRow(
@@ -354,7 +407,7 @@ private fun SegmentedTripleRow(
             SegmentCell(
                 title = "밥상",
                 icon = { Icon(Icons.Rounded.Restaurant, contentDescription = "밥상", tint = cs.primary) },
-                onClick = { onBapsang?.invoke() }, // TODO: 연결 예정
+                onClick = { onBapsang?.invoke() },
                 enabled = bapsangEnabled,
                 modifier = Modifier.weight(1f)
             )
@@ -405,9 +458,11 @@ private fun SegmentCell(
         }
     }
 }
+
 @Composable
 private fun QrPayCard(
-    onQrPayClick: () -> Unit
+    onQrPayClick: () -> Unit,
+    qrButtonModifier: Modifier = Modifier
 ) {
     val cs = MaterialTheme.colorScheme
     Surface(
@@ -449,7 +504,7 @@ private fun QrPayCard(
 
             Button(
                 onClick = onQrPayClick,
-                modifier = Modifier
+                modifier = qrButtonModifier
                     .fillMaxWidth()
                     .height(44.dp),
                 shape = RoundedCornerShape(28.dp),

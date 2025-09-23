@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.bcu.foodtable.JetpackCompose.Social // 기존 패키지 경로 유지
 
@@ -13,6 +13,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,10 +50,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import com.bcu.foodtable.JetpackCompose.coach.CoachStep
+import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.ChallengeScreenContent
 import com.bcu.foodtable.ui.rank.RankScreenImproved
@@ -73,6 +80,11 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
+import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
+
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
+import com.bcu.foodtable.JetpackCompose.coach.coachTarget
+
 // --- 애니메이션 스펙 정의 (기존과 동일하게 유지) ---
 private val DefaultSpring = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessVeryLow)
 private val FastSpring = spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
@@ -83,7 +95,9 @@ private val ItemEntrySpring = spring<Float>(dampingRatio = Spring.DampingRatioMe
 
 
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class) // AnimatedContent를 위한 Opt-in 추가
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class,
+    ExperimentalFoundationApi::class
+) // AnimatedContent를 위한 Opt-in 추가
 @Composable
 fun SocialScreen(navController: NavHostController) {
     // WheelItem 데이터 클래스 정의
@@ -93,9 +107,16 @@ fun SocialScreen(navController: NavHostController) {
         val label: String,
         val screen: @Composable () -> Unit,
     )
+    val context = LocalContext.current
     val viewModel = viewModel<MatzipViewModel>()  // ViewModel 인스턴스
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+
+    val store = remember { CoachmarkStoreDataStore(context) }
+    val targets = remember { CoachTargets() }
+    var showCoach by remember { mutableStateOf(true) }
+
+    val coachBringer = remember { BringIntoViewRequester() }
 
     val wheelItems = remember {
         listOf(
@@ -103,7 +124,9 @@ fun SocialScreen(navController: NavHostController) {
                 CommunityTab(
                     navController = navController,
                     navToWrite = { navController.navigate("write") },
-                    navToDetail = { post -> navController.navigate("postDetail/${post.id}") }
+                    navToDetail = { post -> navController.navigate("postDetail/${post.id}") },
+                    coachTargets = targets,
+                    bringer = coachBringer
                 )
             },
             WheelItem(Icons.Default.RestaurantMenu, "오늘밥") { MiniGameTab(navController) },
@@ -156,6 +179,7 @@ fun SocialScreen(navController: NavHostController) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .coachTarget("soc_search", targets, /*bringer=*/coachBringer, expandPx = 8f)
                             )
                         }
 
@@ -192,10 +216,23 @@ fun SocialScreen(navController: NavHostController) {
                             selectedIndex = newIndex
                         }
                     },
-                    initialSelectedIndex = selectedIndex
+                    initialSelectedIndex = selectedIndex,
+                    fabModifier = Modifier.coachTarget("soc_wheel", targets, expandPx = 14f)
                 )
             }
         }
+    }
+    if (showCoach) {
+        CoachmarkOverlay(
+            screen = CoachScreen.SOCIAL,
+            steps = listOf(
+                CoachStep("soc_wheel", "휠 메뉴", "길게 눌러 돌리고 탭해 이동."),
+                CoachStep("soc_search", "검색", "원하는 주제를 찾아보세요."),
+                CoachStep("soc_write", "글쓰기", "후기/사진/팁을 공유하세요.")
+            ),
+            targets = targets, store = store, onClose = { showCoach = false },
+            modifier = Modifier.fillMaxSize().zIndex(999f)
+        )
     }
 }
 
@@ -210,6 +247,7 @@ fun DynamicRadialWheel(
     fabSize: Dp = 72.dp,
     expandedWheelDiameter: Dp = 320.dp,
     itemSize: Dp = 64.dp,
+    fabModifier: Modifier = Modifier
 ) {
     if (items.isEmpty()) return
 
@@ -401,7 +439,7 @@ fun DynamicRadialWheel(
             containerColor = if (expanded && items.isNotEmpty()) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
             contentColor = if (expanded && items.isNotEmpty()) haloColor else MaterialTheme.colorScheme.onPrimary,
             shape = CircleShape,
-            modifier = Modifier.size(fabSize),
+            modifier = fabModifier.size(fabSize),
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = fabElevation)
         ) {
             val iconRotation by animateFloatAsState(targetValue = if (expanded) 135f else 0f, animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "fabIconRotation")
@@ -419,6 +457,7 @@ fun DynamicRadialWheel(
 //  loadPostsFromFirebase, WritePostScreen, StyledWriteSection, ImagePreviewItem,
 //  uploadPost, loadComments, commentCountFlow, MiniGameTab, MenuGameList,
 //  PayerGameList, GameButton, ChallengeTab)
+
 
 private fun calculateSelectedIndex(currentRotationDegrees: Float, sliceAngleDegrees: Float, itemCount: Int): Int {
     if (itemCount == 0) return -1
@@ -443,7 +482,9 @@ private fun ScreenStub(name: String) {
 fun CommunityTab(
     navController: NavController,
     navToWrite: () -> Unit = {},
-    navToDetail: (CommunityPost) -> Unit = {}
+    navToDetail: (CommunityPost) -> Unit = {},
+    coachTargets: CoachTargets? = null,
+    bringer: BringIntoViewRequester? = null
 ) {
     val userLocation = remember { UserManager.getUser()?.location ?: "알 수 없음" }
     var selectedTab by rememberSaveable { mutableStateOf("전체") }
@@ -502,7 +543,14 @@ fun CommunityTab(
                 )
             }
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = navToWrite) {
+            IconButton(
+                onClick = navToWrite,
+                modifier =
+                // ⬇️ 코치 앵커 + bringer + 여유
+                if (coachTargets != null)
+                    Modifier.coachTarget("soc_write", coachTargets, bringer = bringer, expandPx = 10f)
+                else Modifier
+            ) {
                 Icon(
                     Icons.Default.Create,
                     contentDescription = "글쓰기",
@@ -526,7 +574,11 @@ fun CommunityTab(
                     Text("표시할 게시글이 없어요. 😥", style = MaterialTheme.typography.bodyLarge)
                 }
             } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .then(if (bringer != null) Modifier.bringIntoViewRequester(bringer) else Modifier)
+                ) {
                     items(posts, key = { it.id }) { post ->
                         CommunityPostItem(post) { navToDetail(post) }
                     }

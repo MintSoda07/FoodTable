@@ -48,6 +48,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
+import androidx.compose.ui.zIndex
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +98,10 @@ fun LoginScreenImproved(
     var bioAvailable by remember { mutableStateOf(false) }
     var bioStored by remember { mutableStateOf(false) }
 
+    val coachStore = remember { CoachmarkStoreDataStore(context) }
+    val scope = rememberCoroutineScope()
+
+
     // VM 이벤트 수신
     LaunchedEffect(Unit) {
         vm.events.collect { ev ->
@@ -118,11 +125,24 @@ fun LoginScreenImproved(
     }
     PrintKakaoKeyHash()
 
+
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(backgroundColorStart, backgroundColorEnd)))
     ) {
+        TextButton(
+            onClick = { scope.launch { coachStore.resetAll() } },
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(end = 12.dp, top = 8.dp)
+                .zIndex(3f)
+        ) {
+            Text("코치마크 초기화", fontSize = 12.sp)
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()

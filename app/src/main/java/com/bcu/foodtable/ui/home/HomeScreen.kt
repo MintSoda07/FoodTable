@@ -1,4 +1,8 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
+
 package com.bcu.foodtable.ui.home
+
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 import AiRecipeScreen
@@ -180,6 +184,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.BrunchDining
@@ -200,6 +206,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.BeyondBoundsLayout
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
 import androidx.navigation.navDeepLink
 import coil.Coil
@@ -223,6 +230,12 @@ import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoomScreen
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeByIdScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
+import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
+import com.bcu.foodtable.JetpackCompose.coach.CoachStep
+import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import com.bcu.foodtable.JetpackCompose.coach.coachTarget
 import com.bcu.foodtable.RecipePurchaseDialogExact
 import com.bcu.foodtable.ui.merchant.QrPayScannerScreen
 
@@ -956,6 +969,11 @@ fun HomeScreen(viewModel: HomeViewModel) {
     var showBottomSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
+    val coachStore = remember { CoachmarkStoreDataStore(context) }
+    val targets = remember { CoachTargets() }
+    var showCoach by remember { mutableStateOf(true) }
+    val bringer = remember { BringIntoViewRequester() }
+
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
     }
@@ -1035,7 +1053,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
         },
         floatingActionButton = {
             if (currentRoute == Screen.Home.route) {   // ← 홈에서만
-                FloatingActionButton(onClick = { showBottomSheet = true }) {
+                FloatingActionButton(onClick = { showBottomSheet = true },
+                    modifier = Modifier.coachTarget("home_ai_fab", targets, expandPx = 10f)
+                ) {
                     Icon(Icons.Filled.Chat, contentDescription = "Open AI Chat")
                     // 제미나이 아이콘 쓰려면 painterResource(R.drawable.ic_gemini)로 교체
                 }
@@ -1213,7 +1233,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                             onSearchQueryChange = { searchQuery = it },
                             homeViewModel = viewModel,
                             listState = listState,
-                            nav = navController
+                            nav = navController,
+                            targets = targets
                         )
                     }
                 }
@@ -1357,6 +1378,23 @@ fun HomeScreen(viewModel: HomeViewModel) {
             }
         }
     }
+    if (showCoach) {
+        CoachmarkOverlay(
+            screen = CoachScreen.HOME,
+            steps = listOf(
+                CoachStep("home_search", "레시피 검색", "이름·재료로 빠르게 찾아보세요."),
+                CoachStep("home_banner", "이벤트/공지", "혜택과 소식을 확인해요."),
+                CoachStep("home_trend", "인기 레시피", "지금 뜨는 메뉴를 봅니다."),
+                CoachStep("home_reco", "맞춤 추천", "취향 기반 추천을 확인하세요."),
+                CoachStep("home_ai_fab", "AI 요리 도우미", "챗으로 메뉴 추천/요리 팁 받기."),
+                CoachStep("home_card", "레시피 카드", "탭해 열고 자세히 보기.")
+            ),
+            targets = targets,
+            store = coachStore,
+            onClose = { showCoach = false },
+            modifier = Modifier.fillMaxSize().zIndex(999f)
+        )
+    }
 }
 @Composable
 fun AppBottomNavigationBar(
@@ -1466,7 +1504,9 @@ fun ModernSearchBar(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromoBannerPagerFromFirestore(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    targets: CoachTargets,
+    bringer: BringIntoViewRequester
 ) {
     val context = LocalContext.current
     val db = FirebaseFirestore.getInstance()
@@ -1490,7 +1530,9 @@ fun PromoBannerPagerFromFirestore(
             .fillMaxWidth()
             .height(240.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(Color.LightGray),
+            .background(Color.LightGray)
+            .bringIntoViewRequester(bringer)
+            .coachTarget("home_banner", targets),
         contentAlignment = Alignment.Center
     ) {
         when {
@@ -1791,7 +1833,8 @@ fun HomeContent(
     onSearchQueryChange: (TextFieldValue) -> Unit,
     homeViewModel: HomeViewModel,
     listState: LazyListState,
-    nav: NavController
+    nav: NavController,
+    targets: CoachTargets
 ) {
     var selectedCuisine by remember { mutableStateOf<String?>(null) }
     var selectedDifficulty by remember { mutableStateOf<String?>(null) }
@@ -1803,6 +1846,7 @@ fun HomeContent(
     val calorieVm: RecipeCalorieViewModel = viewModel()
     var purchasedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
+    val bringer = remember { BringIntoViewRequester() }
     // 헤더/리스트 좌우 패딩 통일
     val headerHPad = 8.dp
 
@@ -1854,8 +1898,9 @@ fun HomeContent(
         state = listState,
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
-        contentPadding = PaddingValues(
+            .background(MaterialTheme.colorScheme.surface)
+            .bringIntoViewRequester(bringer),
+    contentPadding = PaddingValues(
             top = 0.dp,
             start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
             end = paddingValues.calculateEndPadding(LayoutDirection.Ltr),
@@ -1868,7 +1913,10 @@ fun HomeContent(
             PromoBannerPagerFromFirestore(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(220.dp)
+                    .height(220.dp),
+                    targets = targets,
+                    bringer = bringer
+
             )
         }
 
@@ -1935,7 +1983,8 @@ fun HomeContent(
                                 }
                                 ModernSearchBar(
                                     searchQuery = searchQuery,
-                                    onSearchQueryChange = onSearchQueryChange
+                                    onSearchQueryChange = onSearchQueryChange,
+                                    modifier = Modifier.coachTarget("home_search", targets, bringer = bringer, expandPx = 8f)
                                 )
                             }
 
@@ -1951,7 +2000,8 @@ fun HomeContent(
                                         Text(
                                             "인기 레시피",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.coachTarget("home_trend", targets, bringer = bringer, expandPx = 6f)
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Divider(
@@ -1999,7 +2049,8 @@ fun HomeContent(
                                         Text(
                                             "추천 레시피",
                                             style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.coachTarget("home_reco", targets, bringer = bringer, expandPx = 6f)
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Divider(
@@ -2097,7 +2148,7 @@ fun HomeContent(
                 key = { idx, recipe ->
                     recipe.id.takeIf { it.isNotBlank() } ?: "recipe-$idx-${recipe.name}"
                 }
-            ) { _, recipe ->
+            ) { index, recipe ->
                 var isVisible by remember { mutableStateOf(false) }
                 val isPurchasedFlag = purchasedIds.contains(recipe.id)
                 val context = LocalContext.current
@@ -2122,8 +2173,11 @@ fun HomeContent(
                         animationSpec = tween(500, delayMillis = 50)
                     ) + fadeIn(animationSpec = tween(400))
                 ) {
-                    val cardModifier = Modifier.animateItemPlacement(tween(300))
-
+                    val baseModifier = Modifier.animateItemPlacement(tween(300))
+                    val cardModifier =
+                        if (index == 0) baseModifier.then(
+                            Modifier.coachTarget("home_card", targets, bringer = bringer, expandPx = 10f)
+                        ) else baseModifier
                     ModernRecipeCard(
                         recipe = recipe.copy(isPurchased = isPurchasedFlag),
                         estimatedCal = estimatedCal,

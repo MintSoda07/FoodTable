@@ -1,5 +1,6 @@
-package com.bcu.foodtable.JetpackCompose.RecipeStorage
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
+package com.bcu.foodtable.JetpackCompose.RecipeStorage
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -11,7 +12,6 @@ import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.itemsIndexed
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,10 +22,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.*
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -35,7 +37,6 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,22 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
+// ★ Coachmark imports
+import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
+import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
+import com.bcu.foodtable.JetpackCompose.coach.CoachStep
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import com.bcu.foodtable.JetpackCompose.coach.coachTarget
+
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.zIndex
+
+// 로컬 이징
+private val EaseOutQuad = Easing { t -> 1f - (1f - t) * (1f - t) }
+private val EaseOutCubic = Easing { t -> 1f - (1f - t) * (1f - t) * (1f - t) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,15 +96,20 @@ fun MyRecipeStorageScreen(
 
     var isInitialAnimationReady by remember { mutableStateOf(false) }
 
+    // ★ Coachmark store/targets/state
+    val store = remember { CoachmarkStoreDataStore(context) }
+    val targets = remember { CoachTargets() }
+    var showCoach by remember { mutableStateOf(true) }
+
+    // ★ 코치마크가 타깃을 화면에 보이게 스크롤하기 위한 requester (그리드에 부착)
+    val coachBringer = remember { BringIntoViewRequester() }
+
     LaunchedEffect(isLoading) {
-        // 로딩이 false로 바뀌는 순간 (즉, 로딩이 끝난 순간) 딱 한 번만 실행
         if (!isLoading) {
-            // 로딩 인디케이터가 사라지고 그리드가 그려질 미세한 시간을 확보
             delay(100)
             isInitialAnimationReady = true
         }
     }
-
 
     LaunchedEffect(Unit) {
         viewModel.loadGalleryItems()
@@ -102,48 +124,62 @@ fun MyRecipeStorageScreen(
     }
 
     val displayList = remember(galleryItems, groupedItemsMap, explodingGroup) {
-        // 1) 그룹 대표 아이템: 각 그룹에서 가장 오래된(혹은 원하는 기준) 아이템
         val groupReps = groupedItemsMap.values.mapNotNull { items ->
             items.minByOrNull { it.creationTimestamp ?: 0L }
         }
-        // 2) 그룹이 없는 순수 개별 아이템
         val nonGrouped = galleryItems.filter { it.groupId.isBlank() }
-
-        // 3) 각각 생성시간 내림차순 정렬
         val sortedGroupReps = groupReps.sortedByDescending { it.creationTimestamp ?: 0L }
         val sortedNonGrouped = nonGrouped.sortedByDescending { it.creationTimestamp ?: 0L }
 
-        // 4) 그룹 → 개별 순으로 합치기
         var combined = sortedGroupReps + sortedNonGrouped
-
-        // 5) 폭발 애니메이션 중인 그룹 아이템은 일단 제외
         explodingGroup?.let { exploding ->
             combined = combined.filterNot { item ->
                 exploding.any { it.recipeId == item.recipeId }
             }
         }
-
         combined
     }
 
+    // ★ 코치마크 앵커를 "첫 개별 카드 / 첫 그룹 폴더(대표)"에만 부착하기 위한 인덱스 계산
+    val firstCardIndex = remember(displayList) {
+        displayList.indexOfFirst { it.groupId.isBlank() }
+    }
+    val firstGroupIndex = remember(displayList) {
+        displayList.indexOfFirst { item ->
+            item.groupId.isNotBlank() &&
+                    (groupedItemsMap[item.groupId]?.minByOrNull { it.creationTimestamp ?: 0L }?.recipeId == item.recipeId)
+        }
+    }
 
     val processDrop = remember(viewModel, displayList, recipeCardBoundsMap, groupedItemsMap) {
         { sourceItem: GalleryItem, finalDropPosition: Offset ->
             var dropHandled = false
-            val groupRepresentativeTargetItems = displayList.filter { it.groupId.isNotBlank() && (groupedItemsMap[it.groupId]?.minByOrNull { g -> g.creationTimestamp ?: 0L }?.recipeId == it.recipeId) && it.recipeId != sourceItem.recipeId }
+            val groupRepresentativeTargetItems = displayList.filter {
+                it.groupId.isNotBlank() &&
+                        (groupedItemsMap[it.groupId]?.minByOrNull { g -> g.creationTimestamp ?: 0L }?.recipeId == it.recipeId) &&
+                        it.recipeId != sourceItem.recipeId
+            }
             for (groupRepTarget in groupRepresentativeTargetItems) {
                 val groupBounds = recipeCardBoundsMap[groupRepTarget.recipeId]
                 if (groupBounds != null && groupBounds.contains(finalDropPosition)) {
-                    if (sourceItem.groupId != groupRepTarget.groupId) { viewModel.addToGroup(groupRepTarget.groupId, sourceItem) }
+                    if (sourceItem.groupId != groupRepTarget.groupId) {
+                        viewModel.addToGroup(groupRepTarget.groupId, sourceItem)
+                    }
                     dropHandled = true
                     break
                 }
             }
             if (!dropHandled) {
-                val individualRecipeTargets = displayList.filter { target -> target.recipeId != sourceItem.recipeId && target.groupId.isBlank() }
+                val individualRecipeTargets = displayList.filter { target ->
+                    target.recipeId != sourceItem.recipeId && target.groupId.isBlank()
+                }
                 for (targetItem in individualRecipeTargets) {
                     val targetBounds = recipeCardBoundsMap[targetItem.recipeId]
-                    if (targetBounds != null && targetBounds.contains(finalDropPosition)) { viewModel.createGroup(sourceItem, targetItem); dropHandled = true; break }
+                    if (targetBounds != null && targetBounds.contains(finalDropPosition)) {
+                        viewModel.createGroup(sourceItem, targetItem)
+                        dropHandled = true
+                        break
+                    }
                 }
             }
             draggingItem = null
@@ -181,7 +217,10 @@ fun MyRecipeStorageScreen(
                 displayList.isEmpty() && explodingGroup == null -> CookbookEmptyState()
                 else -> {
                     val isAnimatingGroup = unfoldingGroupId != null
-                    val gridAlpha by animateFloatAsState(targetValue = if (isAnimatingGroup) 0f else 1f, label = "gridAlpha")
+                    val gridAlpha by animateFloatAsState(
+                        targetValue = if (isAnimatingGroup) 0f else 1f,
+                        label = "gridAlpha"
+                    )
 
                     LazyVerticalStaggeredGrid(
                         state = gridState,
@@ -191,23 +230,63 @@ fun MyRecipeStorageScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
                             .fillMaxSize()
+                            // ⬇️ 코치마크용 bringer를 그리드에 부착 (화면 밖 타깃 자동 스크롤)
+                            .bringIntoViewRequester(coachBringer)
                             .alpha(gridAlpha),
                     ) {
-                        itemsIndexed(displayList, key = { _, item -> item.recipeId + (item.groupId.ifBlank { item.recipeId }) }) { index, item ->
+                        itemsIndexed(
+                            displayList,
+                            key = { _, item -> item.recipeId + (item.groupId.ifBlank { item.recipeId }) }
+                        ) { index, item ->
                             AnimatedVisibility(
                                 visible = isInitialAnimationReady,
-                                enter = fadeIn(animationSpec = tween(durationMillis = 500, delayMillis = 100 * (index % 10))) +
-                                        slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(durationMillis = 500, delayMillis = 100 * (index % 10)))
+                                enter = fadeIn(
+                                    animationSpec = tween(
+                                        durationMillis = 500,
+                                        delayMillis = 100 * (index % 10)
+                                    )
+                                ) + slideInVertically(
+                                    initialOffsetY = { it / 2 },
+                                    animationSpec = tween(
+                                        durationMillis = 500,
+                                        delayMillis = 100 * (index % 10)
+                                    )
+                                )
                             ) {
-                                val itemModifier = Modifier.onGloballyPositioned { coordinates -> recipeCardBoundsMap[item.recipeId] = coordinates.boundsInWindow() }
-                                val isGroupRepresentative = item.groupId.isNotBlank() && (groupedItemsMap[item.groupId]?.minByOrNull { it.creationTimestamp ?: 0L }?.recipeId == item.recipeId)
+                                var itemModifier = Modifier.onGloballyPositioned { coordinates ->
+                                    recipeCardBoundsMap[item.recipeId] = coordinates.boundsInWindow()
+                                }
+
+                                val isGroupRepresentative =
+                                    item.groupId.isNotBlank() &&
+                                            (groupedItemsMap[item.groupId]?.minByOrNull { it.creationTimestamp ?: 0L }?.recipeId == item.recipeId)
+
+                                // ★ 앵커 부착: 첫 개별 카드 / 첫 그룹 폴더만 + bringer/expandPx 제공
+                                if (!isGroupRepresentative && index == firstCardIndex && firstCardIndex >= 0) {
+                                    itemModifier = itemModifier.coachTarget(
+                                        id = "stor_card",
+                                        targets = targets,
+                                        bringer = coachBringer,
+                                        expandPx = 12f
+                                    )
+                                }
+                                if (isGroupRepresentative && index == firstGroupIndex && firstGroupIndex >= 0) {
+                                    itemModifier = itemModifier.coachTarget(
+                                        id = "stor_group",
+                                        targets = targets,
+                                        bringer = coachBringer,
+                                        expandPx = 12f
+                                    )
+                                }
 
                                 if (isGroupRepresentative) {
                                     CookbookGroupFolderCard(
                                         modifier = itemModifier,
                                         groupName = item.groupName ?: "새로운 그룹",
                                         itemCount = groupedItemsMap[item.groupId]?.size ?: 0,
-                                        previewImageUrls = groupedItemsMap[item.groupId]?.take(3)?.mapNotNull { it.image } ?: emptyList(),
+                                        previewImageUrls = groupedItemsMap[item.groupId]
+                                            ?.take(3)
+                                            ?.mapNotNull { it.image } ?: emptyList(),
                                         onClick = { unfoldingGroupId = item.groupId },
                                         onUngroupClick = {
                                             coroutineScope.launch {
@@ -223,12 +302,19 @@ fun MyRecipeStorageScreen(
                                         item = item,
                                         modifier = itemModifier,
                                         onClick = {
-                                            val intent = Intent(context, RecipeCookingActivity::class.java).apply { putExtra("recipe_id", item.recipeId) }
+                                            val intent = Intent(
+                                                context,
+                                                RecipeCookingActivity::class.java
+                                            ).apply { putExtra("recipe_id", item.recipeId) }
                                             context.startActivity(intent)
                                         },
                                         onDragStart = { draggingItem = it },
                                         onUpdateDragPosition = { dragPositionInWindow = it },
-                                        onDragEnd = { draggingItem?.let { processDrop(it, dragPositionInWindow) } },
+                                        onDragEnd = {
+                                            draggingItem?.let {
+                                                processDrop(it, dragPositionInWindow)
+                                            }
+                                        },
                                         draggingItem = draggingItem
                                     )
                                 }
@@ -240,14 +326,25 @@ fun MyRecipeStorageScreen(
         }
 
         val isAnimatingGroup = unfoldingGroupId != null
-        AnimatedVisibility(visible = isAnimatingGroup, enter = fadeIn(tween(200)), exit = fadeOut(tween(200))) {
+        AnimatedVisibility(
+            visible = isAnimatingGroup,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(200))
+        ) {
             unfoldingGroupId?.let { groupId ->
                 val items = groupedItemsMap[groupId] ?: emptyList()
-                GroupUnfoldingAnimation(items = items, onAnimationFinished = { showGroupDetailOverlay = groupId })
+                GroupUnfoldingAnimation(
+                    items = items,
+                    onAnimationFinished = { showGroupDetailOverlay = groupId }
+                )
             }
         }
 
-        AnimatedVisibility(visible = showGroupDetailOverlay != null, enter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f), exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.8f)) {
+        AnimatedVisibility(
+            visible = showGroupDetailOverlay != null,
+            enter = fadeIn(tween(300)) + scaleIn(tween(300), initialScale = 0.8f),
+            exit = fadeOut(tween(300)) + scaleOut(tween(300), targetScale = 0.8f)
+        ) {
             showGroupDetailOverlay?.let { groupId ->
                 val items = groupedItemsMap[groupId] ?: emptyList()
                 val groupName = items.firstOrNull()?.groupName ?: "Unnamed Group"
@@ -256,7 +353,8 @@ fun MyRecipeStorageScreen(
                     itemsInGroup = items,
                     onDismiss = { showGroupDetailOverlay = null; unfoldingGroupId = null },
                     onItemClick = { item ->
-                        val intent = Intent(context, RecipeCookingActivity::class.java).apply { putExtra("recipe_id", item.recipeId) }
+                        val intent = Intent(context, RecipeCookingActivity::class.java)
+                            .apply { putExtra("recipe_id", item.recipeId) }
                         context.startActivity(intent)
                     },
                     onRenameGroup = { newName -> viewModel.renameGroup(groupId, newName) }
@@ -267,8 +365,26 @@ fun MyRecipeStorageScreen(
         explodingGroup?.let { items ->
             GroupExplosionAnimation(items = items)
         }
+
+        // ★ CoachmarkOverlay는 맨 마지막(최상단 Z)에서 띄우기
+        if (showCoach) {
+            CoachmarkOverlay(
+                screen = CoachScreen.STORAGE,
+                steps = listOf(
+                    CoachStep("stor_card", "드래그로 그룹", "카드를 다른 카드/폴더에 드롭해서 묶을 수 있어요."),
+                    CoachStep("stor_group", "그룹 폴더", "탭하면 펼치고, 길게 눌러 해제할 수 있어요.")
+                ),
+                targets = targets,
+                store = store,
+                onClose = { showCoach = false },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(999f) // 항상 최상단
+            )
+        }
     }
 }
+
 @Composable
 fun CookbookRecipeCard(
     item: GalleryItem,
@@ -279,9 +395,10 @@ fun CookbookRecipeCard(
     onDragEnd: () -> Unit,
     draggingItem: GalleryItem?
 ) {
-    var layoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) } // 카드의 좌표 정보를 저장할 변수
+    var layoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val isDragging = draggingItem?.recipeId == item.recipeId
-    val isPotentialDropTarget = !isDragging && draggingItem != null && draggingItem.groupId.isBlank() && item.groupId.isBlank()
+    val isPotentialDropTarget =
+        !isDragging && draggingItem != null && draggingItem.groupId.isBlank() && item.groupId.isBlank()
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     var tapePeeling by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -303,15 +420,13 @@ fun CookbookRecipeCard(
                 onTap = { onClick() }
             )
         }
-        .pointerInput(isDragging, layoutCoordinates) { // isDragging과 layoutCoordinates가 바뀔 때마다 이 블록을 다시 시작
+        .pointerInput(isDragging, layoutCoordinates) {
             if (isDragging) {
                 forEachGesture {
                     awaitPointerEventScope {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         drag(down.id) { change ->
                             dragOffset += change.positionChange()
-                            // 드래그 중인 포인터의 위치(change.position)를
-                            // 실시간으로 화면 전체 좌표로 변환하여 업데이트.
                             layoutCoordinates?.let {
                                 val screenPosition = it.localToWindow(change.position)
                                 onUpdateDragPosition(screenPosition)
@@ -325,36 +440,103 @@ fun CookbookRecipeCard(
             }
         }
 
-
-    val scale by animateFloatAsState(targetValue = when { isDragging -> 1.1f; isPotentialDropTarget -> 0.95f; else -> 1f }, animationSpec = spring(), label = "cardScale")
-    val alpha by animateFloatAsState(targetValue = if (draggingItem != null && !isDragging && !isPotentialDropTarget) 0.5f else 1f, label = "cardAlpha")
+    val scale by animateFloatAsState(
+        targetValue = when {
+            isDragging -> 1.1f
+            isPotentialDropTarget -> 0.95f
+            else -> 1f
+        },
+        animationSpec = spring(),
+        label = "cardScale"
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (draggingItem != null && !isDragging && !isPotentialDropTarget) 0.5f else 1f,
+        label = "cardAlpha"
+    )
 
     Box(
         modifier = gestureModifier
             .offset { IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt()) }
-            .graphicsLayer { this.scaleX = scale; this.scaleY = scale; shadowElevation = if (isDragging) 24f else 8f; rotationZ = if (isDragging) -5f else (item.recipeId.hashCode() % 10 - 5).toFloat() / 2f }
+            .graphicsLayer {
+                this.scaleX = scale
+                this.scaleY = scale
+                shadowElevation = if (isDragging) 24f else 8f
+                rotationZ =
+                    if (isDragging) -5f else (item.recipeId.hashCode() % 10 - 5).toFloat() / 2f
+            }
             .alpha(alpha)
     ) {
-        Surface(modifier = Modifier, shape = RoundedCornerShape(8.dp), color = Color(0xFFFFF8E1), shadowElevation = 8.dp, border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f))) {
+        Surface(
+            modifier = Modifier,
+            shape = RoundedCornerShape(8.dp),
+            color = Color(0xFFFFF8E1),
+            shadowElevation = 8.dp,
+            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f))
+        ) {
             Column {
-                AsyncImage(model = item.image, contentDescription = item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)))
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = item.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(text = item.creationTimestamp?.let { java.text.SimpleDateFormat("yyyy.MM.dd", java.util.Locale.getDefault()).format(java.util.Date(it)) } ?: "", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                AsyncImage(
+                    model = item.image,
+                    contentDescription = item.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                )
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = item.creationTimestamp?.let {
+                            java.text.SimpleDateFormat(
+                                "yyyy.MM.dd",
+                                java.util.Locale.getDefault()
+                            ).format(java.util.Date(it))
+                        } ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
                 }
             }
         }
 
         AnimatedVisibility(visible = isPotentialDropTarget, enter = fadeIn(), exit = fadeOut()) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
-                Icon(imageVector = Icons.Default.AddCircleOutline, contentDescription = "그룹 만들기", tint = Color.White, modifier = Modifier.size(48.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AddCircleOutline,
+                    contentDescription = "그룹 만들기",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
             }
         }
 
-        val tapeRotation by animateFloatAsState(targetValue = if (tapePeeling) 20f else 0f, label = "tapePeel")
-        TapeDecoration(Modifier.align(Alignment.TopCenter).offset(y = (-10).dp).rotate(tapeRotation))
+        val tapeRotation by animateFloatAsState(
+            targetValue = if (tapePeeling) 20f else 0f,
+            label = "tapePeel"
+        )
+        TapeDecoration(
+            Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = (-10).dp)
+                .rotate(tapeRotation)
+        )
     }
 }
+
 @Composable
 fun GroupExplosionAnimation(items: List<GalleryItem>) {
     var animate by remember { mutableStateOf(false) }
@@ -369,14 +551,25 @@ fun GroupExplosionAnimation(items: List<GalleryItem>) {
             val angle = remember { random.nextFloat() * 360f }
             val distance = remember { 800f + random.nextFloat() * 200f }
 
-            val x by transition.animateFloat(transitionSpec = { tween(durationMillis = 800, easing = EaseOutQuad) }, label = "explode_x") {
-                if (it) distance * kotlin.math.cos(angle.toDouble()).toFloat() else 0f
-            }
-            val y by transition.animateFloat(transitionSpec = { tween(durationMillis = 800, easing = EaseOutQuad) }, label = "explode_y") {
-                if (it) distance * kotlin.math.sin(angle.toDouble()).toFloat() else 0f
-            }
-            val rotation by transition.animateFloat(transitionSpec = { tween(800) }, label = "explode_rot") { if (it) random.nextFloat() * 720f - 360f else 0f }
-            val alpha by transition.animateFloat(transitionSpec = { tween(durationMillis = 800, delayMillis = 200) }, label = "explode_alpha") { if (it) 0f else 1f }
+            val x by transition.animateFloat(
+                transitionSpec = { tween(durationMillis = 800, easing = EaseOutQuad) },
+                label = "explode_x"
+            ) { if (it) distance * kotlin.math.cos(angle.toDouble()).toFloat() else 0f }
+
+            val y by transition.animateFloat(
+                transitionSpec = { tween(durationMillis = 800, easing = EaseOutQuad) },
+                label = "explode_y"
+            ) { if (it) distance * kotlin.math.sin(angle.toDouble()).toFloat() else 0f }
+
+            val rotation by transition.animateFloat(
+                transitionSpec = { tween(800) },
+                label = "explode_rot"
+            ) { if (it) random.nextFloat() * 720f - 360f else 0f }
+
+            val alpha by transition.animateFloat(
+                transitionSpec = { tween(durationMillis = 800, delayMillis = 200) },
+                label = "explode_alpha"
+            ) { if (it) 0f else 1f }
 
             Surface(
                 modifier = Modifier
@@ -386,19 +579,23 @@ fun GroupExplosionAnimation(items: List<GalleryItem>) {
                         rotationZ = rotation
                         this.alpha = alpha
                     }
-                    .width(180.dp).height(220.dp),
+                    .width(180.dp)
+                    .height(220.dp),
                 shape = RoundedCornerShape(8.dp),
                 color = Color(0xFFFFF8E1),
                 shadowElevation = 8.dp,
                 border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f))
             ) {
-                AsyncImage(model = item.image, contentDescription = item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                AsyncImage(
+                    model = item.image,
+                    contentDescription = item.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
     }
 }
-
-
 
 @Composable
 fun GroupUnfoldingAnimation(items: List<GalleryItem>, onAnimationFinished: () -> Unit) {
@@ -406,7 +603,7 @@ fun GroupUnfoldingAnimation(items: List<GalleryItem>, onAnimationFinished: () ->
 
     LaunchedEffect(Unit) {
         animationState = true
-        delay(400 + (items.size * 50L)) // 애니메이션 지속 시간
+        delay(400 + (items.size * 50L))
         onAnimationFinished()
     }
 
@@ -417,32 +614,69 @@ fun GroupUnfoldingAnimation(items: List<GalleryItem>, onAnimationFinished: () ->
             val angleOffset = -15f + (30f / (items.size - 1).coerceAtLeast(1) * index)
             val translationYOffset = -20f + (40f / (items.size - 1).coerceAtLeast(1) * index)
 
-            val rotation by transition.animateFloat(transitionSpec = { spring(dampingRatio = 0.6f, stiffness = 100f) }, label = "unfold_rotation_$index") { if (it) angleOffset else 0f }
-            val translationY by transition.animateFloat(transitionSpec = { tween(durationMillis = 300, delayMillis = index * 50, easing = EaseOutCubic) }, label = "unfold_translationY_$index") { if (it) translationYOffset else 0f }
-            val scale by transition.animateFloat(transitionSpec = { tween(300) }, label = "unfold_scale_$index") { if (it) 1f else 0.8f }
-            val alpha by transition.animateFloat(transitionSpec = { tween(200) }, label = "unfold_alpha_$index") { if (it) 1f else 0f }
+            val rotation by transition.animateFloat(
+                transitionSpec = { spring(dampingRatio = 0.6f, stiffness = 100f) },
+                label = "unfold_rotation_$index"
+            ) { if (it) angleOffset else 0f }
+
+            val translationY by transition.animateFloat(
+                transitionSpec = {
+                    tween(durationMillis = 300, delayMillis = index * 50, easing = EaseOutCubic)
+                },
+                label = "unfold_translationY_$index"
+            ) { if (it) translationYOffset else 0f }
+
+            val scale by transition.animateFloat(
+                transitionSpec = { tween(300) },
+                label = "unfold_scale_$index"
+            ) { if (it) 1f else 0.8f }
+
+            val alpha by transition.animateFloat(
+                transitionSpec = { tween(200) },
+                label = "unfold_alpha_$index"
+            ) { if (it) 1f else 0f }
 
             Surface(
                 modifier = Modifier
                     .width(180.dp)
                     .height(220.dp)
-                    .graphicsLayer { this.rotationZ = rotation; this.translationY = translationY; this.scaleX = scale; this.scaleY = scale; this.alpha = alpha },
+                    .graphicsLayer {
+                        this.rotationZ = rotation
+                        this.translationY = translationY
+                        this.scaleX = scale
+                        this.scaleY = scale
+                        this.alpha = alpha
+                    },
                 shape = RoundedCornerShape(8.dp),
                 color = Color(0xFFFFF8E1),
                 shadowElevation = 8.dp,
                 border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f))
             ) {
-                AsyncImage(model = item.image, contentDescription = item.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                AsyncImage(
+                    model = item.image,
+                    contentDescription = item.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
     }
 }
 
 @Composable
-fun CookbookGroupFolderCard(modifier: Modifier, groupName: String, itemCount: Int, previewImageUrls: List<String>, onClick: () -> Unit, onUngroupClick: () -> Unit) {
+fun CookbookGroupFolderCard(
+    modifier: Modifier,
+    groupName: String,
+    itemCount: Int,
+    previewImageUrls: List<String>,
+    onClick: () -> Unit,
+    onUngroupClick: () -> Unit
+) {
     var showUngroupDialog by remember { mutableStateOf(false) }
     Box(
-        modifier = modifier.pointerInput(Unit) { detectTapGestures(onTap = { onClick() }, onLongPress = { showUngroupDialog = true }) },
+        modifier = modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { onClick() }, onLongPress = { showUngroupDialog = true })
+        },
         contentAlignment = Alignment.Center
     ) {
         Box(modifier = Modifier.width(180.dp).height(220.dp), contentAlignment = Alignment.Center) {
@@ -450,67 +684,147 @@ fun CookbookGroupFolderCard(modifier: Modifier, groupName: String, itemCount: In
                 val rotation = (index - 1) * 7f
                 val offset = IntOffset((index - 1) * 4, (index - 1) * 4)
                 Surface(
-                    modifier = Modifier.offset { offset }.rotate(rotation).width(160.dp).height(200.dp),
+                    modifier = Modifier
+                        .offset { offset }
+                        .rotate(rotation)
+                        .width(160.dp)
+                        .height(200.dp),
                     shape = RoundedCornerShape(8.dp),
                     color = Color(0xFFFFF8E1),
                     shadowElevation = 2.dp,
                     border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f))
                 ) {
-                    AsyncImage(model = url, contentDescription = "Preview ${index + 1}", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    AsyncImage(
+                        model = url,
+                        contentDescription = "Preview ${index + 1}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
             }
         }
         Column(
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 8.dp, top = 8.dp).background(Color(0xFFF3EFEA).copy(alpha = 0.8f), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 8.dp, top = 8.dp)
+                .background(Color(0xFFF3EFEA).copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalAlignment = Alignment.Start
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Folder, contentDescription = "Group Clip", tint = Color(0xFF795548), modifier = Modifier.size(20.dp))
+                Icon(
+                    Icons.Default.Folder,
+                    contentDescription = "Group Clip",
+                    tint = Color(0xFF795548),
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(Modifier.width(6.dp))
-                Text(text = groupName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF5D4037))
+                Text(
+                    text = groupName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF5D4037)
+                )
             }
-            Text(text = "$itemCount 개 레시피", style = MaterialTheme.typography.bodySmall, color = Color(0xFF795548))
+            Text(
+                text = "$itemCount 개 레시피",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF795548)
+            )
         }
         if (showUngroupDialog) {
             AlertDialog(
                 onDismissRequest = { showUngroupDialog = false },
-                title = { Text("그룹 해제") }, text = { Text("이 그룹을 해제하시겠습니까?") },
-                confirmButton = { TextButton(onClick = { onUngroupClick(); showUngroupDialog = false }) { Text("해제") } },
-                dismissButton = { TextButton(onClick = { showUngroupDialog = false }) { Text("취소") } }
+                title = { Text("그룹 해제") },
+                text = { Text("이 그룹을 해제하시겠습니까?") },
+                confirmButton = {
+                    TextButton(onClick = { onUngroupClick(); showUngroupDialog = false }) {
+                        Text("해제")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUngroupDialog = false }) { Text("취소") }
+                }
             )
         }
     }
 }
 
 @Composable
-fun CookbookGroupDetailOverlay(groupName: String, itemsInGroup: List<GalleryItem>, onDismiss: () -> Unit, onItemClick: (GalleryItem) -> Unit, onRenameGroup: (String) -> Unit) {
+fun CookbookGroupDetailOverlay(
+    groupName: String,
+    itemsInGroup: List<GalleryItem>,
+    onDismiss: () -> Unit,
+    onItemClick: (GalleryItem) -> Unit,
+    onRenameGroup: (String) -> Unit
+) {
     val coroutineScope = rememberCoroutineScope()
     var isEditingName by remember(groupName) { mutableStateOf(false) }
     var editedName by remember(groupName) { mutableStateOf(groupName) }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)).pointerInput(Unit) { detectTapGestures(onTap = { onDismiss() }) },
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.6f))
+                .pointerInput(Unit) { detectTapGestures(onTap = { onDismiss() }) },
             contentAlignment = Alignment.Center
         ) {
             Surface(
-                modifier = Modifier.fillMaxHeight(0.9f).fillMaxWidth(0.9f).clickable(enabled = false, onClick = {}),
+                modifier = Modifier
+                    .fillMaxHeight(0.9f)
+                    .fillMaxWidth(0.9f)
+                    .clickable(enabled = false, onClick = {}),
                 shape = RoundedCornerShape(16.dp),
                 color = Color(0xFFF3EFEA)
             ) {
                 Column {
-                    Row(modifier = Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         if (isEditingName) {
-                            Icon(Icons.Default.DriveFileRenameOutline, contentDescription = "Rename", tint = Color(0xFF5D4037))
+                            Icon(
+                                Icons.Default.DriveFileRenameOutline,
+                                contentDescription = "Rename",
+                                tint = Color(0xFF5D4037)
+                            )
                             Spacer(Modifier.width(12.dp))
-                            BasicTextField(value = editedName, onValueChange = { editedName = it }, textStyle = MaterialTheme.typography.titleLarge.copy(color = Color(0xFF5D4037), fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
-                            IconButton(onClick = { coroutineScope.launch { onRenameGroup(editedName); isEditingName = false } }) { Icon(Icons.Default.Check, contentDescription = "저장", tint = Color(0xFF5D4037)) }
+                            BasicTextField(
+                                value = editedName,
+                                onValueChange = { editedName = it },
+                                textStyle = MaterialTheme.typography.titleLarge.copy(
+                                    color = Color(0xFF5D4037),
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = {
+                                coroutineScope.launch {
+                                    onRenameGroup(editedName)
+                                    isEditingName = false
+                                }
+                            }) {
+                                Icon(Icons.Default.Check, contentDescription = "저장", tint = Color(0xFF5D4037))
+                            }
                         } else {
                             Icon(Icons.Default.Folder, contentDescription = "Folder", tint = Color(0xFF5D4037))
                             Spacer(Modifier.width(12.dp))
-                            Text(groupName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color(0xFF5D4037), modifier = Modifier.weight(1f))
-                            IconButton(onClick = { isEditingName = true }) { Icon(Icons.Default.Edit, contentDescription = "수정", tint = Color(0xFF5D4037)) }
+                            Text(
+                                groupName,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF5D4037),
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = { isEditingName = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = "수정", tint = Color(0xFF5D4037))
+                            }
                         }
-                        IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, contentDescription = "닫기", tint = Color(0xFF5D4037)) }
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "닫기", tint = Color(0xFF5D4037))
+                        }
                     }
                     LazyVerticalStaggeredGrid(
                         columns = StaggeredGridCells.Adaptive(160.dp),
@@ -518,8 +832,15 @@ fun CookbookGroupDetailOverlay(groupName: String, itemsInGroup: List<GalleryItem
                         verticalItemSpacing = 12.dp,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        items(itemsInGroup, key = { "detail_${it.recipeId}" }) { item ->
-                            CookbookRecipeCard(item = item, onClick = { onItemClick(item) }, onDragStart = {}, onUpdateDragPosition = {}, onDragEnd = {}, draggingItem = null)
+                        itemsIndexed(itemsInGroup, key = { _, it -> "detail_${it.recipeId}" }) { _, item ->
+                            CookbookRecipeCard(
+                                item = item,
+                                onClick = { onItemClick(item) },
+                                onDragStart = {},
+                                onUpdateDragPosition = {},
+                                onDragEnd = {},
+                                draggingItem = null
+                            )
                         }
                     }
                 }
@@ -531,7 +852,9 @@ fun CookbookGroupDetailOverlay(groupName: String, itemsInGroup: List<GalleryItem
 @Composable
 fun CookbookHeader(userName: String, totalRecipes: Int, totalGroups: Int) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
         verticalAlignment = Alignment.Bottom
     ) {
         Column(modifier = Modifier.weight(1f)) {
@@ -555,19 +878,19 @@ fun CookbookLoadingState() {
 
 @Composable
 fun CookbookErrorState(onRetry: () -> Unit) {
-
+    // TODO: 에러 UI 필요 시 구현
 }
 
 @Composable
 fun CookbookEmptyState() {
-
+    // TODO: 빈 상태 UI 필요 시 구현
 }
 
 @Composable
 private fun TapeDecoration(modifier: Modifier = Modifier) {
-
+    // TODO: 데코 구현 시 여기에
 }
 
 private fun DrawScope.drawScrapbookBackground() {
-
+    // TODO: 배경 드로잉 구현 시 여기에
 }
