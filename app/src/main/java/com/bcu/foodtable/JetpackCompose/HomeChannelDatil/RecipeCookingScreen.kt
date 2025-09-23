@@ -81,8 +81,10 @@ import com.bcu.foodtable.JetpackCompose.Social.Openchat.Friend
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoom
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatViewModel
 import com.bcu.foodtable.JetpackCompose.Social.sendMessage
+import com.bcu.foodtable.TTS.CoachTurn
 import com.bcu.foodtable.TTS.CookingAiViewModel
 import com.bcu.foodtable.TTS.CookingAiViewModelFactory
+import com.bcu.foodtable.TTS.CookingCoachViewModel
 import com.bcu.foodtable.ui.theme.WarmLightColorScheme
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctionsException
@@ -142,6 +144,9 @@ fun RecipeCookingScreen(
     // 3) ViewModel이 제공하는 Map에서 이 레시피의 칼로리 가져오기
     val estimatedCal = calorieVm.caloriesMap[recipe.id]
 
+    val coachVm: CookingCoachViewModel = viewModel()
+
+    // ▶ 음성 컨트롤러에 자유 발화 훅 연결
 
     LaunchedEffect(aiEvalToastMessage) {
         aiEvalToastMessage?.let {
@@ -254,6 +259,19 @@ fun RecipeCookingScreen(
             onCommand = {}
         )
     }
+
+    LaunchedEffect(Unit) {
+        voiceController.shouldCaptureFreeSpeech = { coachVm.isTesting.value }
+        voiceController.onFreeSpeech = { freeText ->
+            coachVm.onUserUtterance(freeText, recipe)
+        }
+    }
+
+    // ▶ 현재 단계 바뀔 때 코치 VM에 알려줌(라이브 컨텍스트)
+    LaunchedEffect(currentIndex) {
+        coachVm.updateCurrentStep(currentIndex)
+    }
+
     //  “현재 단계의 StepTimerState”를 컨트롤러에 바인딩
     //    currentIndex나 steps가 바뀔 때마다 실행됩니다.
     LaunchedEffect(currentIndex, steps) {
@@ -704,15 +722,13 @@ fun RecipeCookingScreen(
             item {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Voice Control Button
                 ModernActionButton(
                     text = if (isListening.value) "음성 명령 중지" else "🎤 음성 명령 시작",
-                    backgroundColor = if (isListening.value) Color(0xFFD32F2F) else Color(0xFFE25532), // error와 primary 색상
+                    backgroundColor = if (isListening.value) Color(0xFFD32F2F) else Color(0xFFE25532),
                     onClick = {
                         if (!isListening.value) {
                             val started = voiceController.startListening()
                             if (started) {
-                                //  버튼을 눌러 음성 인식이 켜질 때, 현재 단계 설명을 바로 TTS로 읽어 줌
                                 steps.getOrNull(currentIndex)?.let { stepState ->
                                     tts.speak(stepState.text, TextToSpeech.QUEUE_FLUSH, null, "speak_step")
                                 }
@@ -727,13 +743,11 @@ fun RecipeCookingScreen(
                     isLoading = false
                 )
 
-
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // PDF Save Button
                 ModernActionButton(
                     text = "📄 PDF로 저장",
-                    backgroundColor = Color(0xFFB9806D), // tertiary 색상
+                    backgroundColor = Color(0xFFB9806D),
                     onClick = {
                         val html = generateRecipeHtml(recipe)
                         saveAsPdfWithHtml(
@@ -747,7 +761,6 @@ fun RecipeCookingScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // AI Evaluation Section
                 if (userImageUriForAiEval != null) {
                     Card(
                         modifier = Modifier
@@ -755,7 +768,7 @@ fun RecipeCookingScreen(
                             .padding(bottom = 12.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFBE7DF) // surfaceVariant 색상
+                            containerColor = Color(0xFFFBE7DF)
                         )
                     ) {
                         AsyncImage(
@@ -770,18 +783,53 @@ fun RecipeCookingScreen(
                     }
                 }
 
-
                 ModernActionButton(
                     text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 눈으로 맛보는 AI 요리 비교",
-                    backgroundColor = Color(0xFF5C2B1B), // onPrimaryContainer 색상
-                    onClick = {
-                        pickImageLauncherForAiEval.launch("image/*")
-                    },
+                    backgroundColor = Color(0xFF5C2B1B),
+                    onClick = { pickImageLauncherForAiEval.launch("image/*") },
                     isLoading = isLoadingAiEval,
                     enabled = !isLoadingAiEval
                 )
             }
 
+            // ✅ 코칭 테스트 버튼 + 패널: 반드시 item { ... } 안에 배치
+            item {
+                Spacer(Modifier.height(12.dp))
+
+                val isTesting by coachVm.isTesting.collectAsState()
+                ModernActionButton(
+                    text = if (isTesting) "🛑 테스트 종료 & 채점" else "🧪 코칭 테스트 시작",
+                    backgroundColor = if (isTesting) Color(0xFFD32F2F) else Color(0xFF3E7C59),
+                    onClick = {
+                        if (!isTesting) {
+                            coachVm.startTest(recipe, currentIndex)
+                            if (!isListening.value) {
+                                val started = voiceController.startListening()
+                                if (started) isListening.value = true
+                            }
+                        } else {
+                            coachVm.finishAndScore(recipe) { final ->
+                                Toast.makeText(
+                                    context,
+                                    "최종 점수: ${final.score}/100",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
+                )
+
+                if (isTesting) {
+                    Spacer(Modifier.height(12.dp))
+                    CoachTranscriptPanel(
+                        transcript = coachVm.transcript,
+                        liveScore = coachVm.liveScore.collectAsState().value,
+                        slots = coachVm.slots
+                    )
+                }
+            }
+
+            // 기존 댓글 섹션
             item {
                 Spacer(modifier = Modifier.height(40.dp))
                 MaterialTheme(colorScheme = WarmLightColorScheme) {
@@ -789,6 +837,7 @@ fun RecipeCookingScreen(
                 }
             }
         }
+
         if (showShareSheet) {
             ShareRecipeSheet(
                 myUid = FirebaseAuth.getInstance().currentUser?.uid ?: "",
@@ -823,6 +872,7 @@ fun RecipeCookingScreen(
                 fetchFriends = { uid -> ocVm.fetchFriends(uid) }
             )
         }
+
 
     }
 }
@@ -1998,5 +2048,56 @@ private fun EmptyState(text: String) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun CoachTranscriptPanel(
+    transcript: List<CoachTurn>,
+    liveScore: Int,
+    slots: Map<String, Any>
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F4))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("테스트 진행 중", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            Text("실시간 점수: $liveScore / 100", color = Color(0xFF3E7C59))
+
+            Spacer(Modifier.height(8.dp))
+            Text("대화", style = MaterialTheme.typography.labelLarge)
+            Spacer(Modifier.height(6.dp))
+
+            //  transcript는 List라서 asReversed().take(10)로 안전하게
+            transcript
+                .asReversed()
+                .take(10)
+                .asReversed()
+                .forEach { turn ->
+                    val who = if (turn.role == "user") "🙋‍♂️" else "👩‍🍳"
+                    Text("$who ${turn.text}")
+                    Spacer(Modifier.height(4.dp))
+                }
+
+            if (slots.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Text("추출 정보(슬롯)", style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(6.dp))
+
+                //  entries(Set) → List로 변환 후 take(6)
+                slots.entries
+                    .toList()
+                    .asReversed()
+                    .take(6)
+                    .asReversed()
+                    .forEach { entry ->
+                        val k = entry.key
+                        val v = entry.value
+                        Text("• $k = $v")
+                    }
+            }
+        }
     }
 }

@@ -46,6 +46,12 @@ class VoiceCommandController(
     private var originalNotificationVolume: Int = 0
     private var isBeepMuted = false         // ① 삑 소음 음소거 여부 확인 플래그
     private var hasRestoredBeep = false     // ② 한 번이라도 복원했는지 확인
+
+    // 테스트 모드일 때 자유 발화를 넘길지 여부
+    var shouldCaptureFreeSpeech: () -> Boolean = { false }
+
+    //  자유 발화 콜백(명령이 아닌 자연어 문장)
+    var onFreeSpeech: (String) -> Unit = {}
     /**
      * 음성 인식을 실제로 시작했으면 true,
      * 권한 요청만 했거나 실패했으면 false를 반환
@@ -279,6 +285,11 @@ class VoiceCommandController(
             onCommand(keyword)
             return
         }
+        if (shouldCaptureFreeSpeech()) {
+            onFreeSpeech(userText)
+            return
+        }
+
 
         // ————————— 여기부터 OpenAIClient 관련 부분 (수정 없음) —————————
         val aiClient = OpenAIClient()
