@@ -262,6 +262,8 @@ fun ProfileMainScreen(
                         onHealth = { viewModel.navigateToHealth(navController) },
                         onBapsang = {
                             val intent = Intent(context, UnityPlayerGameActivity::class.java)
+                            // ⚠️ 이 플래그를 추가하여 Unity 액티비티를 새 Task가 아닌 현재 Task에 포함시킵니다.
+                            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
                             context.startActivity(intent)
                         },
                         onFridge = { navController.navigate("fridge") }
