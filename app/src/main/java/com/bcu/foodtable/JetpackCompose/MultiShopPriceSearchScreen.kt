@@ -1,150 +1,532 @@
 package com.bcu.foodtable.JetpackCompose
 
-import android.content.Intent
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import androidx.compose.runtime.*
-import androidx.compose.material3.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.useful.ApiKeyManager
 import com.google.gson.Gson
 import kotlinx.coroutines.*
-import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody
 import org.json.JSONObject
+
+/* =========================
+   THEME
+   ========================= */
+
+private val WarmLightColorScheme = lightColorScheme(
+    primary = Color(0xFFE25532),
+    onPrimary = Color.White,
+
+    primaryContainer = Color(0xFFFFE2D6),
+    onPrimaryContainer = Color(0xFF5C2B1B),
+
+    secondary = Color(0xFFFFF4ED),
+    onSecondary = Color(0xFF4B3C35),
+
+    secondaryContainer = Color(0xFFFDE1D5),
+    onSecondaryContainer = Color(0xFF5D4037),
+
+    tertiary = Color(0xFFB9806D),
+    onTertiary = Color.White,
+
+    tertiaryContainer = Color(0xFFF3E0DC),
+    onTertiaryContainer = Color(0xFF4E342E),
+
+    background = Color(0xFFFFFBF8),
+    onBackground = Color(0xFF3A2C28),
+
+    surface = Color.White,
+    onSurface = Color(0xFF2E2E2E),
+
+    surfaceVariant = Color(0xFFFBE7DF),
+    onSurfaceVariant = Color(0xFF5F5F5F),
+
+    outline = Color(0xFFDDC7BD),
+    outlineVariant = Color(0xFFF0E0D8),
+
+    inverseSurface = Color(0xFF3A2C28),
+    inverseOnSurface = Color.White,
+    inversePrimary = Color(0xFFFF8F6B),
+
+    error = Color(0xFFD32F2F),
+    onError = Color.White,
+    errorContainer = Color(0xFFFDECEA),
+    onErrorContainer = Color(0xFF8B0000)
+)
+
+@Composable
+fun FoodTableTheme(content: @Composable () -> Unit) {
+    MaterialTheme(
+        colorScheme = WarmLightColorScheme,
+        typography = Typography(),
+        content = content
+    )
+}
+
+/* =========================
+   SCREEN
+   ========================= */
 
 private const val TAG = "MultiShopPriceSearch"
 private const val TIMEOUT_SEC = 10
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MultiShopPriceSearchScreen(intent: Intent) {
-    val searchKeyword = intent.getStringExtra("SEARCH_INGREDIENT") ?: ""
-    val shopNames = listOf("네이버쇼핑", "쿠팡", "11번가", "G마켓", "옥션", "이마트몰")
-    val mergedResults = remember { mutableStateListOf<MergedShopItem>() }
-    val isLoading = remember { mutableStateOf(true) }
-    val context = LocalContext.current
+fun MultiShopPriceSearchScreen(
+    intent: Intent,
+    lottieResId: Int = com.bcu.foodtable.R.raw.loading_food // 프로젝트 리소스에 맞게 조정
+) {
+    FoodTableTheme {
+        val searchKeyword = intent.getStringExtra("SEARCH_INGREDIENT") ?: ""
+        val shopNames = listOf("네이버쇼핑", "쿠팡", "이마트몰") // 필요시 추가
 
-    // 정렬 옵션 상태
-    var sortOption by remember { mutableStateOf(SortOption.PRICE_ASC) }
-    val sortOptions = listOf(
-        SortOption.PRICE_ASC, SortOption.RATING_DESC, SortOption.SHOP
-    )
+        val mergedResults = remember { mutableStateListOf<MergedShopItem>() }
+        var isLoading by remember { mutableStateOf(true) }
+        var errorText by remember { mutableStateOf<String?>(null) }
+        val context = LocalContext.current
 
-    // GPT 쿼리 및 병합
-    LaunchedEffect(searchKeyword) {
-        isLoading.value = true
-        val deferreds = shopNames.map { shop ->
-            async {
-                try {
-                    val prompt = """
-                        $shop 에서 '$searchKeyword'를 최저가순으로 5개,
-                        '| 상품명 | 가격 | 평점 | 링크 |' 열이 포함된 마크다운 표로만 정리해 주세요.
-                        광고, 안내, 설명 없이 표만.
-                    """.trimIndent()
-                    val gptResultString = getGptTableResult(prompt)
-                    val parsed = parseMarkdownTableWithHttpFallback(parsedShop = shop, mdTable = gptResultString)
-                    parsed
-                } catch (e: Exception) {
-                    Log.e(TAG, "[$shop] 조회 오류: ${e.message}", e)
-                    emptyList()
+        // GPT 쿼리 및 병합: 각 쇼핑몰 결과가 끝나는 즉시 리스트에 반영
+        LaunchedEffect(searchKeyword) {
+            isLoading = true
+            errorText = null
+            mergedResults.clear()
+
+            val jobs = shopNames.map { shop ->
+                launch(Dispatchers.IO) {
+                    try {
+                        val prompt = """
+                            $shop 에서 '$searchKeyword'를 최저가순으로 5개,
+                            '| 상품명 | 가격 | 평점 | 링크 |' 열이 포함된 마크다운 표로만 정리해 주세요.
+                            광고, 안내, 설명 없이 표만.
+                        """.trimIndent()
+                        val gptResultString = getGptTableResult(prompt)
+                        val parsed = parseMarkdownTableWithHttpFallback(parsedShop = shop, mdTable = gptResultString)
+
+                        // 결과를 즉시 UI에 반영
+                        withContext(Dispatchers.Main) {
+                            mergedResults.addAll(parsed)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "[$shop] 조회 오류: ${e.message}", e)
+                    }
                 }
             }
-        }
-        delay(TIMEOUT_SEC * 1000L)
-        mergedResults.clear()
-        deferreds.forEach { deferred ->
-            val items = try { deferred.await() } catch (_: Exception) { emptyList<MergedShopItem>() }
-            mergedResults.addAll(items)
-        }
-        isLoading.value = false
-    }
 
-    Scaffold(
-        topBar = {
-            SmallTopAppBar(
-                title = { Text("‘$searchKeyword’ 가격 비교", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { (context as? android.app.Activity)?.finish() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
-        Column(Modifier.padding(innerPadding).padding(horizontal = 8.dp)) {
-            Spacer(Modifier.height(10.dp))
+            // 모든 잡 완료 후 로딩 해제
+            jobs.joinAll()
+            isLoading = false
 
-            // 정렬 옵션 드롭다운
-            var expanded by remember { mutableStateOf(false) }
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text("정렬:", fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(6.dp))
-                Box {
-                    Button(onClick = { expanded = true }, contentPadding = PaddingValues(0.dp)) {
-                        Text(sortOption.displayName, fontSize = 14.sp)
-                    }
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        sortOptions.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text(option.displayName) },
-                                onClick = {
-                                    sortOption = option
-                                    expanded = false
-                                }
-                            )
+            if (mergedResults.isEmpty()) {
+                errorText = "검색 결과가 없습니다."
+            }
+        }
+
+        Scaffold(
+            topBar = {
+                SmallTopAppBar(
+                    title = {
+                        Text(
+                            "‘$searchKeyword’ 가격 비교",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { (context as? Activity)?.finish() }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
                         }
                     }
+                )
+            }
+        ) { innerPadding ->
+            Column(
+                Modifier
+                    .padding(innerPadding)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .fillMaxSize()
+            ) {
+
+                // 실제 정렬 상태는 여기에서 관리 (위 TopControlBar를 진짜 인터랙션용으로 쓰려면 아래로 옮겨 사용)
+                var sortOption by remember { mutableStateOf(SortOption.PRICE_ASC) }
+                TopControlBar(
+                    keyword = searchKeyword,
+                    resultCount = mergedResults.size,
+                    sortOption = sortOption,
+                    onSortChange = { sortOption = it }
+                )
+                Spacer(Modifier.height(8.dp))
+
+                // ***** 핵심 변경점 *****
+                // 1) 첫 결과가 들어오기 전 (빈 목록 & 로딩 중) -> 풀스크린 로티
+                // 2) 결과가 하나라도 들어오면 즉시 리스트 렌더
+                //    - 로딩이 계속 중이라면 상단에 LinearProgressIndicator만 표시
+                val hasResults = mergedResults.isNotEmpty()
+                if (!hasResults && isLoading) {
+                    LoadingLottieFullScreen(
+                        lottieResId = lottieResId,
+                        baseMessage = "가격을 비교하고 있어요…"
+                    )
+                } else {
+                    if (isLoading) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        )
+                    }
+                    if (errorText != null && !hasResults) {
+                        ErrorBlock(text = errorText!!)
+                    } else if (!hasResults) {
+                        EmptyBlock()
+                    } else {
+                        // 정렬은 '현재 mergedResults'를 바로 읽어서 매 번 계산
+                        val sorted = mergedResults.sortedSmart(sortOption)
+                        PriceCompareList(
+                            results = sorted,
+                            context = context,
+                            searchKeyword = searchKeyword
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.height(6.dp))
+        }
+    }
+}
 
-            if (isLoading.value) {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(Modifier.height(16.dp))
-                    Text("$TIMEOUT_SEC 초만 기다려주세요…", color = Color.Gray)
-                }
-            } else if (mergedResults.isEmpty()) {
-                Text("검색 결과가 없습니다.", color = Color.Gray, modifier = Modifier.padding(32.dp))
-            } else {
-                PriceCompareTable(
-                    mergedResults.sortedSmart(sortOption),
-                    context,
-                    searchKeyword
+/* =========================
+   UI BLOCKS
+   ========================= */
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TopControlBar(
+    keyword: String,
+    resultCount: Int,
+    sortOption: SortOption,
+    onSortChange: (SortOption) -> Unit
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AssistChip(onClick = {}, label = { Text("키워드: $keyword") })
+            Spacer(Modifier.width(8.dp))
+            AssistChip(onClick = {}, label = { Text("결과: $resultCount 개") })
+            Spacer(Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(8.dp))
+
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SortOption.entries.forEachIndexed { index, option ->
+                SegmentedButton(
+                    selected = sortOption == option,
+                    onClick = { onSortChange(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index, SortOption.entries.size),
+                    label = { Text(option.displayName) }
                 )
             }
         }
     }
 }
 
-// 정렬 옵션 Enum
+@Composable
+private fun LoadingLottieFullScreen(
+    lottieResId: Int,
+    baseMessage: String
+) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieResId))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever,
+        isPlaying = true
+    )
+
+    // 5초마다 텍스트만 갱신
+    var elapsed by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(5_000)
+            elapsed += 5
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxSize(),
+            alignment = Alignment.Center,
+            contentScale = ContentScale.Crop
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.6f))
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(baseMessage, color = MaterialTheme.colorScheme.inverseOnSurface, fontSize = 14.sp)
+            if (elapsed > 0) {
+                Text(
+                    "요청이 지연되어 ${elapsed}초 더 기다려보는 중…",
+                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.9f),
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorBlock(text: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("문제가 발생했어요", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun EmptyBlock() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("검색 결과가 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun PriceCompareList(
+    results: List<MergedShopItem>,
+    context: Context,
+    searchKeyword: String
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(vertical = 8.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("No.", Modifier.width(40.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text("쇼핑몰", Modifier.width(70.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text("상품 / 가격 / 평점", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Text("링크", Modifier.width(96.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, textAlign = TextAlign.Center)
+    }
+    Divider()
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(vertical = 10.dp)
+    ) {
+        itemsIndexed(results) { idx, item ->
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Row(
+                    Modifier
+                        .padding(vertical = 12.dp, horizontal = 10.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "${idx + 1}",
+                        Modifier.width(40.dp),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        item.shop,
+                        Modifier.width(70.dp),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 2
+                    )
+
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(start = 8.dp, end = 6.dp)
+                    ) {
+                        Text(
+                            item.name,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (item.price.isNotBlank()) {
+                                PricePill(item.price)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            if (item.rating.isNotBlank()) {
+                                RatingPill(item.rating)
+                            }
+                        }
+                    }
+
+                    LinkButtonsColumn(
+                        item = item,
+                        context = context,
+                        fallbackKeyword = searchKeyword
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PricePill(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text(text, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun RatingPill(text: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.secondary)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    ) {
+        Text("⭐ $text", color = MaterialTheme.colorScheme.onSecondary, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun LinkButtonsColumn(
+    item: MergedShopItem,
+    context: Context,
+    fallbackKeyword: String
+) {
+    val searchUrls = remember {
+        mapOf(
+            "네이버쇼핑" to "https://search.shopping.naver.com/search/all?query=",
+            "쿠팡" to "https://www.coupang.com/np/search?component=&q=",
+            "11번가" to "https://search.11st.co.kr/Search.tmall?kwd=",
+            "G마켓" to "https://browse.gmarket.co.kr/search?keyword=",
+            "옥션" to "https://search.auction.co.kr/search/search.aspx?keyword=",
+            "이마트몰" to "https://emart.ssg.com/search.ssg?query="
+        )
+    }
+    val searchTarget = item.name.ifBlank { fallbackKeyword }
+    val encoded = Uri.encode(searchTarget)
+    val searchUrl = searchUrls[item.shop]?.plus(encoded)
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(96.dp)
+    ) {
+        if (item.linkUrl.startsWith("http")) {
+            Text(
+                text = "바로가기",
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        Log.d(TAG, "상품 바로가기: ${item.linkUrl}")
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.linkUrl)))
+                    }
+                    .padding(6.dp)
+            )
+        } else {
+            Text(
+                "링크없음",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(6.dp)
+            )
+        }
+
+        if (!searchUrl.isNullOrBlank()) {
+            Text(
+                text = "쇼핑몰 검색",
+                color = Color(0xFF0B8043),
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        Log.d(TAG, "쇼핑몰 검색 링크 이동: $searchUrl")
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl)))
+                    }
+                    .padding(6.dp)
+            )
+        }
+    }
+}
+
+/* =========================
+   SORT / DATA
+   ========================= */
+
 enum class SortOption(val displayName: String) {
     PRICE_ASC("가격↑"),
     RATING_DESC("평점↓"),
     SHOP("쇼핑몰순")
 }
 
-// 정렬 방식
 fun List<MergedShopItem>.sortedSmart(option: SortOption = SortOption.PRICE_ASC): List<MergedShopItem> {
     fun priceNum(item: MergedShopItem): Int {
         val priceStr = Regex("""[\d,]+""").find(item.price)?.value?.replace(",", "")
@@ -161,102 +543,25 @@ fun List<MergedShopItem>.sortedSmart(option: SortOption = SortOption.PRICE_ASC):
     }
 }
 
-@Composable
-fun PriceCompareTable(results: List<MergedShopItem>, context: Context,searchKeyword: String = "") {
-    val searchUrls = mapOf(
-        "네이버쇼핑" to "https://search.shopping.naver.com/search/all?query=",
-        "쿠팡" to "https://www.coupang.com/np/search?component=&q=",
-        "11번가" to "https://search.11st.co.kr/Search.tmall?kwd=",
-        "G마켓" to "https://browse.gmarket.co.kr/search?keyword=",
-        "옥션" to "https://search.auction.co.kr/search/search.aspx?keyword=",
-        "이마트몰" to "https://emart.ssg.com/search.ssg?query="
-    )
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFE5E7EF))
-            .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text("No.", Modifier.width(32.dp), fontWeight = FontWeight.Bold, color = Color(0xFF263465), fontSize = 13.sp)
-        Text("쇼핑몰", Modifier.width(64.dp), fontWeight = FontWeight.Bold, color = Color(0xFF263465), fontSize = 13.sp)
-        Text("상품명 / 가격 / 평점", Modifier.weight(1f), fontWeight = FontWeight.Bold, color = Color(0xFF263465), fontSize = 13.sp)
-        Text("상세", Modifier.width(58.dp), fontWeight = FontWeight.Bold, color = Color(0xFF263465), fontSize = 13.sp)
-    }
-    Divider()
+/* =========================
+   PARSER / UTIL
+   ========================= */
 
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        itemsIndexed(results) { idx, item ->
-            Card(
-                Modifier.fillMaxWidth(),
-                elevation = CardDefaults.cardElevation(5.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Row(
-                    Modifier
-                        .padding(vertical = 10.dp, horizontal = 6.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("${idx + 1}", Modifier.width(32.dp), fontSize = 13.sp, color = Color(0xFF7C7C7C), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    Text(item.shop, Modifier.width(64.dp), fontWeight = FontWeight.Medium, fontSize = 13.sp, color = Color(0xFF3755C6), maxLines = 2)
-                    Column(Modifier.weight(1f).padding(start = 6.dp, end = 4.dp)) {
-                        Text(item.name, fontWeight = FontWeight.Bold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Row {
-                            if (item.price.isNotBlank()) {
-                                Text(item.price, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFFE25532))
-                                Spacer(Modifier.width(10.dp))
-                            }
-                            if (item.rating.isNotBlank()) {
-                                Text("⭐ ${item.rating}", fontSize = 12.sp, color = Color(0xFF6C6C6C))
-                            }
-                        }
-                    }
-                    val searchTarget = item.name.ifBlank { searchKeyword }
-                    val encoded = Uri.encode(searchTarget)
-                    val searchUrl = searchUrls[item.shop]?.plus(encoded) ?: ""
-
-                    if (item.linkUrl.startsWith("http")) {
-                        Text(
-                            text = "상세검색",
-                            color = Color(0xFF1976D2),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            modifier = Modifier
-                                .width(68.dp)
-                                .clickable {
-                                    Log.d(TAG, "상세검색 링크 이동: $searchUrl")
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl))
-                                    context.startActivity(intent)
-                                }
-                                .padding(4.dp),
-                            maxLines = 1
-                        )
-                    } else {
-                        Text("없음", Modifier.width(58.dp), color = Color(0xFFB0B0B0), fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }
-}
-// --- 1. 마크다운 파서 & 클린유틸 --- //
 val httpRegex = Regex("""https?://[^\s\|)>\]]+""")
 val parenUrlRegex = Regex("""\(?https?://[^\s\|)>\]]+\)?""")
 val markdownLinkRegex = Regex("""\[(.*?)\]\((https?://[^\s\|)>\]]+)\)""")
 
 fun cleanNameAndExtractUrl(rawName: String): Pair<String, String?> {
-    // [이름](링크)
     val markdownMatch = markdownLinkRegex.find(rawName)
     if (markdownMatch != null) {
         val nameOnly = markdownMatch.groupValues[1].trim()
         val link = markdownMatch.groupValues[2].trim()
         return nameOnly to link
     }
-    // (링크) 또는 http...
+
     val parenUrlMatch = parenUrlRegex.find(rawName)
     val url = parenUrlMatch?.value?.replace("(", "")?.replace(")", "")?.trim()
-    var cleaned = rawName
+    val cleaned = rawName
         .replace(markdownLinkRegex, "")
         .replace(parenUrlRegex, "")
         .replace(httpRegex, "")
@@ -264,16 +569,15 @@ fun cleanNameAndExtractUrl(rawName: String): Pair<String, String?> {
         .replace("]", "")
         .replace("(", "")
         .replace(")", "")
-        .replace("．", "") // 가끔 들어오는 비표준 마침표 등도 정리
+        .replace("．", "")
         .trim()
-        .replace(Regex("""\s{2,}"""), " ") // 여러 칸 공백 하나로
-        .replace(Regex("""^[\.,;:]+"""), "") // 맨 앞쪽에 특수문자 정리
-        .replace(Regex("""[\.,;:]+$"""), "") // 맨 뒤쪽에 특수문자 정리
+        .replace(Regex("""\s{2,}"""), " ")
+        .replace(Regex("""^[\.,;:]+"""), "")
+        .replace(Regex("""[\.,;:]+$"""), "")
     if (url != null && url.startsWith("http")) return cleaned to url
     return cleaned to null
 }
 
-// --- 2. 마크다운 테이블 파싱 (상품명 링크 추출 포함) --- //
 fun parseMarkdownTableWithHttpFallback(parsedShop: String, mdTable: String): List<MergedShopItem> {
     val lines = mdTable.lines().filter { it.trim().startsWith("|") }
     if (lines.size < 2) return emptyList()
@@ -291,9 +595,8 @@ fun parseMarkdownTableWithHttpFallback(parsedShop: String, mdTable: String): Lis
         val rawName = row.getOrNull(idxName) ?: ""
         val price = row.getOrNull(idxPrice) ?: ""
         val rating = row.getOrNull(idxRating) ?: ""
-        var linkUrl = row.getOrNull(idxLink) ?: ""
+        val linkUrl = row.getOrNull(idxLink) ?: ""
 
-        // 상품명에서 링크 추출
         val (nameClean, urlFromName) = cleanNameAndExtractUrl(rawName)
         val linkUrlFinal = when {
             linkUrl.startsWith("http") -> linkUrl
@@ -301,16 +604,17 @@ fun parseMarkdownTableWithHttpFallback(parsedShop: String, mdTable: String): Lis
             else -> ""
         }
 
-        // 디버그 로그 (상세하게!)
         Log.d(TAG, "[ROW $rowIdx] [$parsedShop] name='$rawName' → clean='$nameClean', price='$price', rating='$rating', link='$linkUrlFinal'")
 
-        // 링크 없거나 필수 데이터 누락시 스킵
-        if (nameClean.isBlank() || price.isBlank() || !linkUrlFinal.startsWith("http")) return@mapIndexedNotNull null
+        if (nameClean.isBlank() || price.isBlank()) return@mapIndexedNotNull null
         MergedShopItem(parsedShop, nameClean, price, rating, linkUrlFinal)
     }
 }
 
-// 데이터 클래스
+/* =========================
+   GPT CALL
+   ========================= */
+
 data class MergedShopItem(
     val shop: String,
     val name: String,
@@ -319,7 +623,6 @@ data class MergedShopItem(
     val linkUrl: String
 )
 
-// --- 3. GPT 호출 (로그 강화) --- //
 suspend fun getGptTableResult(prompt: String): String = withContext(Dispatchers.IO) {
     val apiKeyObj = ApiKeyManager.getGptApi()
     val gptKey = apiKeyObj?.KEY_VALUE
@@ -382,10 +685,8 @@ suspend fun getGptTableResult(prompt: String): String = withContext(Dispatchers.
         throw e
     }
 }
-data class GptMessage(
-    val role: String,
-    val content: String
-)
+
+data class GptMessage(val role: String, val content: String)
 data class GptRequest(
     val model: String,
     val messages: List<GptMessage>,
