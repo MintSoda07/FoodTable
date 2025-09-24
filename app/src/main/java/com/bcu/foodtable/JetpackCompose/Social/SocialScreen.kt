@@ -1,6 +1,6 @@
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
-package com.bcu.foodtable.JetpackCompose.Social // 기존 패키지 경로 유지
+package com.bcu.foodtable.JetpackCompose.Social
 
 import android.net.Uri
 import android.os.Build
@@ -58,6 +58,12 @@ import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.coach.CoachStep
 import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
+import com.bcu.foodtable.JetpackCompose.coach.coachTarget
+import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
+import com.bcu.foodtable.JetpackCompose.coach.CoachTour    // ⬅ 투어 진행
+import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen   // 지도 화면
+import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel           // 맛집 VM
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.ChallengeScreenContent
 import com.bcu.foodtable.ui.rank.RankScreenImproved
@@ -80,43 +86,34 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
-
-import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
-import com.bcu.foodtable.JetpackCompose.coach.coachTarget
-
-// --- 애니메이션 스펙 정의 (기존과 동일하게 유지) ---
+// --- 애니메이션 스펙 ---
 private val DefaultSpring = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessVeryLow)
 private val FastSpring = spring<Float>(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
 private val AngleSpring = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)
 private val WheelExpansionSpring = spring<Dp>(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium)
 private val ItemEntrySpring = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
 
-
-
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class,
-    ExperimentalFoundationApi::class
-) // AnimatedContent를 위한 Opt-in 추가
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun SocialScreen(navController: NavHostController) {
-    // WheelItem 데이터 클래스 정의
     @Stable
     data class WheelItem(
         val icon: ImageVector,
         val label: String,
         val screen: @Composable () -> Unit,
     )
+
     val context = LocalContext.current
-    val viewModel = viewModel<MatzipViewModel>()  // ViewModel 인스턴스
+    val viewModel = viewModel<MatzipViewModel>()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // 코치마크 준비
     val store = remember { CoachmarkStoreDataStore(context) }
     val targets = remember { CoachTargets() }
     var showCoach by remember { mutableStateOf(true) }
-
     val coachBringer = remember { BringIntoViewRequester() }
+    val bottomBarHeight = 0.dp
 
     val wheelItems = remember {
         listOf(
@@ -130,11 +127,9 @@ fun SocialScreen(navController: NavHostController) {
                 )
             },
             WheelItem(Icons.Default.RestaurantMenu, "오늘밥") { MiniGameTab(navController) },
-
             WheelItem(Icons.Default.MilitaryTech, "챌린지") { ChallengeTab() },
             WheelItem(Icons.Default.EmojiEvents, "랭킹") { RankTab(navController) },
             WheelItem(Icons.Default.People, "친구") { FriendsTab(navController) },
-            //WheelItem(Icons.Default.QuestionAnswer, "채팅") { ChatTab(navController) },
             WheelItem(Icons.Default.Map, "맛집도") {
                 RestaurantMapMainScreen(
                     viewModel = viewModel,
@@ -154,14 +149,14 @@ fun SocialScreen(navController: NavHostController) {
                 .background(MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // --- 개선된 부분: 컨텐츠 영역 ---
+                // 컨텐츠
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
                 ) {
                     Column {
-                        // 검색바 (기존 로직 유지)
+                        // 검색바 (커뮤니티 탭에서만)
                         AnimatedVisibility(visible = wheelItems[selectedIndex].label in listOf("커뮤니티")) {
                             OutlinedTextField(
                                 value = searchText,
@@ -179,11 +174,11 @@ fun SocialScreen(navController: NavHostController) {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    .coachTarget("soc_search", targets, /*bringer=*/coachBringer, expandPx = 8f)
+                                    .coachTarget("soc_search", targets, coachBringer, expandPx = 8f)
                             )
                         }
 
-                        // --- 개선된 부분: 부드러운 화면 전환 애니메이션 ---
+                        // 화면 전환
                         AnimatedContent(
                             targetState = selectedIndex,
                             transitionSpec = {
@@ -198,7 +193,7 @@ fun SocialScreen(navController: NavHostController) {
                 }
             }
 
-            // --- 다이나믹 휠 (UI 개선) ---
+            // 휠
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -208,7 +203,7 @@ fun SocialScreen(navController: NavHostController) {
             ) {
                 DynamicRadialWheel(
                     items = wheelItems.map { it.icon to it.label },
-                    haloColor = MaterialTheme.colorScheme.primary, // 테마 색상 사용
+                    haloColor = MaterialTheme.colorScheme.primary,
                     onSelectionChanged = { newIndex ->
                         if (wheelItems[newIndex].label == "맛집도") {
                             navController.navigate("matzip")
@@ -222,21 +217,32 @@ fun SocialScreen(navController: NavHostController) {
             }
         }
     }
+
+    // 코치 오버레이
     if (showCoach) {
         CoachmarkOverlay(
             screen = CoachScreen.SOCIAL,
             steps = listOf(
-                CoachStep("soc_wheel", "휠 메뉴", "길게 눌러 돌리고 탭해 이동."),
+                CoachStep("soc_wheel", "휠 메뉴", "눌러 돌리고 다양한 소셜 탭 이동."),
                 CoachStep("soc_search", "검색", "원하는 주제를 찾아보세요."),
                 CoachStep("soc_write", "글쓰기", "후기/사진/팁을 공유하세요.")
             ),
-            targets = targets, store = store, onClose = { showCoach = false },
+            targets = targets,
+            store = store,
+            bottomObstructionDp = bottomBarHeight,
+            onClose = {
+                showCoach = false
+                if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.SOCIAL) {
+                    CoachTour.next(navController, context, store)
+                }
+            },
             modifier = Modifier.fillMaxSize().zIndex(999f)
         )
     }
 }
 
-// --- DynamicRadialWheel 컴포저블 (디자인 개선) ---
+/* ───────────────── DynamicRadialWheel ───────────────── */
+
 @Composable
 fun DynamicRadialWheel(
     items: List<Pair<ImageVector, String>>,
@@ -252,10 +258,9 @@ fun DynamicRadialWheel(
     if (items.isEmpty()) return
 
     val density = LocalDensity.current
-    val itemContainerSize = itemSize + 24.dp // 아이콘과 라벨을 포함하는 전체 크기
+    val itemContainerSize = itemSize + 24.dp
     val itemContainerSizePx = with(density) { itemContainerSize.toPx() }
 
-    // 아이템이 1.2배 스케일될 것을 대비하여 실제 확장 반경을 계산합니다.
     val actualExpandedRadiusPx = with(density) {
         (expandedWheelDiameter / 2 - (itemContainerSize * 1.2f / 2)).coerceAtLeast(itemContainerSize + 8.dp).toPx()
     }
@@ -267,60 +272,60 @@ fun DynamicRadialWheel(
     var currentRotationAngle by rememberSaveable { mutableStateOf((270f - sliceAngle * initialSelectedIndex).mod(360f)) }
     var dragRotationOffset by remember { mutableStateOf(0f) }
 
-    val animatedContainerSize by animateDpAsState(targetValue = if (expanded) expandedWheelDiameter else fabSize, animationSpec = WheelExpansionSpring, label = "containerSize")
+    val animatedContainerSize by animateDpAsState(
+        targetValue = if (expanded) expandedWheelDiameter else fabSize,
+        animationSpec = WheelExpansionSpring, label = "containerSize"
+    )
 
-    // --- 개선된 부분: 헤일로 효과 애니메이션 ---
     val infiniteTransition = rememberInfiniteTransition(label = "wheelHaloTransition")
     val haloScale by infiniteTransition.animateFloat(
         initialValue = 1f, targetValue = 1.1f,
-        animationSpec = infiniteRepeatable(tween(2500, easing = SineEaseInOut), RepeatMode.Reverse), label = "haloScale"
+        animationSpec = infiniteRepeatable(tween(2500, easing = SineEaseInOut), RepeatMode.Reverse),
+        label = "haloScale"
     )
     val haloRotation by infiniteTransition.animateFloat(
         initialValue = 0f, targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Restart), label = "haloRotation"
+        animationSpec = infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Restart),
+        label = "haloRotation"
     )
     val haloAlpha by animateFloatAsState(targetValue = if (expanded) 0.8f else 0f, animationSpec = tween(500), label = "haloAlpha")
 
-
     val displayRotation by animateFloatAsState(targetValue = currentRotationAngle + dragRotationOffset, animationSpec = AngleSpring, label = "displayRotation")
-    val fabElevation by animateDpAsState(targetValue = if (expanded) 2.dp else 8.dp, label = "fabElevation") // 그림자 변경
+    val fabElevation by animateDpAsState(targetValue = if (expanded) 2.dp else 8.dp, label = "fabElevation")
 
     Box(
         modifier = modifier
             .size(animatedContainerSize)
             .clip(CircleShape)
-            .pointerInput(expanded, items.size) { /* 기존 제스처 로직 유지 */
+            .pointerInput(expanded, items.size) {
                 if (expanded && items.isNotEmpty()) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = { isDragging = true; dragRotationOffset = 0f },
                         onDrag = { change, _ ->
                             change.consume()
                             val center = Offset(size.width / 2f, size.height / 2f)
-                            val previousPosition = change.previousPosition - center
-                            val currentPosition = change.position - center
-                            val previousAngleRad = atan2(previousPosition.y, previousPosition.x)
-                            val currentAngleRad = atan2(currentPosition.y, currentPosition.x)
-                            var angleDelta = Math.toDegrees((currentAngleRad - previousAngleRad).toDouble()).toFloat()
-
-                            if (angleDelta > 180) angleDelta -= 360
-                            if (angleDelta < -180) angleDelta += 360
-
-                            dragRotationOffset = (dragRotationOffset + angleDelta * 0.8f).mod(360f)
+                            val prev = change.previousPosition - center
+                            val curr = change.position - center
+                            val prevAng = atan2(prev.y, prev.x)
+                            val currAng = atan2(curr.y, curr.x)
+                            var delta = Math.toDegrees((currAng - prevAng).toDouble()).toFloat()
+                            if (delta > 180) delta -= 360
+                            if (delta < -180) delta += 360
+                            dragRotationOffset = (dragRotationOffset + delta * 0.8f).mod(360f)
                         },
                         onDragEnd = {
                             isDragging = false
                             currentRotationAngle = (currentRotationAngle + dragRotationOffset).mod(360f)
                             dragRotationOffset = 0f
-                            val selectedIndex = calculateSelectedIndex(currentRotationAngle, sliceAngle, items.size)
-                            currentRotationAngle = (270f - sliceAngle * selectedIndex).mod(360f)
-                            onSelectionChanged(selectedIndex)
+                            val idx = calculateSelectedIndex(currentRotationAngle, sliceAngle, items.size)
+                            currentRotationAngle = (270f - sliceAngle * idx).mod(360f)
+                            onSelectionChanged(idx)
                         }
                     )
                 }
             },
         contentAlignment = Alignment.Center
     ) {
-        // --- 개선된 부분: 배경 헤일로 렌더링 ---
         if (expanded && items.isNotEmpty()) {
             Canvas(modifier = Modifier.fillMaxSize().rotate(haloRotation).alpha(haloAlpha)) {
                 val centerOffset = Offset(size.width / 2f, size.height / 2f)
@@ -361,7 +366,6 @@ fun DynamicRadialWheel(
                     val currentSelectedIndex = calculateSelectedIndex(displayRotation, sliceAngle, items.size)
                     val isSelected = index == currentSelectedIndex && expanded
 
-                    // --- 개선된 부분: 아이템 UI 스타일 ---
                     val itemScale by animateFloatAsState(targetValue = (if (isSelected) 1.2f else 1f) * expansionFactor, animationSpec = FastSpring, label = "itemScale")
                     val itemAlpha by animateFloatAsState(targetValue = if (expanded) 1f else 0f, animationSpec = tween(300), label = "itemAlpha")
                     val itemRotationZ by animateFloatAsState(targetValue = if (isSelected || !expanded) 0f else (targetAngleDegrees - 270f), animationSpec = AngleSpring, label = "itemRotationZ")
@@ -385,7 +389,6 @@ fun DynamicRadialWheel(
                             },
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // --- 개선된 부분: 글래스모피즘 아이템 박스 ---
                         Box(
                             modifier = Modifier
                                 .size(itemSize)
@@ -433,7 +436,6 @@ fun DynamicRadialWheel(
             }
         }
 
-        // --- 중앙 FAB (기존과 유사, 아이콘 회전 개선) ---
         FloatingActionButton(
             onClick = { expanded = !expanded },
             containerColor = if (expanded && items.isNotEmpty()) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.primary,
@@ -448,16 +450,7 @@ fun DynamicRadialWheel(
     }
 }
 
-// 나머지 유틸리티 함수들 (calculateSelectedIndex, pow, SineEaseInOut, ScreenStub, CommunityTab, ...)
-// 기존 코드와 동일하게 유지됩니다.
-// ...
-
-// --- 기존 코드의 나머지 부분을 여기에 그대로 붙여넣어 주세요 ---
-// (ScreenStub, CommunityTab, CommunityPostItem, InfoIconWithText, Timestamp.toRelativeTime,
-//  loadPostsFromFirebase, WritePostScreen, StyledWriteSection, ImagePreviewItem,
-//  uploadPost, loadComments, commentCountFlow, MiniGameTab, MenuGameList,
-//  PayerGameList, GameButton, ChallengeTab)
-
+/* ───────────── 보조 함수/탭들 ───────────── */
 
 private fun calculateSelectedIndex(currentRotationDegrees: Float, sliceAngleDegrees: Float, itemCount: Int): Int {
     if (itemCount == 0) return -1
@@ -468,6 +461,7 @@ private fun calculateSelectedIndex(currentRotationDegrees: Float, sliceAngleDegr
 
 private fun Float.pow(n: Int): Float = this.toDouble().pow(n).toFloat()
 val SineEaseInOut = Easing { fraction -> (1 - cos(fraction * PI.toFloat())) / 2 }
+
 @Composable
 private fun ScreenStub(name: String) {
     Box(Modifier.fillMaxSize(), Alignment.Center) {
@@ -478,6 +472,7 @@ private fun ScreenStub(name: String) {
         )
     }
 }
+
 @Composable
 fun CommunityTab(
     navController: NavController,
@@ -518,8 +513,10 @@ fun CommunityTab(
         )
         isLoading = false
     }
+
     val tabOptions = listOf("전체", "지역")
     val sortOptions = listOf("조회순", "최신순", "추천순")
+
     Column(Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = tabOptions.indexOf(selectedTab)) {
             tabOptions.forEach { tab ->
@@ -546,7 +543,6 @@ fun CommunityTab(
             IconButton(
                 onClick = navToWrite,
                 modifier =
-                // ⬇️ 코치 앵커 + bringer + 여유
                 if (coachTargets != null)
                     Modifier.coachTarget("soc_write", coachTargets, bringer = bringer, expandPx = 10f)
                 else Modifier
@@ -587,6 +583,7 @@ fun CommunityTab(
         }
     }
 }
+
 @Composable
 fun CommunityPostItem(post: CommunityPost, onClick: () -> Unit = {}) {
     Card(
@@ -631,6 +628,7 @@ fun CommunityPostItem(post: CommunityPost, onClick: () -> Unit = {}) {
         }
     }
 }
+
 @Composable
 private fun InfoIconWithText(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -654,6 +652,7 @@ fun Timestamp.toRelativeTime(): String {
         else -> SimpleDateFormat("yy.MM.dd", Locale.getDefault()).format(this.toDate())
     }
 }
+
 suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatchers.IO) {
     try {
         val communityRef = Firebase.firestore.collection("community")
@@ -670,6 +669,9 @@ suspend fun loadPostsFromFirebase(): List<CommunityPost> = withContext(Dispatche
         emptyList()
     }
 }
+
+/* ───────── 글쓰기 ───────── */
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WritePostScreen(
@@ -684,6 +686,7 @@ fun WritePostScreen(
     var isUploading by remember { mutableStateOf(false) }
     var titleFocused by remember { mutableStateOf(false) }
     var contentFocused by remember { mutableStateOf(false) }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
@@ -698,12 +701,14 @@ fun WritePostScreen(
             Toast.makeText(context, "이미지 선택 권한이 필요합니다.", Toast.LENGTH_SHORT).show()
         }
     }
+
     if (user == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("글을 작성하려면 로그인이 필요합니다.")
         }
         return
     }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         TopAppBar(
             title = { Text("새 게시글 작성", fontWeight = FontWeight.Bold) },
@@ -737,6 +742,7 @@ fun WritePostScreen(
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp))
         )
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
@@ -783,7 +789,9 @@ fun WritePostScreen(
                     }
                     OutlinedButton(
                         onClick = {
-                            val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) android.Manifest.permission.READ_MEDIA_IMAGES else android.Manifest.permission.READ_EXTERNAL_STORAGE
+                            val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                                android.Manifest.permission.READ_MEDIA_IMAGES
+                            else android.Manifest.permission.READ_EXTERNAL_STORAGE
                             permissionLauncher.launch(permission)
                         },
                         modifier = Modifier.fillMaxWidth(), enabled = imageUris.size < 5,
@@ -808,6 +816,7 @@ fun WritePostScreen(
         }
     }
 }
+
 @Composable
 private fun StyledWriteSection(
     title: String,
@@ -831,6 +840,7 @@ private fun StyledWriteSection(
         }
     }
 }
+
 @Composable
 private fun ImagePreviewItem(uri: Uri, onRemove: () -> Unit) {
     Box(contentAlignment = Alignment.TopEnd) {
@@ -848,6 +858,7 @@ private fun ImagePreviewItem(uri: Uri, onRemove: () -> Unit) {
         }
     }
 }
+
 fun uploadPost(
     title: String, content: String, location: String, userId: String,
     imageUris: List<Uri>, onComplete: (Boolean) -> Unit
@@ -855,6 +866,7 @@ fun uploadPost(
     val firestore = Firebase.firestore
     val storage = Firebase.storage
     val postRef = firestore.collection("community").document()
+
     if (imageUris.isEmpty()) {
         val postData = mapOf(
             "title" to title, "content" to content, "location" to location,
@@ -865,12 +877,11 @@ fun uploadPost(
         postRef.set(postData).addOnSuccessListener { onComplete(true) }.addOnFailureListener { onComplete(false) }
         return
     }
+
     val uploadImageTasks = imageUris.mapIndexed { idx, uri ->
         val imageRef = storage.reference.child("posts/${postRef.id}/img_$idx.jpg")
         imageRef.putFile(uri).continueWithTask { task ->
-            if (!task.isSuccessful) {
-                task.exception?.let { throw it }
-            }
+            if (!task.isSuccessful) task.exception?.let { throw it }
             imageRef.downloadUrl
         }
     }
@@ -888,6 +899,7 @@ fun uploadPost(
         onComplete(false)
     }
 }
+
 fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     val ref = Firebase.firestore.collection("community").document(postId).collection("comments")
     val listener = ref.orderBy("createdAt").addSnapshotListener { snapshot, e ->
@@ -903,6 +915,7 @@ fun loadComments(postId: String): Flow<List<Comment>> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+
 fun commentCountFlow(postId: String): Flow<Int> = callbackFlow {
     val ref = Firebase.firestore.collection("community").document(postId).collection("comments")
     val listener = ref.addSnapshotListener { snapshot, e ->
@@ -915,6 +928,9 @@ fun commentCountFlow(postId: String): Flow<Int> = callbackFlow {
     }
     awaitClose { listener.remove() }
 }
+
+/* ───────── 미니게임/챌린지/랭킹 탭 ───────── */
+
 @Composable
 fun MiniGameTab(navController: NavController? = null) {
     val gameTabs = listOf("메뉴 정하기", "누가 낼까?")
@@ -943,6 +959,7 @@ fun MiniGameTab(navController: NavController? = null) {
         }
     }
 }
+
 @Composable
 fun MenuGameList(navController: NavController? = null) {
     Column(
@@ -1011,8 +1028,6 @@ fun PayerGameList(navController: NavController? = null) {
     }
 }
 
-/* 기존 GameButton 시그니처 유지(호출부 호환 위해).
-   내부 구현만 카드의 CTA용으로 재활용 가능하도록 래핑 */
 @Composable
 fun GameButton(text: String, icon: ImageVector? = null, onClick: () -> Unit) {
     Button(
@@ -1030,8 +1045,6 @@ fun GameButton(text: String, icon: ImageVector? = null, onClick: () -> Unit) {
         Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
 }
-
-/* ---------------- 보조 컴포넌트 ---------------- */
 
 @Composable
 private fun MiniGameSectionHeader(title: String, subtitle: String) {
@@ -1088,12 +1101,10 @@ private fun MiniGameCard(
                 }
             }
 
-            // 보조 정보(소요시간/특성) — 한눈에 특징 전달
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 chips.forEach { InfoChip(it) }
             }
 
-            // CTA
             GameButton(text = "바로 시작", onClick = onClick)
         }
     }
@@ -1105,9 +1116,12 @@ private fun InfoChip(text: String) {
         onClick = {},
         label = { Text(text, style = MaterialTheme.typography.labelMedium) },
         leadingIcon = null,
-        enabled = false // 읽기용 배지(탭되면 혼동되므로 disabled)
+        enabled = false
     )
 }
+
+/* ───────── 챌린지/랭킹 탭 ───────── */
+
 @Composable
 fun ChallengeTab() {
     val viewModel: ChallengeViewModel = viewModel()
@@ -1115,6 +1129,7 @@ fun ChallengeTab() {
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val userSalt by viewModel.userSalt.collectAsState()
+
     when {
         loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -1137,9 +1152,8 @@ fun ChallengeTab() {
 
 @Composable
 fun RankTab(navController: NavController) {
-    // 탭 상단에 타이틀이나 다른 구성 요소가 있다면 여기에 추가
     Column(Modifier.fillMaxSize()) {
-        // 하위 Composable 삽입
         RankScreenImproved(navController)
     }
 }
+

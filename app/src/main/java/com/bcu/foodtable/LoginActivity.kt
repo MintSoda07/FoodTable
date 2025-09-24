@@ -71,7 +71,7 @@ class LoginActivity : AppCompatActivity() {
                                 warning = result
                                 isLoading = false
                             },
-                            registerBiometric = false // 🔴 일반 로그인에서는 생체 등록 수행하지 않음(프롬프트 X)
+                            registerBiometric = shouldAutoRegisterBiometric()
                         )
                     },
                     onSignUpClick = {
@@ -108,7 +108,7 @@ class LoginActivity : AppCompatActivity() {
         password: String,
         isAutoLogin: Boolean,
         onResult: (String) -> Unit,
-        registerBiometric: Boolean = false // 🔴 기본값도 false로: 자동 등록 막기
+        registerBiometric: Boolean = false
     ) {
         when {
             email.isBlank() -> {
@@ -144,9 +144,22 @@ class LoginActivity : AppCompatActivity() {
                         // ✅ UI 스피너 해제/경고 초기화 먼저
                         onResult("")
 
-                        // 🔕 일반 로그인에서는 생체 등록을 자동 실행하지 않음
-                        // if (registerBiometric) { ... }  // ← 필요 시 나중에 수동 등록 버튼에서 호출
+                        // ✅ 자동 생체 등록: 비번 로그인 첫 성공 시 바로 등록
+                        if (registerBiometric) {
+                            val payload = "$email::$password".toByteArray(Charsets.UTF_8)
+                            Log.d("BIO-VM", "Auto registerBiometric after password login, tokenLen=${payload.size}")
 
+                            bioVm.registerBiometric(this@LoginActivity, payload) { ok ->
+                                Log.d("BIO-VM", "registerBiometric() completed, ok=$ok")
+                                // 저장 상태/가용성 갱신 (UI 버튼 노출용)
+                                bioVm.refreshBiometricState(this@LoginActivity)
+                                // 정상 플로우 이어가기
+                                proceedAfterLogin(user.uid, email, password, isAutoLogin)
+                            }
+                            return@addOnCompleteListener // 등록 콜백에서 후속 진행
+                        }
+
+                        // 🔕 자동 등록 OFF면 기존대로 바로 진행
                         proceedAfterLogin(user.uid, email, password, isAutoLogin)
                     }
             }
@@ -373,5 +386,20 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
             .addOnFailureListener { exception -> onFailure(exception) }
+    }
+    private fun shouldAutoRegisterBiometric(): Boolean {
+        // 이미 저장돼 있으면(= 한번 등록된 상태) 자동 등록 필요 없음
+        val hasStored = com.bcu.foodtable.JetpackCompose.biometric
+            .SecretStore.loadEncryptedToken(applicationContext) != null
+
+        // 단말이 STRONG | DEVICE_CREDENTIAL 가능한지도 체크(선택)
+        val can = androidx.biometric.BiometricManager
+            .from(this)
+            .canAuthenticate(
+                androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+                        or androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            ) == androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS
+
+        return !hasStored && can
     }
 }

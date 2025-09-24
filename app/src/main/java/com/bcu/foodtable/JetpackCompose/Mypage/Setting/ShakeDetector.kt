@@ -8,7 +8,7 @@ import kotlin.math.sqrt
 
 class ShakeDetector(
     private val onShake: () -> Unit,
-    private val thresholdG: Float = 2.5f,   // 흔들림 민감도(2.3~2.8 사이 권장)
+    private val thresholdG: Float = 3.5f,   // 흔들림 민감도(2.3~2.8 사이 권장)
     private val debounceMs: Long = 1200L    // 연속 트리거 방지 쿨다운
 ) : SensorEventListener {
 

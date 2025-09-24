@@ -17,8 +17,6 @@ fun ShakeToOpenQR(
     routeQR: String = "qrScanner", // 네비게이션 라우트
     enabled: Boolean = true
 ) {
-    if (!enabled) return
-
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val sensorManager = remember(context) {
@@ -47,31 +45,32 @@ fun ShakeToOpenQR(
     })
 
     // 리스너 인스턴스는 remember로 1회 생성
-    val listener = remember {
-        ShakeDetector(onShake = { onShake() })
-    }
+    val listener = remember { ShakeDetector(onShake = { onShake() }) }
 
-    // 생명주기에 따라 등록/해제
-    DisposableEffect(lifecycleOwner, sensorManager, accel, listener) {
+    // 🔑 enabled를 의존성에 포함: 값이 바뀌면 즉시 등록/해제
+    DisposableEffect(lifecycleOwner, sensorManager, accel, listener, enabled) {
+        fun register() {
+            accel?.let { sensorManager.registerListener(listener, it, SensorManager.SENSOR_DELAY_GAME) }
+        }
+        fun unregister() {
+            sensorManager.unregisterListener(listener)
+        }
+
+        // 화면이 이미 START 상태일 수 있으므로 enabled면 즉시 등록
+        if (enabled) register()
+
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> {
-                    accel?.let {
-                        sensorManager.registerListener(
-                            listener, it, SensorManager.SENSOR_DELAY_GAME
-                        )
-                    }
-                }
-                Lifecycle.Event.ON_STOP -> {
-                    sensorManager.unregisterListener(listener)
-                }
+                Lifecycle.Event.ON_START -> if (enabled) register()
+                Lifecycle.Event.ON_STOP  -> unregister()
                 else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
+
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            sensorManager.unregisterListener(listener)
+            unregister() // 항상 해제해서 유출/중복 방지
         }
     }
 }

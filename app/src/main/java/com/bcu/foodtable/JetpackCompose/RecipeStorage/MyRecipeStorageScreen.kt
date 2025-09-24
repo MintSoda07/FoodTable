@@ -1,6 +1,7 @@
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.bcu.foodtable.JetpackCompose.RecipeStorage
+
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -28,6 +29,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -60,11 +62,15 @@ import com.bcu.foodtable.JetpackCompose.coach.CoachStep
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
 import com.bcu.foodtable.JetpackCompose.coach.coachTarget
+import com.bcu.foodtable.JetpackCompose.coach.CoachTour // 투어 사용 시
 
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
+import androidx.navigation.NavHostController
+import kotlin.math.cos
+import kotlin.math.sin
 
 // 로컬 이징
 private val EaseOutQuad = Easing { t -> 1f - (1f - t) * (1f - t) }
@@ -75,7 +81,8 @@ private val EaseOutCubic = Easing { t -> 1f - (1f - t) * (1f - t) * (1f - t) }
 fun MyRecipeStorageScreen(
     modifier: Modifier = Modifier,
     viewModel: RecipeGalleryViewModel = viewModel(),
-    homeViewModel: HomeViewModel = viewModel()
+    homeViewModel: HomeViewModel = viewModel(),
+    navController: NavHostController
 ) {
     val context = LocalContext.current
     val galleryItems by viewModel.galleryItems.collectAsState()
@@ -93,16 +100,15 @@ fun MyRecipeStorageScreen(
     var explodingGroup by remember { mutableStateOf<List<GalleryItem>?>(null) }
 
     val gridState = rememberLazyStaggeredGridState()
-
     var isInitialAnimationReady by remember { mutableStateOf(false) }
 
     // ★ Coachmark store/targets/state
     val store = remember { CoachmarkStoreDataStore(context) }
     val targets = remember { CoachTargets() }
     var showCoach by remember { mutableStateOf(true) }
-
-    // ★ 코치마크가 타깃을 화면에 보이게 스크롤하기 위한 requester (그리드에 부착)
+    // ★ 타깃 자동 스크롤용 requester (그리드에 부착)
     val coachBringer = remember { BringIntoViewRequester() }
+    val bottomBarHeight = 0.dp
 
     LaunchedEffect(isLoading) {
         if (!isLoading) {
@@ -110,7 +116,6 @@ fun MyRecipeStorageScreen(
             isInitialAnimationReady = true
         }
     }
-
     LaunchedEffect(Unit) {
         viewModel.loadGalleryItems()
         homeViewModel.loadUserInfo()
@@ -140,7 +145,7 @@ fun MyRecipeStorageScreen(
         combined
     }
 
-    // ★ 코치마크 앵커를 "첫 개별 카드 / 첫 그룹 폴더(대표)"에만 부착하기 위한 인덱스 계산
+    // ★ 코치마크 앵커: 첫 "개별 카드", 첫 "그룹 대표" 계산
     val firstCardIndex = remember(displayList) {
         displayList.indexOfFirst { it.groupId.isBlank() }
     }
@@ -154,12 +159,13 @@ fun MyRecipeStorageScreen(
     val processDrop = remember(viewModel, displayList, recipeCardBoundsMap, groupedItemsMap) {
         { sourceItem: GalleryItem, finalDropPosition: Offset ->
             var dropHandled = false
-            val groupRepresentativeTargetItems = displayList.filter {
+            // 그룹 대표로 드롭 → 그룹에 추가
+            val groupRepresentativeTargets = displayList.filter {
                 it.groupId.isNotBlank() &&
                         (groupedItemsMap[it.groupId]?.minByOrNull { g -> g.creationTimestamp ?: 0L }?.recipeId == it.recipeId) &&
                         it.recipeId != sourceItem.recipeId
             }
-            for (groupRepTarget in groupRepresentativeTargetItems) {
+            for (groupRepTarget in groupRepresentativeTargets) {
                 val groupBounds = recipeCardBoundsMap[groupRepTarget.recipeId]
                 if (groupBounds != null && groupBounds.contains(finalDropPosition)) {
                     if (sourceItem.groupId != groupRepTarget.groupId) {
@@ -169,11 +175,12 @@ fun MyRecipeStorageScreen(
                     break
                 }
             }
+            // 카드 ↔ 카드 드롭 → 새 그룹 생성
             if (!dropHandled) {
-                val individualRecipeTargets = displayList.filter { target ->
+                val individualTargets = displayList.filter { target ->
                     target.recipeId != sourceItem.recipeId && target.groupId.isBlank()
                 }
-                for (targetItem in individualRecipeTargets) {
+                for (targetItem in individualTargets) {
                     val targetBounds = recipeCardBoundsMap[targetItem.recipeId]
                     if (targetBounds != null && targetBounds.contains(finalDropPosition)) {
                         viewModel.createGroup(sourceItem, targetItem)
@@ -191,6 +198,7 @@ fun MyRecipeStorageScreen(
             .fillMaxSize()
             .background(Color(0xFFF3EFEA))
     ) {
+        // 가벼운 패럴랙스 배경
         val parallaxOffset by remember { derivedStateOf { gridState.firstVisibleItemScrollOffset * 0.5f } }
         Canvas(
             modifier = Modifier
@@ -230,7 +238,7 @@ fun MyRecipeStorageScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier
                             .fillMaxSize()
-                            // ⬇️ 코치마크용 bringer를 그리드에 부착 (화면 밖 타깃 자동 스크롤)
+                            // ⬇️ 코치마크용 bringer를 그리드에 부착
                             .bringIntoViewRequester(coachBringer)
                             .alpha(gridAlpha),
                     ) {
@@ -261,7 +269,7 @@ fun MyRecipeStorageScreen(
                                     item.groupId.isNotBlank() &&
                                             (groupedItemsMap[item.groupId]?.minByOrNull { it.creationTimestamp ?: 0L }?.recipeId == item.recipeId)
 
-                                // ★ 앵커 부착: 첫 개별 카드 / 첫 그룹 폴더만 + bringer/expandPx 제공
+                                // ★ 앵커 부착: 첫 개별 카드 / 첫 그룹 대표
                                 if (!isGroupRepresentative && index == firstCardIndex && firstCardIndex >= 0) {
                                     itemModifier = itemModifier.coachTarget(
                                         id = "stor_card",
@@ -366,7 +374,7 @@ fun MyRecipeStorageScreen(
             GroupExplosionAnimation(items = items)
         }
 
-        // ★ CoachmarkOverlay는 맨 마지막(최상단 Z)에서 띄우기
+        // ★ CoachmarkOverlay를 최상단에
         if (showCoach) {
             CoachmarkOverlay(
                 screen = CoachScreen.STORAGE,
@@ -376,10 +384,17 @@ fun MyRecipeStorageScreen(
                 ),
                 targets = targets,
                 store = store,
-                onClose = { showCoach = false },
+                bottomObstructionDp = bottomBarHeight,
+                onClose = {
+                    showCoach = false
+                    // 투어를 쓰는 프로젝트라면 다음 스텝으로 진행
+                    if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.STORAGE) {
+                        CoachTour.next(navController, context, store) // 필요 시 navController 넘겨도 됨
+                    }
+                },
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(999f) // 항상 최상단
+                    .zIndex(999f)
             )
         }
     }
@@ -404,9 +419,7 @@ fun CookbookRecipeCard(
     val coroutineScope = rememberCoroutineScope()
 
     val gestureModifier = modifier
-        .onGloballyPositioned { coordinates ->
-            layoutCoordinates = coordinates
-        }
+        .onGloballyPositioned { coordinates -> layoutCoordinates = coordinates }
         .pointerInput(Unit) {
             detectTapGestures(
                 onLongPress = {
@@ -461,13 +474,11 @@ fun CookbookRecipeCard(
                 this.scaleX = scale
                 this.scaleY = scale
                 shadowElevation = if (isDragging) 24f else 8f
-                rotationZ =
-                    if (isDragging) -5f else (item.recipeId.hashCode() % 10 - 5).toFloat() / 2f
+                rotationZ = if (isDragging) -5f else (item.recipeId.hashCode() % 10 - 5).toFloat() / 2f
             }
             .alpha(alpha)
     ) {
         Surface(
-            modifier = Modifier,
             shape = RoundedCornerShape(8.dp),
             color = Color(0xFFFFF8E1),
             shadowElevation = 8.dp,
@@ -496,10 +507,8 @@ fun CookbookRecipeCard(
                     )
                     Text(
                         text = item.creationTimestamp?.let {
-                            java.text.SimpleDateFormat(
-                                "yyyy.MM.dd",
-                                java.util.Locale.getDefault()
-                            ).format(java.util.Date(it))
+                            java.text.SimpleDateFormat("yyyy.MM.dd", java.util.Locale.getDefault())
+                                .format(java.util.Date(it))
                         } ?: "",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.Gray
@@ -540,9 +549,7 @@ fun CookbookRecipeCard(
 @Composable
 fun GroupExplosionAnimation(items: List<GalleryItem>) {
     var animate by remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) { animate = true }
-
     val transition = updateTransition(targetState = animate, label = "explosionTransition")
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -554,12 +561,12 @@ fun GroupExplosionAnimation(items: List<GalleryItem>) {
             val x by transition.animateFloat(
                 transitionSpec = { tween(durationMillis = 800, easing = EaseOutQuad) },
                 label = "explode_x"
-            ) { if (it) distance * kotlin.math.cos(angle.toDouble()).toFloat() else 0f }
+            ) { if (it) distance * cos(Math.toRadians(angle.toDouble())).toFloat() else 0f }
 
             val y by transition.animateFloat(
                 transitionSpec = { tween(durationMillis = 800, easing = EaseOutQuad) },
                 label = "explode_y"
-            ) { if (it) distance * kotlin.math.sin(angle.toDouble()).toFloat() else 0f }
+            ) { if (it) distance * sin(Math.toRadians(angle.toDouble())).toFloat() else 0f }
 
             val rotation by transition.animateFloat(
                 transitionSpec = { tween(800) },
@@ -600,13 +607,11 @@ fun GroupExplosionAnimation(items: List<GalleryItem>) {
 @Composable
 fun GroupUnfoldingAnimation(items: List<GalleryItem>, onAnimationFinished: () -> Unit) {
     var animationState by remember { mutableStateOf(false) }
-
     LaunchedEffect(Unit) {
         animationState = true
         delay(400 + (items.size * 50L))
         onAnimationFinished()
     }
-
     val transition = updateTransition(targetState = animationState, label = "unfoldingTransition")
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -620,9 +625,7 @@ fun GroupUnfoldingAnimation(items: List<GalleryItem>, onAnimationFinished: () ->
             ) { if (it) angleOffset else 0f }
 
             val translationY by transition.animateFloat(
-                transitionSpec = {
-                    tween(durationMillis = 300, delayMillis = index * 50, easing = EaseOutCubic)
-                },
+                transitionSpec = { tween(durationMillis = 300, delayMillis = index * 50, easing = EaseOutCubic) },
                 label = "unfold_translationY_$index"
             ) { if (it) translationYOffset else 0f }
 
@@ -761,6 +764,7 @@ fun CookbookGroupDetailOverlay(
     val coroutineScope = rememberCoroutineScope()
     var isEditingName by remember(groupName) { mutableStateOf(false) }
     var editedName by remember(groupName) { mutableStateOf(groupName) }
+
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             modifier = Modifier
@@ -826,6 +830,7 @@ fun CookbookGroupDetailOverlay(
                             Icon(Icons.Default.Close, contentDescription = "닫기", tint = Color(0xFF5D4037))
                         }
                     }
+
                     LazyVerticalStaggeredGrid(
                         columns = StaggeredGridCells.Adaptive(160.dp),
                         contentPadding = PaddingValues(16.dp),
@@ -878,19 +883,73 @@ fun CookbookLoadingState() {
 
 @Composable
 fun CookbookErrorState(onRetry: () -> Unit) {
-    // TODO: 에러 UI 필요 시 구현
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFF8D6E63), modifier = Modifier.size(40.dp))
+            Spacer(Modifier.height(8.dp))
+            Text("불러오기에 실패했어요.", color = Color(0xFF5D4037))
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onRetry) { Text("다시 시도") }
+        }
+    }
 }
 
 @Composable
 fun CookbookEmptyState() {
-    // TODO: 빈 상태 UI 필요 시 구현
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Inbox, contentDescription = null, tint = Color(0xFF8D6E63), modifier = Modifier.size(40.dp))
+            Spacer(Modifier.height(8.dp))
+            Text("저장된 레시피가 없어요.", color = Color(0xFF5D4037))
+            Text("레시피 카드에서 ⭐를 눌러 저장해 보세요.", color = Color(0xFF795548), fontSize = 13.sp)
+        }
+    }
 }
 
 @Composable
 private fun TapeDecoration(modifier: Modifier = Modifier) {
-    // TODO: 데코 구현 시 여기에
+    // 종이 테이프 느낌 간단 구현
+    Canvas(modifier = modifier.size(width = 72.dp, height = 18.dp)) {
+        val w = size.width
+        val h = size.height
+        drawRoundRect(
+            color = Color(0xFFFFF176).copy(alpha = 0.85f),
+            size = androidx.compose.ui.geometry.Size(w, h),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+        )
+        // 가장자리 톱니 모양 살짝
+        val path = Path()
+        path.moveTo(0f, h)
+        path.lineTo(w * 0.12f, h - 3f)
+        path.lineTo(w * 0.24f, h)
+        path.lineTo(w * 0.36f, h - 3f)
+        path.lineTo(w * 0.48f, h)
+        path.lineTo(w * 0.60f, h - 3f)
+        path.lineTo(w * 0.72f, h)
+        path.lineTo(w * 0.84f, h - 3f)
+        path.lineTo(w, h)
+        path.lineTo(0f, h)
+        drawPath(path, Color(0xFFFFEE58))
+    }
 }
 
 private fun DrawScope.drawScrapbookBackground() {
-    // TODO: 배경 드로잉 구현 시 여기에
+    // 따뜻한 페이퍼 텍스처 느낌의 줄무늬
+    val stripeColor = Color(0xFFBCAAA4).copy(alpha = 0.08f)
+    val gap = 24f
+    var y = 0f
+    while (y < size.height) {
+        drawRect(
+            color = stripeColor,
+            topLeft = Offset(0f, y),
+            size = androidx.compose.ui.geometry.Size(size.width, 2f)
+        )
+        y += gap
+    }
 }
+
+/* -----------------------------------------
+   ViewModel 스텁: 실제 프로젝트의 ViewModel을 사용하세요.
+   이 파일만 테스트하려면 아래 스텁 유지
+   ----------------------------------------- */
+// class RecipeGalleryViewModel : ViewModel() { ... }  // 실제 구현 사용

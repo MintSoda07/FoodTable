@@ -1,8 +1,15 @@
 package com.bcu.foodtable.ui
 
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
 import android.util.Base64
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -17,7 +24,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,25 +46,21 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.airbnb.lottie.compose.*
-import com.bcu.foodtable.R
-import java.security.MessageDigest
-import androidx.fragment.app.FragmentActivity
-import com.bcu.foodtable.JetpackCompose.LoginViewModel
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.Intent
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.biometric.BiometricManager
 import androidx.compose.ui.zIndex
+import androidx.fragment.app.FragmentActivity
+import com.airbnb.lottie.compose.*
+import com.bcu.foodtable.JetpackCompose.LoginViewModel
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import com.bcu.foodtable.R
 import kotlinx.coroutines.launch
+import java.security.MessageDigest
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,11 +79,15 @@ fun LoginScreenImproved(
     onGoogleLoginClick: () -> Unit,
     onKakaoLoginClick: () -> Unit,
     onDebugBio: (android.content.Context) -> Unit,
-    // 생체 로그인 콜백(복호화된 토큰 전달)
+    // 생체 로그인(복호화 성공 시) 토큰 콜백
     onBiometricLoginWithToken: (tokenPlain: ByteArray) -> Unit,
+    // (선택) 비번 로그인 성공 후 상위에서 내려주는 세션/리프레시 토큰 바이트
+    latestSessionToken: ByteArray? = null,
     // ViewModel
     vm: LoginViewModel
 ) {
+    Log.d("BIO-UI", "LoginScreenImproved(): enter, latestSessionTokenLen=${latestSessionToken?.size ?: -1}")
+
     val primaryColor = Color(0xFFE76F51)
     val backgroundColorStart = Color(0xFFFFF7F0)
     val backgroundColorEnd = Color(0xFFFFF1E6)
@@ -94,38 +108,53 @@ fun LoginScreenImproved(
 
     // 🔐 생체 상태
     val context = LocalContext.current
-    val activity = remember(context) { context.findFragmentActivity() } // 안전 캐스팅
+    val activity = remember(context) { context.findFragmentActivity() }
+    Log.d("BIO-UI", "LoginScreen: activityFound=${activity != null}")
+
     var bioAvailable by remember { mutableStateOf(false) }
     var bioStored by remember { mutableStateOf(false) }
 
     val coachStore = remember { CoachmarkStoreDataStore(context) }
     val scope = rememberCoroutineScope()
 
-
     // VM 이벤트 수신
     LaunchedEffect(Unit) {
         vm.events.collect { ev ->
             when (ev) {
-                is LoginViewModel.Event.ShowSnack -> Log.d("BIO", ev.msg)
+                is LoginViewModel.Event.ShowSnack ->
+                    Log.d("BIO-UI", "VM Event: ShowSnack='${ev.msg}'")
+
                 is LoginViewModel.Event.BiometricReady -> {
+                    Log.d("BIO-UI", "VM Event: BiometricReady available=${ev.available}, hasStored=${ev.hasStored}")
                     bioAvailable = ev.available
                     bioStored = ev.hasStored
+                    Log.d("BIO-UI", "State updated: bioAvailable=$bioAvailable, bioStored=$bioStored")
                 }
-                LoginViewModel.Event.BiometricLoginSuccess -> { /* 네비게이션 등 필요시 */ }
+
+                LoginViewModel.Event.BiometricLoginSuccess -> {
+                    Log.d("BIO-UI", "VM Event: BiometricLoginSuccess")
+                    // 필요 시 네비게이션/스낵바
+                }
             }
         }
     }
 
     // 초기 가용/저장 상태 체크
     LaunchedEffect(activity) {
+        Log.d("BIO-UI", "LaunchedEffect(activity): fire, activity=${activity != null}")
         activity?.let {
             vm.refreshBiometricState(it)
+            Log.d("BIO-UI", "LaunchedEffect: call onDebugBio()")
             onDebugBio(it.applicationContext)
         }
     }
+
+    // bioAvailable/bioStored 변경 시마다 로그
+    LaunchedEffect(bioAvailable, bioStored) {
+        Log.d("BIO-UI", "Biometric state changed → available=$bioAvailable, stored=$bioStored")
+    }
+
     PrintKakaoKeyHash()
-
-
 
     Box(
         modifier = Modifier
@@ -133,7 +162,13 @@ fun LoginScreenImproved(
             .background(Brush.verticalGradient(listOf(backgroundColorStart, backgroundColorEnd)))
     ) {
         TextButton(
-            onClick = { scope.launch { coachStore.resetAll() } },
+            onClick = {
+                Log.d("BIO-UI", "Coachmark reset clicked")
+                scope.launch {
+                    coachStore.resetAll()
+                    coachStore.setTourDone(false)
+                }
+            },
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -143,6 +178,7 @@ fun LoginScreenImproved(
         ) {
             Text("코치마크 초기화", fontSize = 12.sp)
         }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -211,7 +247,10 @@ fun LoginScreenImproved(
 
                     OutlinedTextField(
                         value = email,
-                        onValueChange = onEmailChange,
+                        onValueChange = {
+                            Log.v("BIO-UI", "email changed (len=${it.length})")
+                            onEmailChange(it)
+                        },
                         label = { Text("이메일") },
                         leadingIcon = { Icon(Icons.Filled.Email, contentDescription = "이메일") },
                         shape = RoundedCornerShape(16.dp),
@@ -227,11 +266,17 @@ fun LoginScreenImproved(
 
                     OutlinedTextField(
                         value = password,
-                        onValueChange = onPasswordChange,
+                        onValueChange = {
+                            Log.v("BIO-UI", "password changed (len=${it.length})")
+                            onPasswordChange(it)
+                        },
                         label = { Text("비밀번호") },
                         leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = "비밀번호") },
                         trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            IconButton(onClick = {
+                                passwordVisible = !passwordVisible
+                                Log.d("BIO-UI", "passwordVisible=$passwordVisible")
+                            }) {
                                 Icon(
                                     imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
                                     contentDescription = if (passwordVisible) "비밀번호 숨기기" else "비밀번호 보기"
@@ -246,6 +291,7 @@ fun LoginScreenImproved(
                             imeAction = ImeAction.Done
                         ),
                         keyboardActions = KeyboardActions(onDone = {
+                            Log.d("BIO-UI", "onDone → onLoginClick()")
                             focusManager.clearFocus()
                             onLoginClick()
                         }),
@@ -253,7 +299,10 @@ fun LoginScreenImproved(
                     )
 
                     TextButton(
-                        onClick = onForgotPasswordClick,
+                        onClick = {
+                            Log.d("BIO-UI", "Forgot password clicked")
+                            onForgotPasswordClick()
+                        },
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Text("비밀번호를 잊으셨나요?", color = textSecondaryColor, fontSize = 13.sp)
@@ -267,7 +316,10 @@ fun LoginScreenImproved(
                             .fillMaxWidth()
                             .toggleable(
                                 value = isAutoLogin,
-                                onValueChange = onAutoLoginChange
+                                onValueChange = {
+                                    Log.d("BIO-UI", "AutoLogin toggled → $it")
+                                    onAutoLoginChange(it)
+                                }
                             )
                     ) {
                         Checkbox(checked = isAutoLogin, onCheckedChange = null)
@@ -278,6 +330,7 @@ fun LoginScreenImproved(
 
                     Button(
                         onClick = {
+                            Log.d("BIO-UI", "Login button clicked → onLoginClick()")
                             focusManager.clearFocus()
                             onLoginClick()
                         },
@@ -314,7 +367,10 @@ fun LoginScreenImproved(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
-                            onClick = onGoogleLoginClick,
+                            onClick = {
+                                Log.d("BIO-UI", "Google login clicked")
+                                onGoogleLoginClick()
+                            },
                             shape = CircleShape,
                             modifier = Modifier.size(52.dp),
                             contentPadding = PaddingValues(0.dp),
@@ -324,7 +380,10 @@ fun LoginScreenImproved(
                         }
 
                         OutlinedButton(
-                            onClick = onKakaoLoginClick,
+                            onClick = {
+                                Log.d("BIO-UI", "Kakao login clicked")
+                                onKakaoLoginClick()
+                            },
                             shape = CircleShape,
                             modifier = Modifier.size(52.dp),
                             contentPadding = PaddingValues(0.dp),
@@ -334,15 +393,16 @@ fun LoginScreenImproved(
                         }
                     }
 
-                    // 🔽🔽 소셜 버튼 '아래'에 가로 상태 + 액션 Row
+                    // 🔽 소셜 버튼 아래: 상태 + 액션
                     Spacer(Modifier.height(12.dp))
 
-                    // 설정 화면 → 복귀 시 상태 리프레시
                     val enrollLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.StartActivityForResult()
-                    ) { activity?.let { vm.refreshBiometricState(it) } }
+                    ) {
+                        Log.d("BIO-ENROLL", "Returned from enroll/settings, refreshing state")
+                        activity?.let { vm.refreshBiometricState(it) }
+                    }
 
-                    // ✅ Keystore 설정과 일치하도록 STRONG | DEVICE_CREDENTIAL 사용
                     val enrollAllow = BiometricManager.Authenticators.BIOMETRIC_STRONG or
                             BiometricManager.Authenticators.DEVICE_CREDENTIAL
 
@@ -379,16 +439,17 @@ fun LoginScreenImproved(
                             !bioAvailable -> {
                                 OutlinedButton(
                                     onClick = {
+                                        Log.d("BIO-ENROLL", "Open enroll/settings clicked, allow=$enrollAllow")
                                         try {
                                             val intent = Intent(Settings.ACTION_BIOMETRIC_ENROLL).apply {
                                                 putExtra(
                                                     Settings.EXTRA_BIOMETRIC_AUTHENTICATORS_ALLOWED,
-                                                    enrollAllow // ✅ 여기!
+                                                    enrollAllow
                                                 )
                                             }
                                             enrollLauncher.launch(intent)
                                         } catch (_: Exception) {
-                                            // OS < 11 등 폴백
+                                            Log.w("BIO-ENROLL", "ACTION_BIOMETRIC_ENROLL unavailable, fallback to SECURITY_SETTINGS")
                                             enrollLauncher.launch(Intent(Settings.ACTION_SECURITY_SETTINGS))
                                         }
                                     },
@@ -397,11 +458,32 @@ fun LoginScreenImproved(
                                 ) { Text("설정 열기", fontSize = 13.sp) }
                             }
                             bioAvailable && !bioStored -> {
-                                AssistChip(
-                                    onClick = { /* 안내용 */ },
-                                    label = { Text("먼저 이메일/비번으로 1회 로그인", fontSize = 12.sp) },
-                                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
-                                )
+                                // 개발 편의용: latestSessionToken이 있으면 바로 등록할 수 있도록 버튼 제공
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    AssistChip(
+                                        onClick = {
+                                            Log.d("BIO-UI", "AssistChip clicked (info)")
+                                        },
+                                        label = { Text("먼저 이메일/비번으로 1회 로그인", fontSize = 12.sp) },
+                                        leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    if (latestSessionToken != null && activity != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                Log.d("BIO-PROMPT", "Register button clicked, tokenLen=${latestSessionToken.size}")
+                                                vm.registerBiometric(activity, latestSessionToken) {
+                                                    Log.d("BIO-PROMPT", "registerBiometric() completed, ok=$it → refresh state")
+                                                    vm.refreshBiometricState(activity)
+                                                }
+                                            },
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) { Text("생체 로그인 등록", fontSize = 13.sp) }
+                                    } else {
+                                        Log.d("BIO-UI", "Register button hidden (latestSessionToken=${latestSessionToken != null}, activity=${activity != null})")
+                                    }
+                                }
                             }
                             else -> {
                                 // bioAvailable && bioStored → 아래에 실제 생체 로그인 버튼이 뜸
@@ -409,18 +491,21 @@ fun LoginScreenImproved(
                             }
                         }
                     }
-                    // 🔼🔼 가로 상태 Row 끝
 
                     // 생체 로그인 버튼: 기기 지원 & 저장된 토큰이 있을 때 노출
                     Spacer(modifier = Modifier.height(12.dp))
                     if (bioAvailable && bioStored) {
                         OutlinedButton(
                             onClick = {
+                                Log.d("BIO-PROMPT", "Biometric login button clicked")
                                 activity?.let { a ->
                                     onDebugBio(a.applicationContext)
                                     vm.startBiometricLogin(a) { tokenPlain ->
+                                        Log.d("BIO-PROMPT", "Biometric login success, tokenLen=${tokenPlain.size}")
                                         onBiometricLoginWithToken(tokenPlain)
                                     }
+                                } ?: run {
+                                    Log.w("BIO-UI", "Biometric login clicked but activity is null")
                                 }
                             },
                             modifier = Modifier
@@ -432,6 +517,8 @@ fun LoginScreenImproved(
                             Spacer(Modifier.width(8.dp))
                             Text("얼굴/지문으로 로그인")
                         }
+                    } else {
+                        Log.v("BIO-UI", "Biometric login button hidden (available=$bioAvailable, stored=$bioStored)")
                     }
                 }
             }
@@ -440,7 +527,10 @@ fun LoginScreenImproved(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("아직 계정이 없으신가요?", fontSize = 14.sp, color = textSecondaryColor)
-                TextButton(onClick = onSignUpClick) {
+                TextButton(onClick = {
+                    Log.d("BIO-UI", "SignUp clicked")
+                    onSignUpClick()
+                }) {
                     Text("회원가입", color = primaryColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -450,6 +540,7 @@ fun LoginScreenImproved(
 
         // 로딩 모달
         if (isLoggingIn) {
+            Log.v("BIO-UI", "Loading modal visible")
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -473,6 +564,8 @@ fun LoginScreenImproved(
                     )
                 }
             }
+        } else {
+            Log.v("BIO-UI", "Loading modal hidden")
         }
     }
 }

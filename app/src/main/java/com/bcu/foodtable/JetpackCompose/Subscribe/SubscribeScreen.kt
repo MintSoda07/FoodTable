@@ -42,12 +42,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
 import com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity
 import com.bcu.foodtable.JetpackCompose.Subscribe.Channel.ChannelCard
-import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
-import com.bcu.foodtable.JetpackCompose.coach.CoachStep
-import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
-import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
-import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
-import com.bcu.foodtable.JetpackCompose.coach.coachTarget
+import com.bcu.foodtable.JetpackCompose.coach.*
 import com.bcu.foodtable.useful.Channel
 
 @Composable
@@ -59,18 +54,16 @@ fun SubscribeScreen(
     val subscribedChannels by viewModel.subscribedChannels.collectAsState()
     val myChannels by viewModel.myChannels.collectAsState()
     val recommendedChannels by viewModel.recommendedChannels.collectAsState()
-    Log.d("SubscribeUI", "UI에서 받은 채널 수: ${myChannels.size}")
 
     val context = LocalContext.current
     val hasChannel = remember(myChannels) { myChannels.isNotEmpty() }
 
-    // 코치마크 준비
     val store = remember { CoachmarkStoreDataStore(context) }
     val targets = remember { CoachTargets() }
     var showCoach by remember { mutableStateOf(true) }
+    val bottomBarHeight = 0.dp
 
-    // 코치마크가 화면 밖 타깃을 자동 스크롤하기 위한 requester
-    val coachBringer = remember { BringIntoViewRequester() }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
         viewModel.fetchSubscribedChannels()
@@ -95,15 +88,13 @@ fun SubscribeScreen(
         context.startActivity(intent)
     }
 
-    // 본문
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 24.dp)
-            .bringIntoViewRequester(coachBringer) // ⬅️ 스크롤 컨테이너에 부착
     ) {
-        // 상단 헤더
         item {
             Spacer(modifier = Modifier.height(28.dp))
             Text(
@@ -122,11 +113,10 @@ fun SubscribeScreen(
             Spacer(modifier = Modifier.height(28.dp))
         }
 
-        // 섹션 1: 내 구독 채널 (앵커: sub_my)
+        // 섹션 1
         sectionHeader(
             title = "내 구독 채널",
             targets = targets,
-            bringer = coachBringer,
             anchorKey = "sub_my",
             expandPx = 10f
         )
@@ -134,16 +124,15 @@ fun SubscribeScreen(
             channels = subscribedChannels,
             navController = navController,
             emptyTitle = "구독한 채널이 없습니다.",
-            emptyDesc = "관심 있는 채널을 구독하면 여기에 표시됩니다!",
+            emptyDesc = "관심 있는 채널을 구독하면 여기에 표시됩니다.",
             targets = targets
         )
         sectionSpacer()
 
-        // 섹션 2: 내 채널 (액션 칩 앵커: sub_create)
+        // 섹션 2
         sectionHeaderWithAction(
             title = "내 채널",
             targets = targets,
-            bringer = coachBringer,
             actionAnchorKey = "sub_create",
             expandPx = 12f
         ) {
@@ -154,7 +143,6 @@ fun SubscribeScreen(
                 modifier = Modifier.coachTarget(
                     id = "sub_create",
                     targets = targets,
-                    bringer = coachBringer,
                     expandPx = 12f
                 )
             )
@@ -168,11 +156,10 @@ fun SubscribeScreen(
         )
         sectionSpacer()
 
-        // 섹션 3: 추천 채널 (앵커: sub_reco)
+        // 섹션 3 (추천 채널 헤더는 bringer 달아서 등록)
         sectionHeader(
             title = "추천 채널",
             targets = targets,
-            bringer = coachBringer,
             anchorKey = "sub_reco",
             expandPx = 10f
         )
@@ -193,26 +180,34 @@ fun SubscribeScreen(
             steps = listOf(
                 CoachStep("sub_my", "내 구독", "구독한 채널의 최신 소식을 한 곳에서 확인하세요."),
                 CoachStep("sub_create", "채널 만들기", "나만의 채널을 만들어 레시피를 공유해 보세요."),
-                CoachStep("sub_reco", "추천 채널", "취향에 맞는 채널을 발견해 보세요!")
+                //CoachStep("sub_reco", "추천 채널", "취향에 맞는 채널을 발견해 보세요!", center = true)
             ),
             targets = targets,
             store = store,
-            onClose = { showCoach = false },
+            bottomObstructionDp = bottomBarHeight,
+            onClose = {
+                showCoach = false
+                if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.SUBSCRIBE) {
+                    CoachTour.next(navController, context, store)
+                }
+            },
+            lazyListState = listState,
+            // 인덱스 스냅: 이 리스트 구성에서 "추천 채널" 헤더는 0-based 인덱스 8
+
             modifier = Modifier
                 .fillMaxSize()
-                .zIndex(999f) // 항상 최상단
+                .zIndex(999f)
         )
     }
 }
 
 /* ──────────────────────────────────────────────────────────────── */
-/* LazyListScope helpers — 코치마크 앵커 파라미터(Bringer/expandPx)  */
+/* LazyListScope helpers                                           */
 /* ──────────────────────────────────────────────────────────────── */
 
 private fun LazyListScope.sectionHeaderWithAction(
     title: String,
     targets: CoachTargets,
-    bringer: BringIntoViewRequester,
     actionAnchorKey: String? = null,
     expandPx: Float = 0f,
     action: @Composable RowScope.() -> Unit
@@ -231,7 +226,6 @@ private fun LazyListScope.sectionHeaderWithAction(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
-            // 오른쪽 액션(필요 시 여기에도 앵커를 둠)
             action()
         }
     }
@@ -240,11 +234,12 @@ private fun LazyListScope.sectionHeaderWithAction(
 private fun LazyListScope.sectionHeader(
     title: String,
     targets: CoachTargets,
-    bringer: BringIntoViewRequester,
     anchorKey: String? = null,
-    expandPx: Float = 0f
+    expandPx: Float = 0f,
 ) {
-    item {
+    item(key = anchorKey ?: "header:$title") {   // 키 부여(안정화)
+        val headerBringer = remember { BringIntoViewRequester() }
+        Log.d("Sub/section", "HEADER add key=${anchorKey ?: "header:$title"} title=$title")
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
@@ -255,12 +250,14 @@ private fun LazyListScope.sectionHeader(
                 .padding(vertical = 12.dp)
                 .then(
                     if (anchorKey != null) {
-                        Modifier.coachTarget(
-                            id = anchorKey,
-                            targets = targets,
-                            bringer = bringer,
-                            expandPx = expandPx
-                        )
+                        Modifier
+                            .bringIntoViewRequester(headerBringer)
+                            .coachTarget(
+                                id = anchorKey,
+                                targets = targets,
+                                bringer = headerBringer,
+                                expandPx = expandPx
+                            )
                     } else Modifier
                 )
         )
@@ -321,7 +318,7 @@ fun HorizontalChannelList(
             ChannelCard(
                 channel = channel,
                 onClick = {
-                    Log.d(tag, "Navigating to channel: ${channel.name}")
+                    Log.d(tag, "navigate: ${channel.name}")
                     navController.navigate("channelView/${channel.name}")
                 },
                 modifier = Modifier.animateItemPlacement(tween(durationMillis = 300))

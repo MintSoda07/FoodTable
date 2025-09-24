@@ -186,6 +186,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.AddCircleOutline
 import androidx.compose.material.icons.filled.BrunchDining
@@ -233,8 +234,10 @@ import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
 import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
 import com.bcu.foodtable.JetpackCompose.coach.CoachStep
 import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
+import com.bcu.foodtable.JetpackCompose.coach.CoachTour
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
+import com.bcu.foodtable.JetpackCompose.coach.InteractionBlocker
 import com.bcu.foodtable.JetpackCompose.coach.coachTarget
 import com.bcu.foodtable.RecipePurchaseDialogExact
 import com.bcu.foodtable.ui.merchant.QrPayScannerScreen
@@ -972,10 +975,13 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val coachStore = remember { CoachmarkStoreDataStore(context) }
     val targets = remember { CoachTargets() }
     var showCoach by remember { mutableStateOf(true) }
-    val bringer = remember { BringIntoViewRequester() }
-
+    val coachBringer = remember { BringIntoViewRequester() }
+    val bottomBarHeight = 0.dp
+    val scrollState = rememberScrollState()
+    var overlayActive by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
+        CoachTour.maybeStartOnce(navController, context, coachStore)
     }
     // 구독 탭 클릭 효과
     LaunchedEffect(currentRoute) {
@@ -1041,6 +1047,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 screens = screens,
                 selectedTab = selectedTab,
                 onTabSelected = { index ->
+                    if (overlayActive) return@AppBottomNavigationBar // 코치마크 중 탭 무시
                     selectedTab = index
                     navController.navigate(screens[index].route) {
                         popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -1068,8 +1075,9 @@ fun HomeScreen(viewModel: HomeViewModel) {
         ShakeToOpenQR(
             navController = navController,
             routeQR = "qrPayScanner",   // 등록한 라우트와 일치시킴
-            enabled = currentRoute != "qrPayScanner" // QR 화면에선 비활성화
+            enabled = (currentRoute != "qrPayScanner") && !overlayActive // QR 화면에선 비활성화
         )
+
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
@@ -1371,27 +1379,42 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 SocialScreen(navController = navController)
             }
             composable(Screen.RecipeStorage.route) {
-                MyRecipeStorageScreen()
+                MyRecipeStorageScreen(navController = navController)
             }
             composable(Screen.MyPage.route) {
                 ProfileMainScreen(paddingValues = paddingValues, navController = navController)
             }
         }
     }
+    InteractionBlocker(
+        visible = overlayActive,
+        modifier = Modifier
+            .fillMaxSize()     // 화면 전체 덮기
+            .zIndex(998f)          // 코치마크(999f) 바로 아래
+    )
     if (showCoach) {
         CoachmarkOverlay(
             screen = CoachScreen.HOME,
             steps = listOf(
-                CoachStep("home_search", "레시피 검색", "이름·재료로 빠르게 찾아보세요."),
                 CoachStep("home_banner", "이벤트/공지", "혜택과 소식을 확인해요."),
                 CoachStep("home_trend", "인기 레시피", "지금 뜨는 메뉴를 봅니다."),
                 CoachStep("home_reco", "맞춤 추천", "취향 기반 추천을 확인하세요."),
                 CoachStep("home_ai_fab", "AI 요리 도우미", "챗으로 메뉴 추천/요리 팁 받기."),
-                CoachStep("home_card", "레시피 카드", "탭해 열고 자세히 보기.")
+                CoachStep("home_search", "레시피 검색", "이름·재료로 빠르게 찾아보세요.", center = true),
+                CoachStep("home_card", "레시피 카드", "탭해 열고 자세히 보기.", center = true)
             ),
             targets = targets,
             store = coachStore,
-            onClose = { showCoach = false },
+            bottomObstructionDp = bottomBarHeight,
+            onClose = {
+                showCoach = false
+                if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.HOME) {
+                    CoachTour.next(navController, context, coachStore )
+                }
+            },
+            lazyListState = listState,
+            scrollState = scrollState,
+            onOverlayActiveChange = { isActive -> overlayActive = isActive },
             modifier = Modifier.fillMaxSize().zIndex(999f)
         )
     }
@@ -1846,7 +1869,7 @@ fun HomeContent(
     val calorieVm: RecipeCalorieViewModel = viewModel()
     var purchasedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
-    val bringer = remember { BringIntoViewRequester() }
+    val coachBringer = remember { BringIntoViewRequester() }
     // 헤더/리스트 좌우 패딩 통일
     val headerHPad = 8.dp
 
@@ -1899,7 +1922,7 @@ fun HomeContent(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
-            .bringIntoViewRequester(bringer),
+            .bringIntoViewRequester(coachBringer),
     contentPadding = PaddingValues(
             top = 0.dp,
             start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
@@ -1915,7 +1938,7 @@ fun HomeContent(
                     .fillMaxWidth()
                     .height(220.dp),
                     targets = targets,
-                    bringer = bringer
+                    bringer = coachBringer
 
             )
         }
@@ -1981,10 +2004,12 @@ fun HomeContent(
                                         thickness = 1.dp
                                     )
                                 }
+                                val searchBringer = remember { BringIntoViewRequester() }
+
                                 ModernSearchBar(
                                     searchQuery = searchQuery,
                                     onSearchQueryChange = onSearchQueryChange,
-                                    modifier = Modifier.coachTarget("home_search", targets, bringer = bringer, expandPx = 8f)
+                                    modifier = Modifier.bringIntoViewRequester(searchBringer).coachTarget("home_search", targets, bringer = searchBringer, expandPx = 8f )
                                 )
                             }
 
@@ -2001,7 +2026,7 @@ fun HomeContent(
                                             "인기 레시피",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.coachTarget("home_trend", targets, bringer = bringer, expandPx = 6f)
+                                            modifier = Modifier.coachTarget("home_trend", targets, bringer = coachBringer, expandPx = 6f)
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Divider(
@@ -2050,7 +2075,7 @@ fun HomeContent(
                                             "추천 레시피",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.coachTarget("home_reco", targets, bringer = bringer, expandPx = 6f)
+                                            modifier = Modifier.coachTarget("home_reco", targets, bringer = coachBringer, expandPx = 6f)
                                         )
                                         Spacer(Modifier.height(4.dp))
                                         Divider(
@@ -2149,6 +2174,11 @@ fun HomeContent(
                     recipe.id.takeIf { it.isNotBlank() } ?: "recipe-$idx-${recipe.name}"
                 }
             ) { index, recipe ->
+
+                val firstCardBringer = remember(index == 0) {
+                    if (index == 0) BringIntoViewRequester() else null
+                }
+
                 var isVisible by remember { mutableStateOf(false) }
                 val isPurchasedFlag = purchasedIds.contains(recipe.id)
                 val context = LocalContext.current
@@ -2176,7 +2206,7 @@ fun HomeContent(
                     val baseModifier = Modifier.animateItemPlacement(tween(300))
                     val cardModifier =
                         if (index == 0) baseModifier.then(
-                            Modifier.coachTarget("home_card", targets, bringer = bringer, expandPx = 10f)
+                            Modifier.bringIntoViewRequester(firstCardBringer!!).coachTarget("home_card", targets, bringer = firstCardBringer, expandPx = 10f)
                         ) else baseModifier
                     ModernRecipeCard(
                         recipe = recipe.copy(isPurchased = isPurchasedFlag),

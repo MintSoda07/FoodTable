@@ -9,7 +9,7 @@ fun debugDumpBio(context: Context) {
     val ivLen = pair?.first?.size ?: -1
     val ctLen = pair?.second?.size ?: -1
 
-    val allow = BiometricManager.Authenticators.BIOMETRIC_WEAK or
+    val allow = BiometricManager.Authenticators.BIOMETRIC_STRONG or
             BiometricManager.Authenticators.DEVICE_CREDENTIAL
     val r = BiometricManager.from(context).canAuthenticate(allow)
 
