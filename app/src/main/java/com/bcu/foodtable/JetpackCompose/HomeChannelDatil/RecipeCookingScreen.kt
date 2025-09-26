@@ -264,6 +264,14 @@ fun RecipeCookingScreen(
         voiceController.shouldCaptureFreeSpeech = { coachVm.isTesting.value }
         voiceController.onFreeSpeech = { freeText ->
             coachVm.onUserUtterance(freeText, recipe)
+            // 항상 Q&A로도 시도 (원하면 조건 달아도 됨)
+            coachVm.answerQuestion(
+                userText = freeText,
+                recipe = recipe,
+                currentStepIndex = currentIndex,
+                onAnswer = { answer -> voiceController.speakWithAutoResume(answer) },
+                onError = { msg -> voiceController.speakWithAutoResume(msg ?: "잘 모르겠어요.") }
+            )
         }
     }
 
