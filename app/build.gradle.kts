@@ -69,7 +69,7 @@ android {
 dependencies {
     // 1) Firebase BoM으로 버전 일괄 관리
     implementation(platform(libs.firebase.bom))
-    implementation(project(":unityLibrary"))
+   // implementation(project(":unityLibrary"))
     // 2) Firebase 핵심 모듈들 (BoM이 버전을 관리)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.analytics)

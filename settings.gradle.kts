@@ -25,5 +25,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "FoodTable"
 include(":app")
-include(":unityLibrary")
-project(":unityLibrary").projectDir = file("unity/Final/unityLibrary")
+//include(":unityLibrary")
+//project(":unityLibrary").projectDir = file("unity/Final/unityLibrary")

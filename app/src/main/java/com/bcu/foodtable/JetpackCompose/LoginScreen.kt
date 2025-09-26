@@ -59,6 +59,7 @@ import com.airbnb.lottie.compose.*
 import com.bcu.foodtable.JetpackCompose.LoginViewModel
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
 import com.bcu.foodtable.R
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.security.MessageDigest
 
@@ -90,11 +91,11 @@ fun LoginScreenImproved(
 
     val primaryColor = Color(0xFFE76F51)
     val backgroundColorStart = Color(0xFFFFF7F0)
-    val backgroundColorEnd = Color(0xFFFFF1E6)
-    val cardBackgroundColor = Color(0xFAFFFFFF)
-    val textPrimaryColor = Color(0xFF333333)
-    val textSecondaryColor = Color.Gray
-    val errorColor = Color(0xFFD32F2F)
+    val backgroundColorEnd   = Color(0xFFFFF1E6)
+    val cardBackgroundColor  = Color(0xFAFFFFFF)
+    val textPrimaryColor     = Color(0xFF333333)
+    val textSecondaryColor   = Color.Gray
+    val errorColor           = Color(0xFFD32F2F)
 
     var passwordVisible by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -107,15 +108,15 @@ fun LoginScreenImproved(
     )
 
     // 🔐 생체 상태
-    val context = LocalContext.current
+    val context  = LocalContext.current
     val activity = remember(context) { context.findFragmentActivity() }
     Log.d("BIO-UI", "LoginScreen: activityFound=${activity != null}")
 
     var bioAvailable by remember { mutableStateOf(false) }
-    var bioStored by remember { mutableStateOf(false) }
+    var bioStored    by remember { mutableStateOf(false) }
 
     val coachStore = remember { CoachmarkStoreDataStore(context) }
-    val scope = rememberCoroutineScope()
+    val scope      = rememberCoroutineScope()
 
     // VM 이벤트 수신
     LaunchedEffect(Unit) {
@@ -127,13 +128,12 @@ fun LoginScreenImproved(
                 is LoginViewModel.Event.BiometricReady -> {
                     Log.d("BIO-UI", "VM Event: BiometricReady available=${ev.available}, hasStored=${ev.hasStored}")
                     bioAvailable = ev.available
-                    bioStored = ev.hasStored
+                    bioStored    = ev.hasStored
                     Log.d("BIO-UI", "State updated: bioAvailable=$bioAvailable, bioStored=$bioStored")
                 }
 
                 LoginViewModel.Event.BiometricLoginSuccess -> {
                     Log.d("BIO-UI", "VM Event: BiometricLoginSuccess")
-                    // 필요 시 네비게이션/스낵바
                 }
             }
         }
@@ -165,8 +165,14 @@ fun LoginScreenImproved(
             onClick = {
                 Log.d("BIO-UI", "Coachmark reset clicked")
                 scope.launch {
+                    // 1) DataStore 리셋
                     coachStore.resetAll()
                     coachStore.setTourDone(false)
+                    // 2) 사용자 피드백
+                    //    (홈에서 showCoach 토글되면 즉시 뜸. 홈 로직에 maybeStartOnce + showCoach 토글이 있어야 함)
+                    SnackbarHostState().showSnackbar("코치마크 상태가 초기화되었습니다.") // ephemeral, 로그 위주로 사용
+                    // 3) (선택) 아주 짧게 대기 후 홈으로 돌아갈 때 반영되도록
+                    delay(16) // ✅ 프레임 한 번 쉬어 측정 갱신 유도
                 }
             },
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),

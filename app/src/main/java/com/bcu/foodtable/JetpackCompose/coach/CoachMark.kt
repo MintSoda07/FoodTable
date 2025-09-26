@@ -55,6 +55,9 @@ class CoachTargets {
     }
     fun get(id: String): Anchor? = map[id]
     fun contains(id: String) = map.containsKey(id)
+
+    //  새 세션 시작 시 호출해 stale rect 제거
+    fun clear() = map.clear()
 }
 
 /** 실제 위치만 저장 (center 보정은 Overlay가 수행) */
@@ -268,58 +271,86 @@ fun CoachmarkOverlay(
     suspend fun focusStep(s: CoachStep) {
         suspend fun latestLocal(): RectF? = targets.get(s.id)?.rect?.toOverlayLocal()
 
-        // 0) 먼저 bringIntoView 시도 (있다면)
-        targets.get(s.id)?.bringer?.bringIntoView()
+        // 현재 오버레이 뷰포트(바텀 차폐 제외)
+        val viewportH = (ovH - bottomObstructionPx).coerceAtLeast(1f)
+        val vCenterY = viewportH / 2f
 
-        // 0-1) 타깃이 아직 없으면 ↓ 스캔 스크롤로 구성 유도
+        //  유효성 검사: 0 크기/화면 바깥/NaN 등은 무효로 간주
+        fun RectF.isValidOnOverlay(): Boolean {
+            if (width() < 1f || height() < 1f) return false
+            if (left.isNaN() || top.isNaN() || right.isNaN() || bottom.isNaN()) return false
+            return isOnOverlay(ovW, viewportH)
+        }
+
+        // 0) 먼저 bringIntoView 여러 번 시도 (레이아웃 재측정 유도)
+        repeat(2) { targets.get(s.id)?.bringer?.bringIntoView() }
+
+        // 0-1) 최신 좌표 가져오되, 화면 바깥이거나 이상하면 무시
         var local = latestLocal()
-        if (local == null && (lazyListState != null || scrollState != null)) {
-            val viewportH = (ovH - bottomObstructionPx).coerceAtLeast(1f)
-            val stepDown = viewportH * 0.66f          // 한 번에 내릴 양
-            val maxTries = 10                         // 너무 멀면 중단
-            var tries = 0
+        if (local != null && !local.isValidOnOverlay()) local = null
 
-            while (local == null && tries++ < maxTries) {
+        // 0-2) 못 찾으면 양방향 스캔 (LazyColumn/Scroll 둘 다 대응)
+        if (local == null && (lazyListState != null || scrollState != null)) {
+            val stepBy = viewportH * 0.66f
+            val maxTries = 12
+
+            suspend fun scrollByDy(dy: Float) {
                 when {
-                    lazyListState != null -> lazyListState.animateScrollBy(stepDown)
-                    scrollState   != null -> scrollState.animateScrollBy(stepDown)
+                    lazyListState != null -> lazyListState.animateScrollBy(dy)
+                    scrollState   != null -> scrollState.animateScrollBy(dy)
                 }
-                delay(32)
-                // 매 스텝마다 다시 bringIntoView 시도 (타깃이 생겼을 수도 있으니까)
-                targets.get(s.id)?.bringer?.bringIntoView()
-                local = latestLocal()
             }
 
-            // 그래도 못 찾으면 (가능하면) 반대로도 조금 스캔
-            if (local == null && (lazyListState != null || scrollState != null)) {
-                tries = 0
-                while (local == null && tries++ < maxTries / 2) {
-                    when {
-                        lazyListState != null -> lazyListState.animateScrollBy(-stepDown)
-                        scrollState   != null -> scrollState.animateScrollBy(-stepDown)
-                    }
-                    delay(32)
+            // 아래로 스캔
+            repeat(maxTries) {
+                if (local != null) return@repeat
+                scrollByDy(stepBy)
+                delay(24)
+                targets.get(s.id)?.bringer?.bringIntoView()
+                local = latestLocal()
+                if (local != null && !local!!.isValidOnOverlay()) local = null
+            }
+
+            // 위로 스캔
+            if (local == null) {
+                repeat(maxTries) {
+                    if (local != null) return@repeat
+                    scrollByDy(-stepBy)
+                    delay(24)
                     targets.get(s.id)?.bringer?.bringIntoView()
                     local = latestLocal()
+                    if (local != null && !local!!.isValidOnOverlay()) local = null
+                }
+            }
+
+            // 마지막으로 소폭 아래 재스캔 (관성/측정 레이스 대비)
+            if (local == null) {
+                repeat(maxTries / 2) {
+                    if (local != null) return@repeat
+                    scrollByDy(stepBy / 2f)
+                    delay(24)
+                    targets.get(s.id)?.bringer?.bringIntoView()
+                    local = latestLocal()
+                    if (local != null && !local!!.isValidOnOverlay()) local = null
                 }
             }
         }
 
-        // 1) 좌표가 생길 때까지 혹시 몰라 마지막으로 잠깐 더 대기
+        // 1) 좌표가 생길 때까지 한 프레임 단위로 대기 (❗ stale 먼저 잡는 레이스 방지)
         if (local == null) {
             repeat(60) {
                 local = latestLocal()
-                if (local != null) return@repeat
+                if (local != null && local!!.isValidOnOverlay()) return@repeat
+                local = null
+                targets.get(s.id)?.bringer?.bringIntoView()
                 delay(16)
             }
         }
         val rect = local ?: return
 
-        val viewportH = (ovH - bottomObstructionPx).coerceAtLeast(1f)
-        val vCenterY = viewportH / 2f
-
+        // 2) 위치 보정
         if (s.center && (lazyListState != null || scrollState != null)) {
-            // 2) 중앙 보정
+            // 중앙 보정: 보정 중에도 최신 좌표로 갱신하면서 수렴
             var tries = 0
             var cur = rect
             while (tries++ < 6) {
@@ -330,11 +361,11 @@ fun CoachmarkOverlay(
                     scrollState   != null -> scrollState.animateScrollBy(dy)
                 }
                 delay(16)
-                latestLocal()?.let { cur = it }
+                latestLocal()?.let { if (it.isValidOnOverlay()) cur = it }
             }
         } else {
-            // 2') 화면 안에만 들여오기
-            if (!(rect.right > 0f && rect.left < ovW && rect.top < (ovH - bottomObstructionPx) && rect.bottom > 0f)) {
+            // 화면 안에만 들여오기
+            if (!(rect.right > 0f && rect.left < ovW && rect.top < viewportH && rect.bottom > 0f)) {
                 val dy = when {
                     rect.bottom < 0f     -> rect.bottom - 24f
                     rect.top > viewportH -> rect.top - viewportH + 24f
@@ -344,6 +375,21 @@ fun CoachmarkOverlay(
                     when {
                         lazyListState != null -> lazyListState.animateScrollBy(dy)
                         scrollState   != null -> scrollState.animateScrollBy(dy)
+                    }
+                }
+            }
+        }
+
+        // 3)  사후 검증: 보정 직후 좌표가 변했으면 한 번 더 미세 재보정
+        latestLocal()?.let { now ->
+            if (now.isValidOnOverlay()) {
+                if (s.center && (lazyListState != null || scrollState != null)) {
+                    val dy = now.centerY() - vCenterY
+                    if (kotlin.math.abs(dy) > 1.5f) {
+                        when {
+                            lazyListState != null -> lazyListState.animateScrollBy(dy)
+                            scrollState   != null -> scrollState.animateScrollBy(dy)
+                        }
                     }
                 }
             }

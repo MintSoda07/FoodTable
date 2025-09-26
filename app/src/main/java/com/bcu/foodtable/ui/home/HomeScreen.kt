@@ -977,7 +977,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     var showCoach by remember { mutableStateOf(true) }
     val coachBringer = remember { BringIntoViewRequester() }
     val bottomBarHeight = 0.dp
-    val scrollState = rememberScrollState()
+
     var overlayActive by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
@@ -1413,7 +1413,6 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 }
             },
             lazyListState = listState,
-            scrollState = scrollState,
             onOverlayActiveChange = { isActive -> overlayActive = isActive },
             modifier = Modifier.fillMaxSize().zIndex(999f)
         )
