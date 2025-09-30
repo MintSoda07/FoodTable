@@ -7,8 +7,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -17,6 +18,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.launch
 
 import com.google.firebase.auth.FirebaseAuth
@@ -29,6 +31,10 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+// Lottie
+import com.airbnb.lottie.compose.*
+import com.bcu.foodtable.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,25 +93,31 @@ fun AppointmentCreateDialog(
     val hasAudience by remember { derivedStateOf { dmTargets.isNotEmpty() || !openRoomId.isNullOrBlank() } }
     val canSendBase by remember { derivedStateOf { title.isNotBlank() && hasAudience && durationMin > 0 } }
 
-    // ✅ 로딩 상태
+    // ✅ 로딩 상태: 데이터/전송
+    var loadingData by remember { mutableStateOf(true) }
     var sending by remember { mutableStateOf(false) }
-    val canSend = canSendBase && !sending
     val inputsEnabled = !sending
+    val canSend = canSendBase && !sending
 
     // 데이터 로드
     LaunchedEffect(Unit) {
-        val snap = db.collection("user").document(me).collection("friends").get().await()
-        val ids = snap.documents.map { it.id }
-        ids.forEach { uid ->
-            db.collection("user").document(uid).get().await()
-                .toObject(User::class.java)?.copy(uid = uid)?.let { friends += it }
+        loadingData = true
+        try {
+            val snap = db.collection("user").document(me).collection("friends").get().await()
+            val ids = snap.documents.map { it.id }
+            ids.forEach { uid ->
+                db.collection("user").document(uid).get().await()
+                    .toObject(User::class.java)?.copy(uid = uid)?.let { friends += it }
+            }
+            val rooms = db.collection("openRooms").whereArrayContains("memberIds", me).get().await()
+            rooms.documents.mapNotNull { it.toObject(OpenChatRoom::class.java)?.copy(id = it.id) }
+                .also { myOpenRooms.addAll(it) }
+        } finally {
+            loadingData = false
         }
-        val rooms = db.collection("openRooms").whereArrayContains("memberIds", me).get().await()
-        rooms.documents.mapNotNull { it.toObject(OpenChatRoom::class.java)?.copy(id = it.id) }
-            .also { myOpenRooms.addAll(it) }
     }
 
-    val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.8f).dp
+    val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.85f).dp
     val scrollState = rememberScrollState()
 
     val startCal = remember(dateMillis, timeState.hour, timeState.minute) {
@@ -121,9 +133,36 @@ fun AppointmentCreateDialog(
 
     AlertDialog(
         onDismissRequest = { if (!sending) onDismiss() },
-        title = { Text("약속 잡기") },
+        title = {
+            Column {
+                Text(
+                    "약속 잡기",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
+                )
+                Spacer(Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(100),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = placeName,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        },
         text = {
-            Box {
+            // 로딩(데이터 로딩 / 전송) 땐 meet.lottie 크게
+            if (loadingData || sending) {
+                MeetLottieBig(
+                    text = if (loadingData) "데이터 불러오는 중…" else "초대 전송 중…",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 280.dp)
+                )
+            } else {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -131,45 +170,53 @@ fun AppointmentCreateDialog(
                         .verticalScroll(scrollState),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    OutlinedTextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        label = { Text("제목") },
-                        supportingText = {
-                            if (title.isBlank()) Text("제목을 입력하세요.", color = MaterialTheme.colorScheme.error)
-                        },
-                        enabled = inputsEnabled,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Text(placeName, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = { showDatePicker = true },
-                            modifier = Modifier.weight(1f),
-                            enabled = inputsEnabled
+                    // 기본 정보
+                    SectionCard(title = "기본 정보") {
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            label = { Text("제목") },
+                            supportingText = {
+                                if (title.isBlank()) Text("제목을 입력하세요.", color = MaterialTheme.colorScheme.error)
+                            },
+                            enabled = inputsEnabled,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Filled.CalendarMonth, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(koreanDate(dateMillis))
+                            FilledTonalButton(
+                                onClick = { showDatePicker = true },
+                                enabled = inputsEnabled,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Filled.CalendarMonth, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(koreanDate(dateMillis))
+                            }
+                            FilledTonalButton(
+                                onClick = { showTimePicker = true },
+                                enabled = inputsEnabled,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(Icons.Filled.AccessTime, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(koreanTime(timeState.hour, timeState.minute))
+                            }
                         }
-                        OutlinedButton(
-                            onClick = { showTimePicker = true },
-                            modifier = Modifier.weight(1f),
-                            enabled = inputsEnabled
-                        ) {
-                            Icon(Icons.Filled.AccessTime, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(koreanTime(timeState.hour, timeState.minute))
-                        }
+                        Spacer(Modifier.height(6.dp))
+                        // 참고: formatApptRangeKorean은 프로젝트 내 기존 헬퍼를 사용
+                        Text(
+                            formatApptRangeKorean(startAt, endAt),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("소요시간", style = MaterialTheme.typography.titleSmall)
+                    // 소요시간
+                    SectionCard(title = "소요시간") {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             items(durationPresets) { m ->
                                 FilterChip(
@@ -187,31 +234,29 @@ fun AppointmentCreateDialog(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(4.dp))
                         Text(
-                            "예상: ${presentDuration(durationMin)} (종료 ${koreanTimeFrom(startAt, durationMin)})",
+                            "예상: ${presentDuration(durationMin)} • 종료 ${koreanTimeFrom(startAt, durationMin)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    Divider()
-                    Text(
-                        formatApptRangeKorean(startAt, endAt),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    // 메모
+                    SectionCard(title = "메모") {
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            label = { Text("메모 (선택)") },
+                            enabled = inputsEnabled,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                        )
+                    }
 
-                    OutlinedTextField(
-                        value = note,
-                        onValueChange = { note = it },
-                        label = { Text("메모") },
-                        enabled = inputsEnabled,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // 친구 선택
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("보낼 친구", style = MaterialTheme.typography.titleSmall)
+                    // 대상 선택
+                    SectionCard(title = "보낼 대상") {
                         OutlinedTextField(
                             value = friendQuery,
                             onValueChange = { friendQuery = it },
@@ -220,96 +265,78 @@ fun AppointmentCreateDialog(
                             enabled = inputsEnabled,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 0.dp, max = 220.dp)
-                        ) {
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                if (friends.isEmpty()) {
-                                    item { Text("친구 목록이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                } else if (filteredFriends.isEmpty()) {
-                                    item { Text("검색 결과가 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                } else {
-                                    items(filteredFriends, key = { it.uid ?: it.hashCode().toString() }) { f ->
-                                        val uid = f.uid ?: return@items
-                                        val checked = uid in dmTargets
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Checkbox(
-                                                checked = checked,
-                                                onCheckedChange = { ch ->
-                                                    if (!inputsEnabled) return@Checkbox
-                                                    if (ch) { if (uid !in dmTargets) dmTargets += uid }
-                                                    else dmTargets.remove(uid)
-                                                },
-                                                enabled = inputsEnabled
-                                            )
-                                            Text(f.name ?: uid.takeLast(6))
-                                        }
+                        Spacer(Modifier.height(8.dp))
+
+                        if (friends.isEmpty()) {
+                            Text("친구 목록이 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else if (filteredFriends.isEmpty()) {
+                            Text("검색 결과가 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 220.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                items(filteredFriends, key = { it.uid ?: it.hashCode().toString() }) { f ->
+                                    val uid = f.uid ?: return@items
+                                    val checked = uid in dmTargets
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Checkbox(
+                                            checked = checked,
+                                            onCheckedChange = { ch ->
+                                                if (!inputsEnabled) return@Checkbox
+                                                if (ch) { if (uid !in dmTargets) dmTargets += uid }
+                                                else dmTargets.remove(uid)
+                                            },
+                                            enabled = inputsEnabled
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(f.name ?: uid.takeLast(6), style = MaterialTheme.typography.bodyMedium)
                                     }
                                 }
                             }
                         }
-                        if (dmTargets.isNotEmpty()) {
-                            Text(
-                                "선택된 친구: ${dmTargets.size}명",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
 
-                    // 오픈채팅
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("오픈채팅(선택)", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(10.dp))
                         OpenRoomDropdown(
                             items = myOpenRooms.map { it.id to it.title },
                             selected = openRoomId,
                             onSelected = { if (inputsEnabled) openRoomId = it },
                             enabled = inputsEnabled
                         )
-                        if (!openRoomId.isNullOrBlank()) {
+
+                        Spacer(Modifier.height(6.dp))
+                        if (!hasAudience) {
                             Text(
-                                "선택된 오픈채팅: 1개",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                "보낼 친구를 1명 이상 선택하거나 오픈채팅을 지정하세요.",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            Text(
+                                when {
+                                    dmTargets.isNotEmpty() && !openRoomId.isNullOrBlank() ->
+                                        "선택된 친구 ${dmTargets.size}명 • 오픈채팅 1개"
+                                    dmTargets.isNotEmpty() ->
+                                        "선택된 친구 ${dmTargets.size}명"
+                                    else ->
+                                        "선택된 오픈채팅 1개"
+                                },
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.labelSmall
                             )
                         }
                     }
 
-                    if (!hasAudience) {
-                        Text(
-                            "보낼 친구를 1명 이상 선택하거나 오픈채팅을 지정하세요.",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+                    Spacer(Modifier.height(6.dp))
                 }
-
-                //  전송 중 오버레이
-//                if (sending) {
-//                    Box(
-//                        modifier = Modifier
-//                            .fillMaxSize()
-//                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f)),
-//                        contentAlignment = Alignment.Center
-//                    ) {
-//                        Surface(
-//                            shape = MaterialTheme.shapes.large,
-//                            tonalElevation = 6.dp,
-//                            shadowElevation = 6.dp
-//                        ) {
-//                            Row(
-//                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-//                                verticalAlignment = Alignment.CenterVertically
-//                            ) {
-//                                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
-//                                Spacer(Modifier.width(12.dp))
-//                                Text("초대 전송 중…")
-//                            }
-//                        }
-//                    }
-//                }
             }
         },
         confirmButton = {
@@ -327,7 +354,6 @@ fun AppointmentCreateDialog(
                         startAt = start, endAt = end,
                         note = note
                     )
-
                     sending = true
                     scope.launch {
                         val ok = runCatching { onConfirm(ap, dmTargets.toList(), openRoomId) }
@@ -338,13 +364,7 @@ fun AppointmentCreateDialog(
                 },
                 enabled = canSend
             ) {
-                if (sending) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text("보내는 중…")
-                } else {
-                    Text("보내기")
-                }
+                Text(if (sending) "보내는 중…" else "보내기")
             }
         },
         dismissButton = {
@@ -426,6 +446,67 @@ private fun TimePickerDialogM3(
 }
 
 /* ---------- Helpers ---------- */
+
+@Composable
+private fun MeetLottieBig(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    val comp by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.meet))
+    val progress by animateLottieCompositionAsState(
+        composition = comp,
+        iterations = LottieConstants.IterateForever,
+        speed = 1.0f
+    )
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(220.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f), RoundedCornerShape(18.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            LottieAnimation(
+                composition = comp,
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .aspectRatio(1.5f)
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary
+            )
+            content()
+        }
+    }
+}
 
 private fun koreanDate(millis: Long): String {
     val tz = TimeZone.getTimeZone("Asia/Seoul")

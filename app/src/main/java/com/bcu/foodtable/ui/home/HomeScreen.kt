@@ -4,6 +4,7 @@
 package com.bcu.foodtable.ui.home
 
 
+import AddIngredientScreen
 import androidx.lifecycle.viewmodel.compose.viewModel
 import AiRecipeScreen
 import CategoriesViewModel
@@ -219,7 +220,6 @@ import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.bcu.foodtable.JetpackCompose.HomeChannelDatil.RecipeCookingScreen
 import com.bcu.foodtable.JetpackCompose.Mypage.Setting.ShakeToOpenQR
-import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.AddIngredientScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.CategoryScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeScreen
 import com.bcu.foodtable.JetpackCompose.RecipeStorage.TrendRecipeViewModel
