@@ -204,7 +204,7 @@ class CookingCoachViewModel : ViewModel() {
     fun isQuestion(text: String): Boolean {
         val t = text.trim()
         if (t.endsWith("?")) return true
-        val kw = listOf("맞나요", "괜찮을까요", "어때요", "얼마", "몇", "대체", "바꿔", "대신", "가능", "넣어도")
+        val kw = listOf("맞나요", "괜찮을까요", "어때요", "얼마", "몇", "대체", "바꿔", "대신", "가능", "넣어도", "말고")
         return kw.any { t.contains(it) }
     }
 
@@ -215,7 +215,7 @@ class CookingCoachViewModel : ViewModel() {
         onAnswer: (String) -> Unit,
         onError: (String?) -> Unit
     ) {
-        // 1) 규칙/데이터 기반 빠른 답 (정량·대체)
+        // 1) 규칙/데이터 기반 빠른 답 (정량)
         quickRuleAnswer(userText, recipe, currentStepIndex)?.let { a ->
             onAnswer(a)
             return
@@ -238,7 +238,7 @@ class CookingCoachViewModel : ViewModel() {
     ): String? {
         val lower = q.lowercase()
 
-        // “물 몇 ml/얼마?” 유형
+        // “물 몇 ml/얼마?” 유형 → 로컬 빠른 응답
         if ((listOf("물", "워터", "water").any { lower.contains(it) })
             && (lower.contains("ml") || lower.contains("몇") || lower.contains("얼마"))
         ) {
@@ -256,15 +256,15 @@ class CookingCoachViewModel : ViewModel() {
                     if (m != null) return "현재 단계 기준 권장량은 ${m.groupValues[1]}ml 정도예요."
                 }
             }
-            // 못 찾으면 AI 백업
+            // 못 찾으면 LLM으로
         }
 
-        // “재료 대체/바꿔/대신” 유형
-        if (listOf("대체", "바꿔", "대신", "다른 재료").any { lower.contains(it) }) {
-            val tags = recipe.tags.joinToString(", ")
-            return "유사한 풍미·식감의 재료로 어느 정도 대체 가능해요. 알레르기·식단 제한이 있다면 주의하세요. 구체 재료를 말해주시면 비율까지 제안할게요. (참고 태그: $tags)"
+        // “재료 대체/바꿔/대신/말고/다른 재료” 유형 → 로컬 응답하지 않고 LLM으로 넘김
+        if (listOf("대체", "바꿔", "대신", "말고", "다른 재료").any { lower.contains(it) }) {
+            return null
         }
 
+        // 기타는 LLM 처리
         return null
     }
 
@@ -291,7 +291,7 @@ class CookingCoachViewModel : ViewModel() {
 - 말투는 상냥하지만 군더더기 없이, 마침표로 끝내.
 """.trimIndent()
 
-// ── 최근 대화 요약(내부 맥락용) ──
+                // ── 최근 대화 요약(내부 맥락용) ──
                 val memText = buildString {
                     if (memoryQueue.isNotEmpty()) {
                         appendLine("최근 대화 요약:")
@@ -302,11 +302,11 @@ class CookingCoachViewModel : ViewModel() {
                     }
                 }.trim()
 
-// ── 현재 단계 간단 요약(너무 길면 잘라서) ──
+                // ── 현재 단계 간단 요약(너무 길면 잘라서) ──
                 val steps = recipe.order.split("○").filter { it.isNotBlank() }
                 val stepBrief = steps.getOrNull(currentStepIndex)?.trim()?.take(140) ?: ""
 
-// ── 컨텍스트(태그 노출 제거, 핵심만) ──
+                // ── 컨텍스트(태그 노출 제거, 핵심만) ──
                 val ctx = """
 [레시피] ${recipe.name}
 [현재 단계 #${currentStepIndex + 1}] $stepBrief
@@ -315,7 +315,7 @@ class CookingCoachViewModel : ViewModel() {
 ${if (memText.isNotBlank()) memText else ""}
 """.trimIndent()
 
-// ── 최종 프롬프트 ──
+                // ── 최종 프롬프트 ──
                 val prompt = """
 $sys
 
