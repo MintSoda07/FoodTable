@@ -995,6 +995,35 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
     val interaction = remember { MutableInteractionSource() }
 
+    fun routeKey(route: String?): String? = when {
+        route == null -> null
+        route.startsWith("channelView/") -> Screen.Subscribe.route   // 채널 상세는 채널 탭으로 귀속
+        route.startsWith("profile/")     -> Screen.MyPage.route      // 프로필 파생 라우트는 마이페이지로 귀속
+        else -> route
+    }
+
+    /** 현재 보여지는 라우트 key (파생 라우트 포함) */
+    fun currentRouteKey(): String? = routeKey(navController.currentBackStackEntry?.destination?.route)
+
+    /** 오버레이 on/off 신호를 안전하게 소비 */
+    fun consumeOverlaySignal(fromRoute: String, active: Boolean) {
+        val current = currentRouteKey()
+        val fromKey = routeKey(fromRoute)
+        val accept = (fromKey == current)
+
+        Log.i(
+            "COACH_OVERLAY",
+            "consumeOverlaySignal from=$fromKey active=$active / current=$current accept=$accept"
+        )
+
+        if (accept) {
+            overlayActive = active
+        } else {
+            // 다른(이미 떠난) 화면에서 온 신호면 무시
+            Log.i("COACH_OVERLAY", "ignored overlay signal from $fromKey (current=$current)")
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
         CoachTour.maybeStartOnce(navController, context, coachStore)
@@ -1405,30 +1434,43 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 SubscribeScreen(
                     viewModel = subscribeViewModel,
                     navController = navController,
-                    onOverlayActiveChange = { overlayActive = it },
+                    onOverlayActiveChange = { isActive ->
+                        consumeOverlaySignal(Screen.Subscribe.route, isActive)
+                    },
                     bottomObstructionDp = bottomBarHeightDp
                 )
             }
+
             composable(Screen.Social.route) {
                 SocialScreen(
                     navController = navController,
-                    onOverlayActiveChange = { overlayActive = it },
-                    bottomObstructionDp = bottomBarHeightDp)
+                    onOverlayActiveChange = { isActive ->
+                        consumeOverlaySignal(Screen.Social.route, isActive)
+                    },
+                    bottomObstructionDp = bottomBarHeightDp
+                )
             }
+
             composable(Screen.RecipeStorage.route) {
                 MyRecipeStorageScreen(
                     navController = navController,
-                    onOverlayActiveChange = { overlayActive = it },
-                    bottomObstructionDp = bottomBarHeightDp)
+                    onOverlayActiveChange = { isActive ->
+                        consumeOverlaySignal(Screen.RecipeStorage.route, isActive)
+                    },
+                    bottomObstructionDp = bottomBarHeightDp
+                )
             }
+
             composable(Screen.MyPage.route) {
-                ProfileMainScreen(paddingValues = paddingValues,
+                ProfileMainScreen(
+                    paddingValues = paddingValues,
                     navController = navController,
                     parentOverlayActiveChange = { isActive ->
-                        Log.i("COACH_OVERLAY", "Home received from Profile: overlayActive=$isActive")
-                        overlayActive = isActive
+                        // 🔁 이전: overlayActive = isActive
+                        consumeOverlaySignal(Screen.MyPage.route, isActive)
                     },
-                    bottomObstructionDp = bottomBarHeightDp)
+                    bottomObstructionDp = bottomBarHeightDp
+                )
             }
         }
     }
