@@ -935,7 +935,7 @@ fun AppTopBar(
     isScrolled: Boolean
 ) {
     when (screens[selectedTab]) {
-        Screen.Home, Screen.Subscribe, Screen.MyPage -> {
+        Screen.Home -> {
             HomeTopBar(
                 user = user,
                 isScrolled = isScrolled
