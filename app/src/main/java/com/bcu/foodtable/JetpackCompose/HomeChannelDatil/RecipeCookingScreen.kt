@@ -62,6 +62,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -75,12 +76,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.bcu.foodtable.JetpackCompose.MultiShopPriceSearchActivity
+import com.bcu.foodtable.JetpackCompose.Mypage.myFridge.GlobalTray.items
 import com.bcu.foodtable.JetpackCompose.Social.ChatMessage
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.Friend
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoom
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatViewModel
 import com.bcu.foodtable.JetpackCompose.Social.sendMessage
+import com.bcu.foodtable.JetpackCompose.UserReviewActivity
+import com.bcu.foodtable.R
 import com.bcu.foodtable.TTS.CoachTurn
 import com.bcu.foodtable.TTS.CookingAiViewModel
 import com.bcu.foodtable.TTS.CookingAiViewModelFactory
@@ -792,9 +801,15 @@ fun RecipeCookingScreen(
                 }
 
                 ModernActionButton(
-                    text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 눈으로 맛보는 AI 요리 비교",
+                    text = if (isLoadingAiEval) "AI 분석 중..." else "후기 구경하기",
                     backgroundColor = Color(0xFF5C2B1B),
-                    onClick = { pickImageLauncherForAiEval.launch("image/*") },
+                    onClick = {
+                        val ctx = context // 이미 LocalContext.current 있으니 그걸 사용
+                        val rid = recipeId
+                        val intent = Intent(ctx, UserReviewActivity::class.java)
+                            .putExtra(UserReviewActivity.EXTRA_RECIPE_ID, rid)
+                        ctx.startActivity(intent)
+                    },
                     isLoading = isLoadingAiEval,
                     enabled = !isLoadingAiEval
                 )
@@ -1831,19 +1846,20 @@ private fun ShareRecipeSheet(
     onDismiss: () -> Unit,
     fetchFriends: suspend (String) -> List<Friend>
 ) {
-
-
     MaterialTheme(colorScheme = WarmLightColorScheme) {
+        var sendingKey by remember { mutableStateOf<String?>(null) }
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         var tab by remember { mutableStateOf(0) }
         val scope = rememberCoroutineScope()
         val ctx = LocalContext.current
 
-        val primary = MaterialTheme.colorScheme.primary
-        val onPrimary = MaterialTheme.colorScheme.onPrimary
-        val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-        val listContainer = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
-        val cardColor = MaterialTheme.colorScheme.surface
+        val cs = MaterialTheme.colorScheme
+        val primary = cs.primary
+        val onPrimary = cs.onPrimary
+        val onSurface = cs.onSurface
+        val onSurfaceVariant = cs.onSurfaceVariant
+        val listContainer = cs.surfaceVariant.copy(alpha = 0.22f)
+        val cardColor = cs.surface
 
         var friends by remember { mutableStateOf<List<Friend>>(emptyList()) }
         var rooms by remember { mutableStateOf<List<OpenChatRoom>>(emptyList()) }
@@ -1866,18 +1882,53 @@ private fun ShareRecipeSheet(
         ModalBottomSheet(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = cs.surface,
             dragHandle = { SheetHandle(color = primary.copy(alpha = 0.55f)) }
         ) {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                // 헤더
-                Text(
-                    "레시피 공유",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = primary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
+
+                // 헤더: 레시피 요약 카드
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = cs.surfaceVariant.copy(alpha = 0.35f)),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 썸네일 플래이스홀더(네트워크 이미지 미사용)
+                        Box(
+                            Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(cs.primary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🍳", style = MaterialTheme.typography.titleMedium)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "레시피 공유",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    color = primary, fontWeight = FontWeight.SemiBold
+                                )
+                            )
+                            Text(
+                                recipeTitle,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    color = onSurface, fontWeight = FontWeight.Medium
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(12.dp))
 
                 // 탭
@@ -1910,48 +1961,63 @@ private fun ShareRecipeSheet(
 
                 Spacer(Modifier.height(12.dp))
 
+                // 본문
                 if (loading) {
+                    // Lottie 로딩(share.lottie)
+                    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.share))
+                    val progress by animateLottieCompositionAsState(
+                        composition = composition,
+                        iterations = LottieConstants.IterateForever,
+                        speed = 1.0f
+                    )
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
+                            .height(180.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(listContainer),
                         contentAlignment = Alignment.Center
-                    ) { CircularProgressIndicator(color = primary) }
+                    ) {
+                        LottieAnimation(
+                            composition = composition,
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f)
+                                .aspectRatio(1.6f)
+                        )
+                    }
                 } else {
                     if (tab == 0) {
                         if (friends.isEmpty()) {
                             EmptyState(text = "보낼 친구가 없어요.")
                         } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(listContainer),
-                                contentPadding = PaddingValues(vertical = 6.dp)
-                            ) {
+                            SectionContainer {
                                 items(friends, key = { it.uid }) { f ->
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = cardColor),
-                                        shape = RoundedCornerShape(12.dp),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                        modifier = Modifier
-                                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                                    ) {
-                                        ListItem(
-                                            headlineContent = { Text(f.name, color = MaterialTheme.colorScheme.onSurface) },
-                                            trailingContent = {
+                                    ShareRowCard(
+                                        title = f.name,
+                                        subtitle = null,
+                                        // friends 리스트의 ShareRowCard trailingContent 자리
+                                        trailing = {
+                                            val key = "dm:${f.uid}"
+                                            if (sendingKey == key) {
+                                                SmallShareLottie()
+                                            } else {
                                                 Button(
                                                     onClick = {
                                                         scope.launch {
+                                                            sendingKey = key
                                                             runCatching { onSendDm(f.uid) }
                                                                 .onSuccess {
-                                                                    Toast.makeText(ctx, "개인채팅으로 보냈어요.", Toast.LENGTH_SHORT).show()
+                                                                    android.widget.Toast
+                                                                        .makeText(ctx, "개인채팅으로 보냈어요.", android.widget.Toast.LENGTH_SHORT)
+                                                                        .show()
                                                                     onDismiss()
                                                                 }
                                                                 .onFailure {
-                                                                    Toast.makeText(ctx, it.message ?: "전송 실패", Toast.LENGTH_SHORT).show()
+                                                                    sendingKey = null
+                                                                    android.widget.Toast
+                                                                        .makeText(ctx, it.message ?: "전송 실패", android.widget.Toast.LENGTH_SHORT)
+                                                                        .show()
                                                                 }
                                                         }
                                                     },
@@ -1960,14 +2026,13 @@ private fun ShareRecipeSheet(
                                                         contentColor = onPrimary
                                                     )
                                                 ) { Text("보내기") }
-                                            },
-                                            colors = ListItemDefaults.colors(
-                                                containerColor = Color.Transparent,
-                                                headlineColor = MaterialTheme.colorScheme.onSurface,
-                                                supportingColor = onSurfaceVariant
-                                            )
-                                        )
-                                    }
+                                            }
+                                        }
+                                        ,
+                                        cardColor = cardColor,
+                                        onSurface = onSurface,
+                                        onSurfaceVariant = onSurfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -1975,49 +2040,34 @@ private fun ShareRecipeSheet(
                         if (rooms.isEmpty()) {
                             EmptyState(text = "참여중인 오픈채팅이 없어요.")
                         } else {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(listContainer),
-                                contentPadding = PaddingValues(vertical = 6.dp)
-                            ) {
+                            SectionContainer {
                                 items(rooms, key = { it.id }) { r ->
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = cardColor),
-                                        shape = RoundedCornerShape(12.dp),
-                                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                        modifier = Modifier
-                                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                                    ) {
-                                        ListItem(
-                                            headlineContent = {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(r.title, color = MaterialTheme.colorScheme.onSurface)
-                                                    if (r.ownerUid == myUid) {
-                                                        Spacer(Modifier.width(6.dp))
-                                                        Icon(
-                                                            imageVector = Icons.Default.Verified,
-                                                            contentDescription = null,
-                                                            tint = primary
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                            supportingContent = {
-                                                Text("${(r.memberIds?.size ?: 0)}명", color = onSurfaceVariant)
-                                            },
-                                            trailingContent = {
+                                    ShareRowCard(
+                                        title = r.title,
+                                        subtitle = "${(r.memberIds?.size ?: 0)}명",
+                                        leadingVerified = r.ownerUid == myUid,
+                                        // rooms 리스트의 ShareRowCard trailingContent 자리
+                                        trailing = {
+                                            val key = "room:${r.id}"
+                                            if (sendingKey == key) {
+                                                SmallShareLottie()
+                                            } else {
                                                 Button(
                                                     onClick = {
                                                         scope.launch {
+                                                            sendingKey = key
                                                             runCatching { onSendOpenRoom(r.id) }
                                                                 .onSuccess {
-                                                                    Toast.makeText(ctx, "오픈채팅으로 보냈어요.", Toast.LENGTH_SHORT).show()
+                                                                    android.widget.Toast
+                                                                        .makeText(ctx, "오픈채팅으로 보냈어요.", android.widget.Toast.LENGTH_SHORT)
+                                                                        .show()
                                                                     onDismiss()
                                                                 }
                                                                 .onFailure {
-                                                                    Toast.makeText(ctx, it.message ?: "전송 실패", Toast.LENGTH_SHORT).show()
+                                                                    sendingKey = null
+                                                                    android.widget.Toast
+                                                                        .makeText(ctx, it.message ?: "전송 실패", android.widget.Toast.LENGTH_SHORT)
+                                                                        .show()
                                                                 }
                                                         }
                                                     },
@@ -2026,14 +2076,13 @@ private fun ShareRecipeSheet(
                                                         contentColor = onPrimary
                                                     )
                                                 ) { Text("보내기") }
-                                            },
-                                            colors = ListItemDefaults.colors(
-                                                containerColor = Color.Transparent,
-                                                headlineColor = MaterialTheme.colorScheme.onSurface,
-                                                supportingColor = onSurfaceVariant
-                                            )
-                                        )
-                                    }
+                                            }
+                                        }
+                                        ,
+                                        cardColor = cardColor,
+                                        onSurface = onSurface,
+                                        onSurfaceVariant = onSurfaceVariant
+                                    )
                                 }
                             }
                         }
@@ -2041,6 +2090,114 @@ private fun ShareRecipeSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SmallShareLottie() {
+    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.share))
+    val progress by animateLottieCompositionAsState(
+        composition = composition,
+        iterations = LottieConstants.IterateForever,
+        speed = 1.1f
+    )
+    Box(
+        Modifier
+            .height(36.dp)
+            .width(72.dp), // 버튼 자리 대체
+        contentAlignment = Alignment.Center
+    ) {
+        LottieAnimation(
+            composition = composition,
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth(0.9f)
+        )
+    }
+}
+
+@Composable
+private fun SectionContainer(
+    content: @Composable () -> Unit = {},
+    listContent: (LazyListScope.() -> Unit)? = null
+) {
+    val cs = MaterialTheme.colorScheme
+    val listContainer = cs.surfaceVariant.copy(alpha = 0.22f)
+    if (listContent != null) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(listContainer),
+            contentPadding = PaddingValues(vertical = 6.dp),
+            content = listContent
+        )
+    } else {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(listContainer)
+        ) { content() }
+    }
+}
+
+@Composable
+private fun ShareRowCard(
+    title: String,
+    subtitle: String? = null,
+    leadingVerified: Boolean = false,
+    trailing: @Composable () -> Unit,
+    cardColor: Color,
+    onSurface: Color,
+    onSurfaceVariant: Color
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+    ) {
+        ListItem(
+            leadingContent = {
+                // 간단한 아바타 플레이스홀더
+                Box(
+                    Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        title.firstOrNull()?.toString()?.uppercase() ?: "•",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            headlineContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, color = onSurface)
+                    if (leadingVerified) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            },
+            supportingContent = {
+                if (subtitle != null) Text(subtitle, color = onSurfaceVariant)
+            },
+            trailingContent = trailing,
+            colors = ListItemDefaults.colors(
+                containerColor = Color.Transparent,
+                headlineColor = onSurface,
+                supportingColor = onSurfaceVariant
+            )
+        )
     }
 }
 

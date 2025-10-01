@@ -146,6 +146,10 @@
             android:exported="true"
             android:label="가맹 기본 설정" />
         <activity android:name=".HomeActivity" />
+        <activity
+            android:name=".JetpackCompose.UserReviewActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity android:name=".LoginActivity" android:exported="false" android:windowSoftInputMode="adjustPan" />
         <activity android:name=".SignUpActivity" android:exported="false" />
         <activity android:name=".PuchasePage" android:exported="false" />
