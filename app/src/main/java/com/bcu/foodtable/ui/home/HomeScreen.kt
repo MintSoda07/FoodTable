@@ -177,6 +177,7 @@ import kotlinx.coroutines.delay
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.heightIn
@@ -205,7 +206,9 @@ import androidx.compose.material.icons.filled.ScatterPlot
 import androidx.compose.material.icons.filled.SetMeal
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.BeyondBoundsLayout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavController
@@ -232,6 +235,7 @@ import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeByIdScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapWithCustomDrawer
 import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
+import com.bcu.foodtable.JetpackCompose.coach.CoachScrimColor
 import com.bcu.foodtable.JetpackCompose.coach.CoachStep
 import com.bcu.foodtable.JetpackCompose.coach.CoachTargets
 import com.bcu.foodtable.JetpackCompose.coach.CoachTour
@@ -258,6 +262,8 @@ import java.sql.Date
  * @param text 표시할 전체 텍스트.
  * @param typingDelay 글자 사이의 지연 시간 (밀리초).
  */
+
+private const val COACH_SCRIM_ALPHA = 0.55f
 @Composable
 fun TypingAnimatedText(
     text: String,
@@ -293,9 +299,9 @@ fun TypingAnimatedText(
 
 sealed class Screen(val route: String, val label: String, val icon: Int) {
     object Home : Screen("home", "홈", R.drawable.ic_home_black_24dp)
-    object Subscribe : Screen("subscribe", "구독", R.drawable.ic_notifications_black_24dp)
+    object Subscribe : Screen("subscribe", "채널", R.drawable.ic_notifications_black_24dp)
     object Social : Screen("social", "소설", R.drawable.ic_dashboard_black_24dp)
-    object RecipeStorage : Screen("storage", "레시피 저장소", R.drawable.baseline_menu_book_24)
+    object RecipeStorage : Screen("storage", "레시피 관리", R.drawable.baseline_menu_book_24)
     object MyPage : Screen("mypage", "마이페이지", R.drawable.ic_profile_placeholder)
 }
 
@@ -956,7 +962,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val screens = listOf(
-        Screen.Home, Screen.Subscribe, Screen.Social, Screen.RecipeStorage, Screen.MyPage
+        Screen.Home, Screen.RecipeStorage, Screen.Social, Screen.Subscribe, Screen.MyPage
     )
     var selectedTab by remember { mutableStateOf(0) }
 
@@ -976,12 +982,34 @@ fun HomeScreen(viewModel: HomeViewModel) {
     val targets = remember { CoachTargets() }
     var showCoach by remember { mutableStateOf(true) }
     val coachBringer = remember { BringIntoViewRequester() }
-    val bottomBarHeight = 0.dp
 
     var overlayActive by remember { mutableStateOf(false) }
+
+    // 바텀바 높이 측정
+    var bottomBarHeightDp by remember { mutableStateOf(0.dp) }
+
+    val fallback = 80.dp
+    val scrimHeight = remember(bottomBarHeightDp) {
+        if (bottomBarHeightDp > 0.dp) bottomBarHeightDp else fallback
+    }
+
+    val interaction = remember { MutableInteractionSource() }
+
     LaunchedEffect(Unit) {
         viewModel.initializeRecommendationSystem()
         CoachTour.maybeStartOnce(navController, context, coachStore)
+    }
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { controller, dest, args ->
+            // 위에서 만든 유틸을 그대로 사용
+            Log.i(
+                "NAV_TRACE",
+                "[destChanged] host=${controller.hashCode().toString(16)} " +
+                        "graph=${controller.graph.id} dest=${dest.route ?: "id=${dest.id}"}"
+            )
+        }
+        navController.addOnDestinationChangedListener(listener)
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
     }
     // 구독 탭 클릭 효과
     LaunchedEffect(currentRoute) {
@@ -1033,6 +1061,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             }
         }
     }
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         topBar = {
             AppTopBar(
@@ -1047,7 +1076,6 @@ fun HomeScreen(viewModel: HomeViewModel) {
                 screens = screens,
                 selectedTab = selectedTab,
                 onTabSelected = { index ->
-                    if (overlayActive) return@AppBottomNavigationBar // 코치마크 중 탭 무시
                     selectedTab = index
                     navController.navigate(screens[index].route) {
                         popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -1055,7 +1083,8 @@ fun HomeScreen(viewModel: HomeViewModel) {
                         restoreState = true
                     }
                 },
-                navController = navController
+                navController = navController,
+                onHeightMeasured = { h -> bottomBarHeightDp = h }
             )
         },
         floatingActionButton = {
@@ -1373,26 +1402,79 @@ fun HomeScreen(viewModel: HomeViewModel) {
 
 
             composable(Screen.Subscribe.route) {
-                SubscribeScreen(viewModel = subscribeViewModel, navController = navController)
+                SubscribeScreen(
+                    viewModel = subscribeViewModel,
+                    navController = navController,
+                    onOverlayActiveChange = { overlayActive = it },
+                    bottomObstructionDp = bottomBarHeightDp
+                )
             }
             composable(Screen.Social.route) {
-                SocialScreen(navController = navController)
+                SocialScreen(
+                    navController = navController,
+                    onOverlayActiveChange = { overlayActive = it },
+                    bottomObstructionDp = bottomBarHeightDp)
             }
             composable(Screen.RecipeStorage.route) {
-                MyRecipeStorageScreen(navController = navController)
+                MyRecipeStorageScreen(
+                    navController = navController,
+                    onOverlayActiveChange = { overlayActive = it },
+                    bottomObstructionDp = bottomBarHeightDp)
             }
             composable(Screen.MyPage.route) {
-                ProfileMainScreen(paddingValues = paddingValues, navController = navController)
+                ProfileMainScreen(paddingValues = paddingValues,
+                    navController = navController,
+                    parentOverlayActiveChange = { isActive ->
+                        Log.i("COACH_OVERLAY", "Home received from Profile: overlayActive=$isActive")
+                        overlayActive = isActive
+                    },
+                    bottomObstructionDp = bottomBarHeightDp)
             }
         }
     }
-    InteractionBlocker(
-        visible = overlayActive,
-        modifier = Modifier
-            .fillMaxSize()     // 화면 전체 덮기
-            .zIndex(998f)          // 코치마크(999f) 바로 아래
-    )
-    if (showCoach) {
+        Log.i("BOTTOM_BLOCK", "overlayActive=$overlayActive route=$currentRoute scrimHeight=$scrimHeight bottomBarHeightDp=$bottomBarHeightDp")
+
+        // 라우트별 시각용 스크림 표시 여부만 결정
+        val showVisualScrim = overlayActive && when {
+            currentRoute == Screen.Home.route -> false          // 홈만 끔
+            currentRoute == Screen.Subscribe.route -> true
+            currentRoute == Screen.Social.route -> true
+            currentRoute == Screen.RecipeStorage.route -> true
+            currentRoute == Screen.MyPage.route -> true         //  마이페이지 켬
+            currentRoute?.startsWith("profile/") == true -> true// 프로필 파생 라우트도 켬
+            else -> true
+        }
+        Log.i("BOTTOM_BLOCK", "showVisualScrim=$showVisualScrim")
+        if (overlayActive) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .zIndex(998f) // CoachmarkOverlay(999f) 아래
+            ) {
+                //터치 차단은 무조건 (모든 라우트 공통)
+                com.bcu.foodtable.JetpackCompose.coach.InteractionBlocker(
+                    visible = true,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(scrimHeight) // bottomBarHeightDp 기반
+                )
+
+                //  시각용 검은 박스는 라우트에 따라
+                if (showVisualScrim) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(scrimHeight)
+                            .background(CoachScrimColor) // 0.55 통일
+                    )
+                }
+            }
+        }
+
+
+        if (showCoach) {
         CoachmarkOverlay(
             screen = CoachScreen.HOME,
             steps = listOf(
@@ -1405,7 +1487,7 @@ fun HomeScreen(viewModel: HomeViewModel) {
             ),
             targets = targets,
             store = coachStore,
-            bottomObstructionDp = bottomBarHeight,
+            bottomObstructionDp = bottomBarHeightDp, // 이미 변수로 바꿈
             onClose = {
                 showCoach = false
                 if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.HOME) {
@@ -1417,13 +1499,15 @@ fun HomeScreen(viewModel: HomeViewModel) {
             modifier = Modifier.fillMaxSize().zIndex(999f)
         )
     }
+    }
 }
 @Composable
 fun AppBottomNavigationBar(
     screens: List<Screen>,
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
-    navController: NavController // 🔹 navController 추가
+    navController: NavController, // 🔹 navController 추가
+    onHeightMeasured: (Dp) -> Unit = {}
 ) {
     val context = LocalContext.current
     // 🔐 비밀 코드 상태
@@ -1431,10 +1515,13 @@ fun AppBottomNavigationBar(
     var clickHistory by remember { mutableStateOf(emptyList<Int>()) }
     var lastInputAt by remember { mutableStateOf(0L) }
     val timeoutMs = 6000L // 입력 제한 시간(6초)
-
+    val density = LocalDensity.current
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
-        tonalElevation = 0.dp
+        tonalElevation = 0.dp,
+        modifier = Modifier.onSizeChanged { size ->
+            onHeightMeasured(with(density) { size.height.toDp() }) // ← 실측
+        }
     ) {
         screens.forEachIndexed { index, screen ->
             NavigationBarItem(

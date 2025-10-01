@@ -91,7 +91,7 @@ exports.evaluateDish = functions.https.onCall(async (data, context) => {
 
   try {
     // --- 모델명 변경 ---
-    const model = genAI.getGenerativeModel({model: "gemini-1.5-flash-latest"}); // 최신 모델로 변경
+    const model = genAI.getGenerativeModel({model: "gemini-2.5-flash"}); // 최신 모델로 변경
     // --- 모델명 변경 끝 ---
 
     const userImagePart = {inlineData: {data: userImageBase64, mimeType: mimeTypeUser}};
@@ -189,7 +189,7 @@ exports.askRecipe = functions.https.onCall(async (data, context) => {
        `;
 
 try {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent(prompt);
 
   if (!result || !result.response) {

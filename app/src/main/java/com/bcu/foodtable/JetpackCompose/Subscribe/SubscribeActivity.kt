@@ -61,62 +61,62 @@ fun SubscribeScreenWithNavigation(
         homeViewModel.loadUserInfo()
     }
 
-    Scaffold(
-        topBar = {
-            HomeTopBar(
-                user = user,
-                isScrolled = false
-
-            )
-        },
-        bottomBar = {
-            AppBottomNavigationBar(
-                screens = screens,
-                selectedTab = selectedTab,
-                onTabSelected = { index ->
-                    selectedTab = index
-                    navController.navigate(screens[index].route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            saveState = true
-                        }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                navController = navController
-            )
-        }
-    ) { paddingValues ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Subscribe.route,
-            modifier = Modifier.padding(paddingValues)
-        ) {
-            composable(Screen.Subscribe.route) {
-                SubscribeScreen(
-                    viewModel = subscribeViewModel,
-                    navController = navController,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            composable(Screen.MyPage.route) {
-                ProfileMainScreen(paddingValues = paddingValues, navController = navController)
-            }
-            composable(Screen.Social.route) {
-                LaunchedEffect(Unit) {
-                    navController.context.startActivity(Intent(navController.context, AiMainActivity::class.java))
-                }
-            }
-            composable(Screen.RecipeStorage.route) {
-                LaunchedEffect(Unit) {
-                    navController.context.startActivity(Intent(navController.context, RecipeStorageActivity::class.java))
-                }
-            }
-            composable(Screen.Home.route) {
-                LaunchedEffect(Unit) {
-                    (navController.context as? ComponentActivity)?.finish() // Return to home
-                }
-            }
-        }
-    }
+//    Scaffold(
+//        topBar = {
+//            HomeTopBar(
+//                user = user,
+//                isScrolled = false
+//
+//            )
+//        },
+//        bottomBar = {
+//            AppBottomNavigationBar(
+//                screens = screens,
+//                selectedTab = selectedTab,
+//                onTabSelected = { index ->
+//                    selectedTab = index
+//                    navController.navigate(screens[index].route) {
+//                        popUpTo(navController.graph.startDestinationId) {
+//                            saveState = true
+//                        }
+//                        launchSingleTop = true
+//                        restoreState = true
+//                    }
+//                },
+//                navController = navController
+//            )
+//        }
+//    ) { paddingValues ->
+//        NavHost(
+//            navController = navController,
+//            startDestination = Screen.Subscribe.route,
+//            modifier = Modifier.padding(paddingValues)
+//        ) {
+//            composable(Screen.Subscribe.route) {
+//                SubscribeScreen(
+//                    viewModel = subscribeViewModel,
+//                    navController = navController,
+//                    modifier = Modifier.fillMaxSize()
+//                )
+//            }
+//            composable(Screen.MyPage.route) {
+//                ProfileMainScreen(paddingValues = paddingValues, navController = navController)
+//            }
+//            composable(Screen.Social.route) {
+//                LaunchedEffect(Unit) {
+//                    navController.context.startActivity(Intent(navController.context, AiMainActivity::class.java))
+//                }
+//            }
+//            composable(Screen.RecipeStorage.route) {
+//                LaunchedEffect(Unit) {
+//                    navController.context.startActivity(Intent(navController.context, RecipeStorageActivity::class.java))
+//                }
+//            }
+//            composable(Screen.Home.route) {
+//                LaunchedEffect(Unit) {
+//                    (navController.context as? ComponentActivity)?.finish() // Return to home
+//                }
+//            }
+//        }
+//    }
 }

@@ -67,8 +67,10 @@ import com.bcu.foodtable.JetpackCompose.coach.CoachTour // 투어 사용 시
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
+import com.bcu.foodtable.JetpackCompose.coach.CoachScrimColor
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -82,7 +84,9 @@ fun MyRecipeStorageScreen(
     modifier: Modifier = Modifier,
     viewModel: RecipeGalleryViewModel = viewModel(),
     homeViewModel: HomeViewModel = viewModel(),
-    navController: NavHostController
+    navController: NavHostController,
+    onOverlayActiveChange: (Boolean) -> Unit = {},
+    bottomObstructionDp: Dp = 0.dp
 ) {
     val context = LocalContext.current
     val galleryItems by viewModel.galleryItems.collectAsState()
@@ -384,7 +388,7 @@ fun MyRecipeStorageScreen(
                 ),
                 targets = targets,
                 store = store,
-                bottomObstructionDp = bottomBarHeight,
+                bottomObstructionDp = bottomObstructionDp,
                 onClose = {
                     showCoach = false
                     // 투어를 쓰는 프로젝트라면 다음 스텝으로 진행
@@ -394,7 +398,9 @@ fun MyRecipeStorageScreen(
                 },
                 modifier = Modifier
                     .fillMaxSize()
-                    .zIndex(999f)
+                    .zIndex(999f),
+                onOverlayActiveChange = onOverlayActiveChange,
+                scrim  = CoachScrimColor
             )
         }
     }
