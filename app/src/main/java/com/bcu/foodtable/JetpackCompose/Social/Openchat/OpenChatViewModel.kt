@@ -191,7 +191,8 @@ class OpenChatViewModel : ViewModel() {
             val batch = db.batch()
             msgIds.forEach { id ->
                 val ref = rooms.document(roomId).collection("messages").document(id)
-                batch.set(ref, mapOf("readBy.$uid" to true), SetOptions.merge())
+
+                batch.update(ref, FieldPath.of("readBy", uid), true)
             }
             batch.commit().await()
         }

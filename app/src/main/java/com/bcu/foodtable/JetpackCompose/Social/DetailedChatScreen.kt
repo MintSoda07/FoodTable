@@ -8,18 +8,12 @@ import androidx.activity.result.contract.ActivityResultContracts.GetContent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,26 +37,25 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
 import com.bcu.foodtable.AppState
-import com.bcu.foodtable.InAppEvents
 import com.bcu.foodtable.R
+import com.bcu.foodtable.JetpackCompose.HomeViewModel
+import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentInviteBubble
+import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeShareBubble
 import com.bcu.foodtable.useful.UserManager
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.functions.ktx.functions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
-import com.bcu.foodtable.JetpackCompose.HomeViewModel
-import com.bcu.foodtable.JetpackCompose.Social.Appointment.AppointmentInviteBubble
-import com.bcu.foodtable.JetpackCompose.Social.Openchat.RecipeShareBubble
-import com.google.firebase.firestore.SetOptions
-import com.google.firebase.functions.FirebaseFunctions
-import com.google.firebase.functions.ktx.functions
-import com.google.firebase.ktx.Firebase
+import androidx.compose.runtime.withFrameNanos
 
 @kotlinx.serialization.Serializable
 data class ChatMessage(
@@ -84,6 +77,9 @@ data class ChatMessage(
     val appointmentId: String? = null
 )
 
+/* =========================
+   Chat theme (그대로 유지)
+   ========================= */
 private val ChatColorScheme = lightColorScheme(
     primary = Color(0xFFF57C00),
     onPrimary = Color.White,
@@ -95,18 +91,6 @@ private val ChatColorScheme = lightColorScheme(
     surfaceVariant = Color(0xFFECEFF1),
     onSurfaceVariant = Color(0xFF37474F),
 )
-// === 유틸: 리스트가 하단 근처인지 판단 ===
-@Composable
-private fun rememberIsAtBottom(listState: LazyListState, tolerance: Int = 1): State<Boolean> {
-    return remember(listState) {
-        derivedStateOf {
-            val layout = listState.layoutInfo
-            if (layout.totalItemsCount == 0) return@derivedStateOf true
-            val lastVisible = layout.visibleItemsInfo.lastOrNull()?.index ?: 0
-            lastVisible >= (layout.totalItemsCount - 1 - tolerance)
-        }
-    }
-}
 
 @Composable
 fun ChatTheme(content: @Composable () -> Unit) {
@@ -121,7 +105,38 @@ fun ChatTheme(content: @Composable () -> Unit) {
     )
 }
 
+/* =========================
+   공용 스크롤 헬퍼 (이 파일에 포함)
+   ========================= */
+// 레이아웃이 실제로 끝난 뒤 안전하게 특정 인덱스로 이동
+suspend fun LazyListState.scrollToIndexAfterComposition(index: Int, offset: Int = 0) {
+    if (index < 0) return
+    var guard = 0
+    while (layoutInfo.totalItemsCount == 0 && guard < 10) {
+        withFrameNanos { } // 다음 프레임까지 대기
+        guard++
+    }
+    withFrameNanos { }     // 한 프레임 여유
+    scrollToItem(index, offset)
+}
 
+// 바닥으로 애니메이션 스크롤
+suspend fun LazyListState.animateToBottomIfPossible(total: Int) {
+    if (total > 0) animateScrollToItem(total - 1)
+}
+
+// 내가 바닥에 있는지 (카톡식 auto-follow)
+val LazyListState.isAtBottom: Boolean
+    get() {
+        val info = layoutInfo
+        if (info.totalItemsCount == 0) return true
+        val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+        return lastVisible >= info.totalItemsCount - 1
+    }
+
+/* =========================
+   DM 상세 화면 (카톡식 적용)
+   ========================= */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun DetailedChatScreen(
@@ -134,7 +149,6 @@ fun DetailedChatScreen(
     val storage = FirebaseStorage.getInstance().reference
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-
 
     // 현재 방 트래킹 (FCM 억제)
     DisposableEffect(targetUid) {
@@ -153,10 +167,22 @@ fun DetailedChatScreen(
 
     val messages = remember { mutableStateListOf<ChatMessage>() }
     var loading by remember { mutableStateOf(true) }
-    val listState = rememberLazyListState()
 
-    val isAtBottom by rememberIsAtBottom(listState)
-    var initialScrolled by remember { mutableStateOf(false) }
+    // ✅ 방 ID로 키잉된 리스트 상태 (이전 복원 무력화)
+    val listState = rememberSaveable(targetUid, saver = LazyListState.Saver) {
+        LazyListState(0, 0)
+    }
+
+    // ✅ 첫 미읽음/앵커/미읽음 수는 derivedStateOf로 반응형 계산
+    val firstUnreadIndex by remember(messages) {
+        derivedStateOf { messages.indexOfFirst { it.senderUid == targetUid && it.read != true } }
+    }
+    val anchorIndex by remember(messages, firstUnreadIndex) {
+        derivedStateOf { if (firstUnreadIndex <= 0) messages.lastIndex else (firstUnreadIndex - 1) }
+    }
+    val unreadCount by remember(messages) {
+        derivedStateOf { messages.count { it.senderUid == targetUid && it.read != true } }
+    }
 
     var showTransferDialog by remember { mutableStateOf(false) }
 
@@ -171,7 +197,12 @@ fun DetailedChatScreen(
                 val url = ref.downloadUrl.await().toString()
                 sendMessage(
                     db, currentUid, targetUid,
-                    ChatMessage(senderUid = currentUid, imageUrl = url, timestamp = System.currentTimeMillis())
+                    ChatMessage(
+                        senderUid = currentUid,
+                        imageUrl = url,
+                        timestamp = System.currentTimeMillis(),
+                        type = "image"
+                    )
                 )
             }.onFailure {
                 Toast.makeText(context, "이미지 전송 실패", Toast.LENGTH_SHORT).show()
@@ -182,15 +213,7 @@ fun DetailedChatScreen(
     // 방 전환 시 메시지 초기화
     LaunchedEffect(targetUid) { messages.clear() }
 
-    // 최초 로딩 완료 & 기존 메시지 있을 때 한 번만 맨 아래로 즉시 스크롤
-    LaunchedEffect(loading, messages.size) {
-        if (!loading && messages.isNotEmpty() && !initialScrolled) {
-            listState.scrollToItem(messages.lastIndex)
-            initialScrolled = true
-        }
-    }
-
-    // 스냅샷 리스너
+    // 스냅샷 리스너 (메시지 수신/갱신)
     DisposableEffect(targetUid) {
         val query = db.collection("user").document(currentUid)
             .collection("chats").document(targetUid)
@@ -215,7 +238,7 @@ fun DetailedChatScreen(
                 }
             }
 
-            // 읽음 처리: 내/상대 문서 동시 업데이트
+            // 읽음 처리: 내/상대 문서 동시 업데이트 (상대가 보낸 미읽음만)
             val unreadDocs = snap.documents.filter {
                 it.getString("senderUid") == targetUid && it.getBoolean("read") != true
             }
@@ -236,10 +259,22 @@ fun DetailedChatScreen(
         onDispose { listener.remove() }
     }
 
-    // 새 메시지 자동 스크롤(하단 근처일 때만 부드럽게)
-    LaunchedEffect(messages.size, isAtBottom) {
-        if (messages.isNotEmpty() && isAtBottom) {
-            listState.animateScrollToItem(messages.lastIndex)
+    /* ===== 카톡식 스크롤 규칙 =====
+       1) 진입/로딩 후: 첫 미읽음 위(앵커)로 이동 (레이아웃 후 보장)
+       2) 새 메시지 도착: 내가 바닥에 있거나 내가 보낸 메시지면 따라감
+    */
+    // (1) 앵커로 즉시 이동 (레이아웃 보장 헬퍼 사용)
+    LaunchedEffect(targetUid, loading, messages.size) {
+        if (!loading && messages.isNotEmpty()) {
+            listState.scrollToIndexAfterComposition(anchorIndex)
+        }
+    }
+    // (2) 새 메시지: 바닥일 때만 or 내가 보냈을 때만 따라감
+    LaunchedEffect(messages.size) {
+        val last = messages.lastOrNull()
+        val iSentLast = (last?.senderUid == currentUid)
+        if (iSentLast || listState.isAtBottom) {
+            listState.animateToBottomIfPossible(messages.size)
         }
     }
 
@@ -277,10 +312,16 @@ fun DetailedChatScreen(
                 ChatInputBar(
                     onSendMessage = { text ->
                         scope.launch {
-                            sendMessage(
-                                db, currentUid, targetUid,
-                                ChatMessage(senderUid = currentUid, text = text, timestamp = System.currentTimeMillis())
-                            )
+                            if (text.isNotBlank()) {
+                                sendMessage(
+                                    db, currentUid, targetUid,
+                                    ChatMessage(
+                                        senderUid = currentUid,
+                                        text = text,
+                                        timestamp = System.currentTimeMillis()
+                                    )
+                                )
+                            }
                         }
                     },
                     onSendImage = { pickImageLauncher.launch("image/*") },
@@ -299,9 +340,16 @@ fun DetailedChatScreen(
                         contentPadding = PaddingValues(vertical = 12.dp, horizontal = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(messages, key = { it.id }) { msg ->
-                            val isMe = msg.senderUid == currentUid
+                        itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
+                            // 첫 미읽음 위치에 디바이더 삽입
+                            if (index == firstUnreadIndex && firstUnreadIndex >= 0) {
+                                val unreadTail = messages.drop(index)
+                                    .count { it.senderUid == targetUid && it.read != true }
+                                UnreadDivider(unreadCount = unreadTail)
+                                Spacer(Modifier.height(8.dp))
+                            }
 
+                            val isMe = msg.senderUid == currentUid
                             AnimatedVisibility(
                                 visible = true,
                                 enter = fadeIn(animationSpec = tween(220, delayMillis = 20)) +
@@ -326,7 +374,6 @@ fun DetailedChatScreen(
                                                         Toast.makeText(context, "존재하지 않는 방입니다.", Toast.LENGTH_SHORT).show()
                                                         return@launch
                                                     }
-                                                    // 존재하면 정상 진입
                                                     navController.navigate("openchat/$roomId")
                                                 }
                                             }
@@ -343,7 +390,6 @@ fun DetailedChatScreen(
                                             }
                                         )
                                     }
-
                                     else -> {
                                         ChatMessageBubble(
                                             message = msg,
@@ -359,27 +405,22 @@ fun DetailedChatScreen(
                     }
                 }
 
-                // 하단 점프 FAB (맨 아래가 아닐 때 노출)
+                // 하단 점프 FAB: 바닥이 아니고 미읽음 있을 때만
                 AnimatedVisibility(
-                    visible = !isAtBottom,
+                    visible = !listState.isAtBottom && unreadCount > 0,
                     enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
                     exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
                 ) {
-                    FloatingActionButton(
-                        onClick = {
-                            scope.launch {
-                                if (messages.isNotEmpty()) {
-                                    listState.animateScrollToItem(messages.lastIndex)
-                                }
-                            }
-                        },
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "맨 아래로")
-                    }
+                    ExtendedFloatingActionButton(
+                        onClick = { scope.launch { listState.animateToBottomIfPossible(messages.size) } },
+                        icon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = null) },
+                        text = { Text("새 메시지 $unreadCount") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             }
         }
@@ -398,6 +439,23 @@ fun DetailedChatScreen(
                 showTransferDialog = false
             }
         )
+    }
+}
+
+/* =========================
+   보조 컴포넌트들 (기존 유지)
+   ========================= */
+
+@Composable
+fun UnreadDivider(unreadCount: Int) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Text(
+                "안 읽은 메시지 ${unreadCount}개",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -577,7 +635,6 @@ fun ChatMessageBubble(
     ) {
         if (isMe) {
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(end = 4.dp)) {
-
                 AnimatedContent(
                     targetState = message.read, // true -> "읽음", false -> 숫자 "1"
                     transitionSpec = {
@@ -609,7 +666,6 @@ fun ChatMessageBubble(
                         Text(message.text, modifier = Modifier.padding(12.dp), color = textColor)
                     }
                     if (message.imageUrl != null) {
-
                         val scale by animateFloatAsState(
                             targetValue = 1f,
                             animationSpec = spring(
@@ -662,7 +718,6 @@ fun OpenChatInviteBubble(
     val roomId = message.openchatRoomId
     val isEnabled = !roomId.isNullOrBlank()
 
-    // DM은 좌/우 정렬 컨벤션이 있으니, 일반 메시지와 같은 폭으로
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center
@@ -738,7 +793,7 @@ fun MoneyTransferDialog(
     )
 }
 
-// ==== 백엔드 유틸 ====
+/* ========= 백엔드 유틸 ========= */
 
 fun claimPoint(
     db: FirebaseFirestore,
@@ -804,7 +859,6 @@ suspend fun sendMessage(
 
     val msgId = senderMsgRef.id
 
-    // 미리보기(최근 메시지) 텍스트
     val preview = when (message.type) {
         "appointment" -> "[약속] ${message.text.orEmpty()}"
         "recipe"      -> "[레시피] ${message.text.orEmpty()}"
@@ -812,27 +866,22 @@ suspend fun sendMessage(
         else          -> message.text?.take(50).orEmpty()
     }
 
-    // 변경 → 둘 다 false로 시작 (상대가 읽을 때 수신자 클라이언트가 양쪽 문서를 true로 바꿔줌)
     val senderPayload   = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = false)
     val receiverPayload = message.copy(id = msgId, senderUid = fromUid, timestamp = now, read = false)
 
-    // 채팅방(문서) 메타: 최근 메시지/시간 갱신 (둘 다)
     val senderChatMeta = mapOf("lastAt" to now, "lastMessage" to preview)
     val receiverChatMeta = mapOf("lastAt" to now, "lastMessage" to preview)
 
     db.runBatch { b ->
         b.set(senderMsgRef, senderPayload)
         b.set(receiverMsgRef, receiverPayload)
-
-        // /user/{from}/chats/{to}  와  /user/{to}/chats/{from} 문서에 메타 병합
         b.set(senderMsgRef.parent.parent!!, senderChatMeta, SetOptions.merge())
         b.set(receiverMsgRef.parent.parent!!, receiverChatMeta, SetOptions.merge())
     }.await()
 
-    // FCM
     callSendChat(
         toUid  = toUid,
-        chatUid = fromUid,          // 방 ID가 따로 있으면 그 값으로 교체
+        chatUid = fromUid,
         title  = "새 메시지",
         body   = preview
     )
@@ -843,16 +892,14 @@ private suspend fun callSendChat(
     title: String?,
     body: String?
 ) {
-    val fn = Firebase.functions("asia-northeast3") // ✅ 리전 맞춰주기
+    val fn = Firebase.functions("asia-northeast3")
     val payload = hashMapOf(
         "toUid" to toUid,
         "chatUid" to chatUid,
         "title" to (title ?: "새 메시지"),
         "body"  to (body ?: "")
     )
-
     val result = fn.getHttpsCallable("sendChat").call(payload).await()
-    // await()의 반환 타입은 HttpsCallableResult → data는 Any? 타입
     val data = result.getData()
     android.util.Log.d("sendChat", "ok: $data")
 }

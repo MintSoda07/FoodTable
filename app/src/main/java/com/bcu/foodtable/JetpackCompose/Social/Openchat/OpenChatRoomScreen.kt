@@ -19,7 +19,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -63,6 +63,25 @@ import com.bcu.foodtable.RecipePurchaseDialogExact
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
+/* =========================
+   (이 파일 내) 공용 스크롤 헬퍼
+   ========================= */
+// 특정 인덱스/오프셋으로 즉시 이동 (앵커 진입용)
+suspend fun LazyListState.scrollToIndexOffset(index: Int, offset: Int = 0) {
+    if (index >= 0) scrollToItem(index, offset)
+}
+// 바닥으로 애니메이션 이동 (auto-follow)
+suspend fun LazyListState.animateToBottom(total: Int) {
+    if (total > 0) animateScrollToItem(total - 1)
+}
+// 현재 바닥에 있는지 판정 (카톡식 auto-follow 조건)
+val LazyListState.isAtBottom: Boolean
+    get() {
+        val info = layoutInfo
+        if (info.totalItemsCount == 0) return true
+        val lastVisible = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+        return lastVisible >= info.totalItemsCount - 1
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,7 +143,7 @@ fun OpenChatRoomScreen(
         if (joined) vm.listenMessages(roomId)
 
         membershipChecked = true
-        showJoinDialog = (!isOwner && !joined)   // 판별 끝난 뒤에 다이얼로그 열지 결정
+        showJoinDialog = (!isOwner && !joined)
     }
 
     // 멤버 실시간(상단 "n명 참여중", 멤버 시트)
@@ -135,11 +154,10 @@ fun OpenChatRoomScreen(
             .addSnapshotListener { snap, _ ->
                 liveMemberCount = (snap?.size() ?: 0).toLong()
                 liveMembers = snap?.documents?.mapNotNull { it.toObject(OpenChatMember::class.java) }.orEmpty()
-
             }
         onDispose { reg.remove() }
     }
-    // 방 정보 로딩 이후 방 정보
+    // 방 정보 실시간
     DisposableEffect("roomDoc_$roomId") {
         val db = FirebaseFirestore.getInstance()
         val reg = db.collection("openRooms").document(roomId)
@@ -147,36 +165,70 @@ fun OpenChatRoomScreen(
                 val r = snap?.toObject(OpenChatRoom::class.java)?.copy(id = snap.id)
                 if (r != null) {
                     room = r
-                    isOwner = (r.ownerUid == myUid) // ← 메뉴 활성/비활성 즉시 반영
+                    isOwner = (r.ownerUid == myUid)
                 }
             }
         onDispose { reg.remove() }
     }
 
-
     val messages by vm.messages.collectAsState()
 
-    // ===== 자동 스크롤 고도화 =====
+    // ===== 카톡식 스크롤 =====
     val listState = rememberLazyListState()
-    var hasInitialScroll by remember { mutableStateOf(false) }
-    val isNearBottom by remember {
-        derivedStateOf {
-            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            val lastIndex = messages.lastIndex
-            if (lastIndex < 0) true else lastVisible >= lastIndex - 2
+
+    // 첫 미읽음 인덱스(시스템 제외) & 앵커
+    val firstUnreadIndex by remember(messages, myUid) {
+        mutableStateOf(messages.indexOfFirst { it.type != "system" && it.readBy[myUid] != true })
+    }
+    val anchorIndex by remember(messages, firstUnreadIndex) {
+        mutableStateOf(if (firstUnreadIndex <= 0) messages.lastIndex else (firstUnreadIndex - 1))
+    }
+    // FAB 배지용 미읽음 수
+    val unreadCount by remember(messages, myUid) {
+        mutableStateOf(messages.count { it.type != "system" && it.readBy[myUid] != true })
+    }
+    LaunchedEffect(unreadCount) {
+        if (unreadCount == 0 && messages.isNotEmpty()) {
+            listState.animateToBottom(messages.size)
         }
     }
-    // 자동 스크롤
-    LaunchedEffect(messages.size, joined) {
-        if (!joined || messages.isEmpty()) return@LaunchedEffect
-        if (!hasInitialScroll) {
-            listState.scrollToItem(messages.lastIndex)
-            hasInitialScroll = true
-        } else if (isNearBottom) {
-            listState.animateScrollToItem(messages.lastIndex)
+    // 진입/가입 완료 후: 앵커로 즉시 이동
+    LaunchedEffect(joined, messages.size) {
+        if (joined && messages.isNotEmpty()) {
+            // 1) 앵커로 이동
+            listState.scrollToIndexOffset(anchorIndex)
+
+            // 2) 현재 보이는 항목 + "첫 미읽음"까지 선반영 읽음처리
+            //    (첫 미읽음은 앵커 바로 아래라 화면에 안 보일 수 있어서 같이 찍어줌)
+            val visibleIds = listState.layoutInfo.visibleItemsInfo
+                .mapNotNull { it.key as? String }
+                .toMutableSet()
+
+            if (firstUnreadIndex >= 0) {
+                messages.getOrNull(firstUnreadIndex)?.id?.let { visibleIds += it }
+            }
+
+            val toMark = messages.asSequence()
+                .filter { it.id in visibleIds }
+                .filter { it.type != "system" && it.readBy[myUid] != true }
+                .map { it.id }
+                .toList()
+
+            if (toMark.isNotEmpty()) {
+                vm.markReadMany(roomId, myUid, toMark)
+            }
         }
     }
-    // 읽음 표시
+    // 새 메시지: 내가 보냈거나 바닥에 있을 때만 auto-follow
+    LaunchedEffect(messages.size) {
+        val last = messages.lastOrNull()
+        val iSentLast = (last?.senderUid == myUid)
+        if (iSentLast || listState.isAtBottom) {
+            listState.animateToBottom(messages.size)
+        }
+    }
+
+    // 읽음 표시(보이는 아이템 batched)
     LaunchedEffect(listState, messages, joined) {
         if (!joined) return@LaunchedEffect
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }
@@ -208,7 +260,7 @@ fun OpenChatRoomScreen(
         }
     }
 
-    // ===== 게이트: 멤버십 판별/방 정보 로딩 전에는 분기 X (깜빡임 방지) =====
+    // ===== 게이트: 멤버십 판별/방 정보 로딩 전에는 분기 X =====
     if (!membershipChecked || room == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
@@ -242,7 +294,7 @@ fun OpenChatRoomScreen(
         )
     }
 
-    // 미가입 + 다이얼로그 닫힌 자리표시 UI
+    // 미가입 + 다이얼로그 닫힘 → 자리표시
     if (!joined && !showJoinDialog) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -256,7 +308,7 @@ fun OpenChatRoomScreen(
         return
     }
 
-    // ===== 여기부터 joined == true 일 때만 채팅 UI =====
+    // ===== joined == true : 채팅 UI =====
     ChatTheme {
         Scaffold(
             topBar = {
@@ -305,7 +357,7 @@ fun OpenChatRoomScreen(
                                     onClick = { showMenu = false; showInvite = true }
                                 )
 
-                                // 공개/비공개 전환: 방장만 활성
+                                // 공개/비공개 전환: 방장만
                                 val willOpen = !(room?.open ?: true)
                                 DropdownMenuItem(
                                     text = { Text(if (willOpen) "공개로 전환" else "비공개로 전환") },
@@ -325,7 +377,7 @@ fun OpenChatRoomScreen(
                                     }
                                 )
 
-                                // 방장 양도: 방장 & 2명 이상일 때만 활성
+                                // 방장 양도
                                 val canTransfer = liveMemberCount >= 2
                                 DropdownMenuItem(
                                     text = { Text("방장 양도") },
@@ -336,7 +388,7 @@ fun OpenChatRoomScreen(
                                     }
                                 )
 
-                                // 방 삭제: 방장만
+                                // 방 삭제
                                 DropdownMenuItem(
                                     text = { Text("방 삭제") },
                                     enabled = isOwner,
@@ -346,7 +398,7 @@ fun OpenChatRoomScreen(
                                     }
                                 )
 
-                                // 방 나가기: 방장은 비활성(숨김), 멤버만 표시
+                                // 방 나가기(방장은 숨김)
                                 if (!isOwner) {
                                     DropdownMenuItem(
                                         text = { Text("방 나가기") },
@@ -373,14 +425,16 @@ fun OpenChatRoomScreen(
                     )
                 )
             },
+            // 하단 FAB: 바닥이 아니고 미읽음 있을 때만 노출 (카톡식)
             floatingActionButton = {
-                AnimatedVisibility(visible = !isNearBottom) {
-                    FloatingActionButton(
-                        onClick = { scope.launch { listState.animateScrollToItem(messages.lastIndex) } },
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "맨 아래로")
-                    }
+                AnimatedVisibility(visible = !listState.isAtBottom && unreadCount > 0) {
+                    ExtendedFloatingActionButton(
+                        onClick = { scope.launch { listState.animateToBottom(messages.size) } },
+                        icon = { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "맨 아래로") },
+                        text = { Text("새 메시지 $unreadCount") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 }
             },
             bottomBar = {
@@ -403,11 +457,17 @@ fun OpenChatRoomScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 itemsIndexed(messages, key = { _, m -> m.id }) { index, msg ->
+                    // 첫 미읽음 위치에 디바이더 삽입
+                    if (index == firstUnreadIndex && firstUnreadIndex >= 0) {
+                        UnreadDivider(unreadCount = messages.size - index)
+                        Spacer(Modifier.height(8.dp))
+                    }
+
                     val next = messages.getOrNull(index + 1)
                     val sameSenderNext = next?.senderUid == msg.senderUid
                     val within1MinNext = next != null && (next.timestamp - msg.timestamp) < 60_000
 
-                    // 다음 메시지가 같은 발신자 + 1분 이내면 지금 메시지는 묶음 중간 → 메타 숨김
+                    // 다음이 같은 발신자 + 1분 이내면 지금 메시지는 묶음 중간 → 메타 숨김
                     val showMeta = !(sameSenderNext && within1MinNext)
 
                     when (msg.type) {
@@ -444,20 +504,19 @@ fun OpenChatRoomScreen(
                         }
 
                         else -> {
-                            val unreadCount = if (showMeta)
+                            val unreadTail = if (showMeta)
                                 (liveMemberCount - msg.readBy.size.toLong()).coerceAtLeast(0)
                             else 0L
 
                             RoomMessageBubble(
                                 message = msg,
                                 isMe = msg.senderUid == myUid,
-                                unreadCount = unreadCount,
+                                unreadCount = unreadTail,
                                 showTime = showMeta
                             )
                         }
                     }
                 }
-
             }
         }
     }
@@ -665,6 +724,24 @@ private fun SystemBubble(text: String) {
     }
 }
 
+/* 안 읽은 메시지 디바이더 */
+@Composable
+private fun UnreadDivider(unreadCount: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Text(
+                "안 읽은 메시지 ${unreadCount}개",
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RoomMessageBubble(
@@ -802,6 +879,7 @@ private fun GroupReadIndicator(unreadCount: Long, timeText: String) {
         Text(timeText, fontSize = 10.sp, color = Color.Gray)
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MembersBottomSheet(
@@ -982,6 +1060,7 @@ fun RecipeShareBubble(
         }
     }
 }
+
 @Composable
 fun RecipeByIdScreen(rid: String, navController: NavController) {
     val db = FirebaseFirestore.getInstance()
