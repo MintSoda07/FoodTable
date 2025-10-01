@@ -88,6 +88,7 @@ import com.bcu.foodtable.JetpackCompose.Social.Openchat.Friend
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatRoom
 import com.bcu.foodtable.JetpackCompose.Social.Openchat.OpenChatViewModel
 import com.bcu.foodtable.JetpackCompose.Social.sendMessage
+import com.bcu.foodtable.JetpackCompose.UserReviewActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.TTS.CoachTurn
 import com.bcu.foodtable.TTS.CookingAiViewModel
@@ -800,9 +801,15 @@ fun RecipeCookingScreen(
                 }
 
                 ModernActionButton(
-                    text = if (isLoadingAiEval) "AI 분석 중..." else "🤖 눈으로 맛보는 AI 요리 비교",
+                    text = if (isLoadingAiEval) "AI 분석 중..." else "후기 구경하기",
                     backgroundColor = Color(0xFF5C2B1B),
-                    onClick = { pickImageLauncherForAiEval.launch("image/*") },
+                    onClick = {
+                        val ctx = context // 이미 LocalContext.current 있으니 그걸 사용
+                        val rid = recipeId
+                        val intent = Intent(ctx, UserReviewActivity::class.java)
+                            .putExtra(UserReviewActivity.EXTRA_RECIPE_ID, rid)
+                        ctx.startActivity(intent)
+                    },
                     isLoading = isLoadingAiEval,
                     enabled = !isLoadingAiEval
                 )
