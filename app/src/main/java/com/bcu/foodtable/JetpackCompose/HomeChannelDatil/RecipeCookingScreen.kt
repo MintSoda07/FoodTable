@@ -312,7 +312,10 @@ fun RecipeCookingScreen(
             when (command) {
                 VoiceCommandController.CommandType.NEXT -> {
                     // 상태만 업데이트 (버튼/음성 모두)
+                    val prev = currentIndex
                     goToNextStepWithoutTTS()
+                    //  코칭 점수 반영
+                    coachVm.onStepCompleted(prev, recipe)
                     // 음성 명령일 때만 TTS로 안내
                     if (currentIndex < steps.size) {
                         tts.speak(steps[currentIndex].text, TextToSpeech.QUEUE_FLUSH, null, "step")
@@ -333,10 +336,12 @@ fun RecipeCookingScreen(
                 //  TIMER 분기는 컨트롤러 내부에서 이미 처리되므로,
                 //    이곳에서는 별도 TTS 안내만(또는 아무것도 하지 않음) 해 줍니다.
                 VoiceCommandController.CommandType.TIMER -> {
-                    // (컨트롤러에서 이미 start/pause/resume 을 처리함)
-                    // 혹시 “현재 단계에 타이머가 없을 때” 안내하고 싶다면 추가 가능:
+                    // 타이머가 없는 단계면 안내
                     if (steps.getOrNull(currentIndex)?.timerState == null) {
                         tts.speak("현재 단계에 타이머가 없습니다.", TextToSpeech.QUEUE_FLUSH, null, "no_timer")
+                    } else {
+                        //  타이머 사용 기록 (한 번만 찍혀도 OK)
+                        coachVm.markTimerUsed(recipe)
                     }
                 }
 
@@ -670,20 +675,17 @@ fun RecipeCookingScreen(
                 CookingStepCard(
                     index = index,
                     step = step,
-                    onNext = { goToNextStepWithoutTTS()
+                    onNext = {
+                        val prev = currentIndex
+                        goToNextStepWithoutTTS()
+                        coachVm.onStepCompleted(prev, recipe)
 
-                        // 1) 음성 모드(isListening)가 켜져 있을 때만 TTS 읽기
                         if (isListening.value) {
                             steps.getOrNull(currentIndex)?.let { nextStep ->
-                                tts.speak(
-                                    nextStep.text,
-                                    TextToSpeech.QUEUE_FLUSH,
-                                    null,
-                                    "manual_next"
-                                )
+                                tts.speak(nextStep.text, TextToSpeech.QUEUE_FLUSH, null, "manual_next")
                             }
                         }
-                        },
+                    },
                     onRepeat = { repeatStep() }
                 )
             }
@@ -737,28 +739,7 @@ fun RecipeCookingScreen(
 
             // Action Buttons Section
             item {
-                Spacer(modifier = Modifier.height(20.dp))
 
-                ModernActionButton(
-                    text = if (isListening.value) "음성 명령 중지" else "🎤 음성 명령 시작",
-                    backgroundColor = if (isListening.value) Color(0xFFD32F2F) else Color(0xFFE25532),
-                    onClick = {
-                        if (!isListening.value) {
-                            val started = voiceController.startListening()
-                            if (started) {
-                                steps.getOrNull(currentIndex)?.let { stepState ->
-                                    tts.speak(stepState.text, TextToSpeech.QUEUE_FLUSH, null, "speak_step")
-                                }
-                                isListening.value = true
-                            }
-                        } else {
-                            voiceController.stop()
-                            tts.stop()
-                            isListening.value = false
-                        }
-                    },
-                    isLoading = false
-                )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -820,17 +801,27 @@ fun RecipeCookingScreen(
                 Spacer(Modifier.height(12.dp))
 
                 val isTesting by coachVm.isTesting.collectAsState()
+                // 하나로 통일된 버튼
                 ModernActionButton(
-                    text = if (isTesting) "🛑 테스트 종료 & 채점" else "🧪 코칭 테스트 시작",
-                    backgroundColor = if (isTesting) Color(0xFFD32F2F) else Color(0xFF3E7C59),
+                    text = if (isTesting) "🛑 레시피 AI 도우미 종료 & 채점" else "🤖 레시피 AI 도우미",
+                    backgroundColor = if (isTesting) Color(0xFFD32F2F) else Color(0xFFE25532),
                     onClick = {
                         if (!isTesting) {
+                            // 도우미 ON: 코칭 세션 시작 + 음성 인식/안내 시작
                             coachVm.startTest(recipe, currentIndex)
+
                             if (!isListening.value) {
                                 val started = voiceController.startListening()
-                                if (started) isListening.value = true
+                                if (started) {
+                                    isListening.value = true
+                                    // 현재 단계 TTS로 안내
+                                    steps.getOrNull(currentIndex)?.let { stepState ->
+                                        tts.speak(stepState.text, TextToSpeech.QUEUE_FLUSH, null, "ai_helper_start_step")
+                                    }
+                                }
                             }
                         } else {
+                            // 도우미 OFF: 채점 + 음성 종료
                             coachVm.finishAndScore(recipe) { final ->
                                 Toast.makeText(
                                     context,
@@ -838,18 +829,45 @@ fun RecipeCookingScreen(
                                     Toast.LENGTH_LONG
                                 ).show()
                             }
+                            if (isListening.value) {
+                                voiceController.stop()
+                                tts.stop()
+                                isListening.value = false
+                            }
                         }
                     }
                 )
 
+                // 테스트 패널은 isTesting 동안 그대로 유지
                 if (isTesting) {
                     Spacer(Modifier.height(12.dp))
-                    CoachTranscriptPanel(
+                    AiHelperPanel(
                         transcript = coachVm.transcript,
-                        liveScore = coachVm.liveScore.collectAsState().value,
-                        slots = coachVm.slots
+                        liveScore  = coachVm.liveScore.collectAsState().value,
+                        slots      = coachVm.slots,
+                        isListening = isListening.value,
+                        onReconnect = {
+                            // 간단 재연결 시나리오: STT 재시작 + (필요 시) 세션 재시작
+                            if (isListening.value) {
+                                voiceController.stop()
+                                tts.stop()
+                                isListening.value = false
+                            }
+                            // 세션이 꺼져있다면 다시 시작
+                            if (!coachVm.isTesting.value) {
+                                coachVm.startTest(recipe, currentIndex)
+                            }
+                            val started = voiceController.startListening()
+                            if (started) {
+                                isListening.value = true
+                                steps.getOrNull(currentIndex)?.let { stepState ->
+                                    tts.speak(stepState.text, TextToSpeech.QUEUE_FLUSH, null, "ai_helper_reconnected")
+                                }
+                            }
+                        }
                     )
                 }
+
             }
 
             // 기존 댓글 섹션
@@ -2217,51 +2235,86 @@ private fun EmptyState(text: String) {
 }
 
 @Composable
-private fun CoachTranscriptPanel(
+private fun AiHelperPanel(
     transcript: List<CoachTurn>,
     liveScore: Int,
-    slots: Map<String, Any>
+    slots: Map<String, Any>,
+    isListening: Boolean,
+    onReconnect: () -> Unit
 ) {
+    // 마지막 발화 기준으로 간단 오류 감지 (문구는 네 VM/서버 상황에 맞게 튜닝 가능)
+    val lastAssistant = transcript.lastOrNull { it.role != "user" }?.text.orEmpty()
+    val hasServerIssue = remember(lastAssistant) {
+        listOf("서버", "연결", "오류", "문제").any { it in lastAssistant }
+    }
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F6F4))
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text("테스트 진행 중", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            Text("실시간 점수: $liveScore / 100", color = Color(0xFF3E7C59))
+            // 헤더 라벨 변경
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🤖 레시피 AI 도우미", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.width(8.dp))
+                AssistChip(
+                    onClick = {},
+                    label = { Text(if (isListening) "청취중" else "대기") },
+                    leadingIcon = {},
+                )
+                Spacer(Modifier.width(6.dp))
+                AssistChip(
+                    onClick = {},
+                    label = { Text("실시간 점수: $liveScore") },
+                    leadingIcon = {},
+                )
+            }
 
-            Spacer(Modifier.height(8.dp))
+            // 서버 이슈 감지 시 안내 + 재연결
+            if (hasServerIssue) {
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE8E6)),
+                    border = BorderStroke(1.dp, Color(0xFFF19993)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "도우미 서버 응답이 불안정해요. 잠시 후 다시 시도하거나 재연결을 눌러주세요.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF9B2C2C)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = onReconnect,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE25532),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp)
+                        ) { Text("재연결") }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
             Text("대화", style = MaterialTheme.typography.labelLarge)
             Spacer(Modifier.height(6.dp))
 
-            //  transcript는 List라서 asReversed().take(10)로 안전하게
-            transcript
-                .asReversed()
-                .take(10)
-                .asReversed()
-                .forEach { turn ->
-                    val who = if (turn.role == "user") "🙋‍♂️" else "👩‍🍳"
-                    Text("$who ${turn.text}")
-                    Spacer(Modifier.height(4.dp))
-                }
+            // 최근 10줄만 표시
+            transcript.asReversed().take(10).asReversed().forEach { turn ->
+                val who = if (turn.role == "user") "🙋‍♂️" else "👩‍🍳"
+                Text("$who ${turn.text}")
+                Spacer(Modifier.height(4.dp))
+            }
 
             if (slots.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
                 Text("추출 정보(슬롯)", style = MaterialTheme.typography.labelLarge)
                 Spacer(Modifier.height(6.dp))
-
-                //  entries(Set) → List로 변환 후 take(6)
-                slots.entries
-                    .toList()
-                    .asReversed()
-                    .take(6)
-                    .asReversed()
-                    .forEach { entry ->
-                        val k = entry.key
-                        val v = entry.value
-                        Text("• $k = $v")
-                    }
+                slots.entries.toList().asReversed().take(6).asReversed().forEach { (k, v) ->
+                    Text("• $k = $v")
+                }
             }
         }
     }
