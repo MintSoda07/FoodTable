@@ -45,6 +45,8 @@ import kotlin.math.min
 /* ─────────────────────────────────────────────────────────────
  * Target 저장소
  * ───────────────────────────────────────────────────────────── */
+const val COACH_SCRIM_ALPHA = 0.55f
+val CoachScrimColor = Color.Black.copy(alpha = COACH_SCRIM_ALPHA)
 @Stable
 class CoachTargets {
     data class Anchor(val rect: RectF, val bringer: BringIntoViewRequester?)
@@ -161,7 +163,7 @@ private fun RectF.isOnOverlay(w: Float, h: Float): Boolean =
 /* ─────────────────────────────────────────────────────────────
  * CoachmarkOverlay
  * ───────────────────────────────────────────────────────────── */
-@OptIn(ExperimentalAnimationApi::class)
+
 @Composable
 fun CoachmarkOverlay(
     screen: CoachScreen,
@@ -171,7 +173,7 @@ fun CoachmarkOverlay(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
     accent: Color = MaterialTheme.colorScheme.primary,
-    scrim: Color = Color.Black.copy(alpha = 0.55f),
+    scrim: Color = CoachScrimColor, // ← 0.55f 통일
     bubbleWidth: Dp = 280.dp,
     bubbleMaxHeight: Dp = 180.dp,
     bubblePadding: Dp = 16.dp,
@@ -210,9 +212,10 @@ fun CoachmarkOverlay(
     var ovW by remember { mutableStateOf(0f) }
     var ovH by remember { mutableStateOf(0f) }
 
-    // 상위에 "지금 코치마크가 활성"임을 1회 알림
+    // ✅ 상위에 활성 신호 1회 보장
     var announcedActive by remember { mutableStateOf(false) }
 
+    // 최초 준비
     LaunchedEffect(Unit) {
         if (store.isSeen(screen)) {
             visible = false
@@ -226,16 +229,16 @@ fun CoachmarkOverlay(
         }
     }
 
-    // 활성화/비활성화 콜백
     LaunchedEffect(ready, visible) {
-        if (ready && visible && !announcedActive) {
-            onOverlayActiveChange?.invoke(true)   // ▶ 코치마크 시작
-            announcedActive = true
-        }
+        val active = ready && visible
+        Log.i("COACH_OVERLAY", "activeChanged -> $active screen=$screen")
+        if (active) onOverlayActiveChange?.invoke(true)
     }
-    // 안전장치: Composable 사라질 때 false 보장
     DisposableEffect(Unit) {
-        onDispose { onOverlayActiveChange?.invoke(false) }
+        onDispose {
+            Log.i("COACH_OVERLAY", "dispose -> false screen=$screen")
+            onOverlayActiveChange?.invoke(false)
+        }
     }
 
     if (!visible || !ready) return
@@ -257,7 +260,7 @@ fun CoachmarkOverlay(
         scope.launch {
             store.setSeen(screen, true)
             visible = false
-            onOverlayActiveChange?.invoke(false)  // ▶ 코치마크 종료
+            onOverlayActiveChange?.invoke(false)  // 코치마크 종료 알림
             onClose()
             if (nextScreenInFlow != null && onRequestNavigate != null) {
                 onRequestNavigate.invoke(nextScreenInFlow)
@@ -267,29 +270,24 @@ fun CoachmarkOverlay(
         }
     }
 
-    // ⬇ 현재 스텝에 포커스 맞추기 (원문 유지)
+    // 현재 스텝으로 포커싱 (네비/스크롤 포함)
     suspend fun focusStep(s: CoachStep) {
         suspend fun latestLocal(): RectF? = targets.get(s.id)?.rect?.toOverlayLocal()
 
-        // 현재 오버레이 뷰포트(바텀 차폐 제외)
         val viewportH = (ovH - bottomObstructionPx).coerceAtLeast(1f)
         val vCenterY = viewportH / 2f
 
-        //  유효성 검사: 0 크기/화면 바깥/NaN 등은 무효로 간주
         fun RectF.isValidOnOverlay(): Boolean {
             if (width() < 1f || height() < 1f) return false
             if (left.isNaN() || top.isNaN() || right.isNaN() || bottom.isNaN()) return false
             return isOnOverlay(ovW, viewportH)
         }
 
-        // 0) 먼저 bringIntoView 여러 번 시도 (레이아웃 재측정 유도)
         repeat(2) { targets.get(s.id)?.bringer?.bringIntoView() }
 
-        // 0-1) 최신 좌표 가져오되, 화면 바깥이거나 이상하면 무시
         var local = latestLocal()
         if (local != null && !local.isValidOnOverlay()) local = null
 
-        // 0-2) 못 찾으면 양방향 스캔 (LazyColumn/Scroll 둘 다 대응)
         if (local == null && (lazyListState != null || scrollState != null)) {
             val stepBy = viewportH * 0.66f
             val maxTries = 12
@@ -301,42 +299,30 @@ fun CoachmarkOverlay(
                 }
             }
 
-            // 아래로 스캔
             repeat(maxTries) {
                 if (local != null) return@repeat
-                scrollByDy(stepBy)
-                delay(24)
+                scrollByDy(stepBy); delay(24)
                 targets.get(s.id)?.bringer?.bringIntoView()
-                local = latestLocal()
-                if (local != null && !local!!.isValidOnOverlay()) local = null
+                local = latestLocal()?.takeIf { it.isValidOnOverlay() }
             }
-
-            // 위로 스캔
             if (local == null) {
                 repeat(maxTries) {
                     if (local != null) return@repeat
-                    scrollByDy(-stepBy)
-                    delay(24)
+                    scrollByDy(-stepBy); delay(24)
                     targets.get(s.id)?.bringer?.bringIntoView()
-                    local = latestLocal()
-                    if (local != null && !local!!.isValidOnOverlay()) local = null
+                    local = latestLocal()?.takeIf { it.isValidOnOverlay() }
                 }
             }
-
-            // 마지막으로 소폭 아래 재스캔 (관성/측정 레이스 대비)
             if (local == null) {
                 repeat(maxTries / 2) {
                     if (local != null) return@repeat
-                    scrollByDy(stepBy / 2f)
-                    delay(24)
+                    scrollByDy(stepBy / 2f); delay(24)
                     targets.get(s.id)?.bringer?.bringIntoView()
-                    local = latestLocal()
-                    if (local != null && !local!!.isValidOnOverlay()) local = null
+                    local = latestLocal()?.takeIf { it.isValidOnOverlay() }
                 }
             }
         }
 
-        // 1) 좌표가 생길 때까지 한 프레임 단위로 대기 (❗ stale 먼저 잡는 레이스 방지)
         if (local == null) {
             repeat(60) {
                 local = latestLocal()
@@ -348,9 +334,7 @@ fun CoachmarkOverlay(
         }
         val rect = local ?: return
 
-        // 2) 위치 보정
         if (s.center && (lazyListState != null || scrollState != null)) {
-            // 중앙 보정: 보정 중에도 최신 좌표로 갱신하면서 수렴
             var tries = 0
             var cur = rect
             while (tries++ < 6) {
@@ -364,7 +348,6 @@ fun CoachmarkOverlay(
                 latestLocal()?.let { if (it.isValidOnOverlay()) cur = it }
             }
         } else {
-            // 화면 안에만 들여오기
             if (!(rect.right > 0f && rect.left < ovW && rect.top < viewportH && rect.bottom > 0f)) {
                 val dy = when {
                     rect.bottom < 0f     -> rect.bottom - 24f
@@ -380,16 +363,13 @@ fun CoachmarkOverlay(
             }
         }
 
-        // 3)  사후 검증: 보정 직후 좌표가 변했으면 한 번 더 미세 재보정
         latestLocal()?.let { now ->
-            if (now.isValidOnOverlay()) {
-                if (s.center && (lazyListState != null || scrollState != null)) {
-                    val dy = now.centerY() - vCenterY
-                    if (kotlin.math.abs(dy) > 1.5f) {
-                        when {
-                            lazyListState != null -> lazyListState.animateScrollBy(dy)
-                            scrollState   != null -> scrollState.animateScrollBy(dy)
-                        }
+            if (now.isValidOnOverlay() && s.center && (lazyListState != null || scrollState != null)) {
+                val dy = now.centerY() - vCenterY
+                if (kotlin.math.abs(dy) > 1.5f) {
+                    when {
+                        lazyListState != null -> lazyListState.animateScrollBy(dy)
+                        scrollState   != null -> scrollState.animateScrollBy(dy)
                     }
                 }
             }
@@ -430,8 +410,10 @@ fun CoachmarkOverlay(
         }
 
         Canvas(Modifier.fillMaxSize()) {
+            // 스크림
             drawRect(color = scrim)
 
+            // 하이라이트 홀이 뚫린 영역
             drawRoundRect(
                 color = Color.Transparent,
                 topLeft = androidx.compose.ui.geometry.Offset(rectLocal.left, rectLocal.top),
@@ -440,6 +422,7 @@ fun CoachmarkOverlay(
                 blendMode = BlendMode.Clear
             )
 
+            // 하이라이트 테두리
             withTransform({ translate(rectLocal.left, rectLocal.top) }) {
                 drawRoundRect(
                     color = accent.copy(alpha = 0.95f),
@@ -449,11 +432,13 @@ fun CoachmarkOverlay(
                 )
             }
 
+            // 버블 화살표
             val tri = arrowPath(side, rectLocal, bubble, arrowPx)
             drawPath(path = tri, color = bubbleColor, style = Fill)
             drawPath(path = tri, color = bubbleBorderColor, style = Stroke(width = 1.2f))
         }
 
+        // 설명 버블
         Surface(
             modifier = Modifier
                 .absoluteOffset(
@@ -499,29 +484,4 @@ fun CoachmarkOverlay(
             }
         }
     }
-}
-
-/* ─────────────────────────────────────────────────────────────
- * 화면 전체 터치/탭 흡수용 (탭 전환, 버튼, 제스처 등 비활성화)
- * ───────────────────────────────────────────────────────────── */
-@Composable
-fun InteractionBlocker(
-    visible: Boolean,
-    modifier: Modifier = Modifier
-) {
-    if (!visible) return
-    Box(
-        modifier
-            .fillMaxSize()                 // 화면 전체 덮기
-            .background(Color.Transparent) // 시각적 변화 없음
-            .pointerInput(Unit) {
-                // 모든 포인터 이벤트를 소비해서 아래 컴포저블로 전달되지 않게 함
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                        event.changes.forEach { it.consume() }
-                    }
-                }
-            }
-    )
 }

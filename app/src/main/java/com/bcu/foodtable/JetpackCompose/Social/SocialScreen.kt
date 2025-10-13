@@ -64,6 +64,7 @@ import com.bcu.foodtable.JetpackCompose.coach.CoachScreen
 import com.bcu.foodtable.JetpackCompose.coach.CoachTour    // ⬅ 투어 진행
 import com.bcu.foodtable.JetpackCompose.Social.RestaurantMapMainScreen   // 지도 화면
 import com.bcu.foodtable.JetpackCompose.Social.MatzipViewModel           // 맛집 VM
+import com.bcu.foodtable.JetpackCompose.coach.CoachScrimColor
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.ChallengeScreenContent
 import com.bcu.foodtable.ui.rank.RankScreenImproved
@@ -95,7 +96,11 @@ private val ItemEntrySpring = spring<Float>(dampingRatio = Spring.DampingRatioMe
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class, ExperimentalFoundationApi::class)
 @Composable
-fun SocialScreen(navController: NavHostController) {
+fun SocialScreen(
+    navController: NavHostController,
+    onOverlayActiveChange: (Boolean) -> Unit = {},
+    bottomObstructionDp: Dp = 0.dp)
+{
     @Stable
     data class WheelItem(
         val icon: ImageVector,
@@ -229,14 +234,16 @@ fun SocialScreen(navController: NavHostController) {
             ),
             targets = targets,
             store = store,
-            bottomObstructionDp = bottomBarHeight,
+            bottomObstructionDp = bottomObstructionDp,
             onClose = {
                 showCoach = false
                 if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.SOCIAL) {
                     CoachTour.next(navController, context, store)
                 }
             },
-            modifier = Modifier.fillMaxSize().zIndex(999f)
+            modifier = Modifier.fillMaxSize().zIndex(999f),
+            onOverlayActiveChange = onOverlayActiveChange,
+            scrim  = CoachScrimColor
         )
     }
 }

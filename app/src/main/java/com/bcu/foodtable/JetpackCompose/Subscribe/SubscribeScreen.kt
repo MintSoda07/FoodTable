@@ -43,6 +43,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -70,7 +71,9 @@ private val GRID_SPACING_V = 16.dp
 fun SubscribeScreen(
     viewModel: SubscribeViewModel,
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOverlayActiveChange: (Boolean) -> Unit = {},
+    bottomObstructionDp: Dp = 0.dp
 ) {
     val context = LocalContext.current
 
@@ -84,7 +87,7 @@ fun SubscribeScreen(
     val store = remember { CoachmarkStoreDataStore(context) }
     val targets = remember { CoachTargets() }
     var showCoach by remember { mutableStateOf(true) }
-    val bottomBarHeight = 0.dp
+
 
     // Scroll
     val listState = rememberLazyListState()
@@ -210,7 +213,7 @@ fun SubscribeScreen(
             ),
             targets = targets,
             store = store,
-            bottomObstructionDp = bottomBarHeight,
+            bottomObstructionDp = bottomObstructionDp,
             onClose = {
                 showCoach = false
                 if (CoachTour.running.value == true && CoachTour.currentScreen.value == CoachScreen.SUBSCRIBE) {
@@ -220,7 +223,9 @@ fun SubscribeScreen(
             lazyListState = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .zIndex(999f)
+                .zIndex(999f),
+            onOverlayActiveChange = onOverlayActiveChange,
+            scrim  = CoachScrimColor
         )
     }
 }

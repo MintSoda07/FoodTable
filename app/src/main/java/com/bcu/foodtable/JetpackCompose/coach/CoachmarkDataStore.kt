@@ -20,7 +20,7 @@ val Context.coachDataStore by preferencesDataStore(DS_NAME)
  * 코치마크를 보여줄 화면들 (투어 시퀀스의 각 스크린)
  * - HOME -> SUBSCRIBE -> SOCIAL -> STORAGE -> PROFILE
  */
-enum class CoachScreen { HOME, SUBSCRIBE, SOCIAL, STORAGE, PROFILE }
+enum class CoachScreen { HOME, STORAGE, SOCIAL, SUBSCRIBE, PROFILE }
 
 /**
  * 코치마크 노출 여부 저장소 인터페이스

@@ -133,6 +133,8 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
     implementation(libs.play.services.mlkit.text.recognition.common)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
     // CameraX 라이브러리 (카메라 제어 기능)
     val cameraxVersion = "1.3.4" // 최신 안정화 버전
     implementation("androidx.camera:camera-core:${cameraxVersion}")
