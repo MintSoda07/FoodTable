@@ -58,7 +58,7 @@
     import com.bcu.foodtable.JetpackCompose.coach.coachTarget
     import com.bcu.foodtable.JetpackCompose.coach.CoachTour   // ✅ 추가된 임포트
     import kotlinx.coroutines.launch
-    //import com.unity3d.player.UnityPlayerGameActivity
+    import com.unity3d.player.UnityPlayerGameActivity
 
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
     @Composable
@@ -259,11 +259,11 @@
                         // 건강/밥상/냉장
                         SegmentedTripleRow(
                             onHealth = { viewModel.navigateToHealth(navController) },
-//                            onBapsang = {
-//                                val intent = Intent(context, UnityPlayerGameActivity::class.java)
-//                                intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-//                                context.startActivity(intent)
-//                            },
+                            onBapsang = {
+                                   val intent = Intent(context, UnityPlayerGameActivity::class.java)
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                    context.startActivity(intent)
+                               },
                             onFridge = { navController.navigate("fridge") }
                         )
 
