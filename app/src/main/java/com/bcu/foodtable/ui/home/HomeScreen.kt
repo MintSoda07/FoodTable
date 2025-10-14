@@ -21,6 +21,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.expandVertically
@@ -176,11 +177,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -254,6 +258,7 @@ import kotlinx.coroutines.isActive
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.sql.Date
+import kotlin.math.absoluteValue
 
 // --- 데이터 모델 및 유틸리티 컴포넌트 ---
 
@@ -1613,12 +1618,70 @@ fun AppBottomNavigationBar(
     }
 }
 
+
+// 1) 공통 유틸: PulseDot / UnderlineReveal / lerp
+@Composable
+private fun PulseDot(modifier: Modifier = Modifier, color: Color) {
+    val pulse by rememberInfiniteTransition(label = "pulse")
+        .animateFloat(
+            initialValue = 0.85f,
+            targetValue = 1.15f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulse"
+        )
+    Box(
+        modifier = modifier
+            .graphicsLayer { scaleX = pulse; scaleY = pulse }
+            .clip(CircleShape)
+            .background(color)
+    )
+}
+
+@Composable
+private fun UnderlineReveal(
+    progress: Float,
+    height: Dp = 2.dp,
+    color: Color = MaterialTheme.colorScheme.primary
+) {
+    val brush = remember {
+        Brush.horizontalGradient(
+            listOf(
+                color.copy(alpha = 0f),
+                color,
+                color.copy(alpha = 0.7f)
+            )
+        )
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(RoundedCornerShape(1.dp))
+            .background(color.copy(alpha = 0.12f))
+    ) {
+        Box(
+            Modifier
+                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .fillMaxHeight()
+                .background(brush)
+        )
+    }
+}
+
+private fun lerp(start: Float, stop: Float, fraction: Float): Float =
+    (start * (1 - fraction) + stop * fraction)
+
+
 /**
  * 검색 바 컴포저블.
  * @param searchQuery 현재 검색어 TextFieldValue.
  * @param onSearchQueryChange 검색어 변경 시 호출될 람다.
  * @param modifier Modifier.
  */
+// 2) ModernSearchBar (전체)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModernSearchBar(
@@ -1626,6 +1689,27 @@ fun ModernSearchBar(
     onSearchQueryChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val tilt by animateFloatAsState(
+        targetValue = if (focused) 8f else 0f,
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
+        label = "iconTilt"
+    )
+    val translate by animateDpAsState(
+        targetValue = if (focused) 2.dp else 0.dp,
+        animationSpec = tween(220),
+        label = "iconMove"
+    )
+    val elevColor by animateColorAsState(
+        targetValue = if (focused)
+            MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+        else
+            MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+        animationSpec = tween(220),
+        label = "container"
+    )
+
     OutlinedTextField(
         value = searchQuery,
         onValueChange = onSearchQueryChange,
@@ -1637,21 +1721,65 @@ fun ModernSearchBar(
             Icon(
                 imageVector = Icons.Filled.Search,
                 contentDescription = "Search Icon",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .padding(start = translate)
+                    .graphicsLayer { rotationZ = tilt }
             )
         },
         shape = RoundedCornerShape(28.dp),
         colors = TextFieldDefaults.outlinedTextFieldColors(
-            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+            containerColor = elevColor,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             cursorColor = MaterialTheme.colorScheme.primary
         ),
-        singleLine = true
+        singleLine = true,
+        interactionSource = interaction
     )
+}
+// 3) CustomPagerIndicator (전체)
+@Composable
+fun CustomPagerIndicator(
+    totalDots: Int,
+    selectedIndex: Int,
+    modifier: Modifier = Modifier,
+    activeColor: Color = Color.White,
+    inactiveColor: Color = Color.LightGray
+) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        repeat(totalDots) { index ->
+            val isSelected = index == selectedIndex
+            val size by animateDpAsState(
+                targetValue = if (isSelected) 9.dp else 7.dp,
+                animationSpec = tween(180, easing = LinearOutSlowInEasing),
+                label = "dotSize"
+            )
+            val color by animateColorAsState(
+                targetValue = if (isSelected) activeColor else inactiveColor.copy(alpha = 0.7f),
+                animationSpec = tween(180),
+                label = "dotColor"
+            )
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 4.dp)
+                    .size(size)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+        }
+    }
 }
 
 
+
+// 4) PromoBannerPagerFromFirestore (전체)
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PromoBannerPagerFromFirestore(
@@ -1708,11 +1836,10 @@ fun PromoBannerPagerFromFirestore(
                     pageCount = { promoList.size }
                 )
 
-                // ✅ 전환 보장: 애니메이션 실패시 즉시 전환
+                // 전환 보장
                 LaunchedEffect(pagerState.currentPage) {
                     delay(5000)
                     val next = (pagerState.currentPage + 1) % promoList.size
-
                     try {
                         if (!pagerState.isScrollInProgress) {
                             pagerState.animateScrollToPage(
@@ -1733,8 +1860,12 @@ fun PromoBannerPagerFromFirestore(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize()
                     ) { page ->
-                        val item = promoList[page]
+                        val pageOffset =
+                            ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+                        val scale = lerp(0.94f, 1.0f, (1f - pageOffset).coerceIn(0f, 1f))
+                        val alpha = lerp(0.6f, 1.0f, (1f - pageOffset).coerceIn(0f, 1f))
 
+                        val item = promoList[page]
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(item.imageres)
@@ -1744,6 +1875,11 @@ fun PromoBannerPagerFromFirestore(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxSize()
+                                .graphicsLayer {
+                                    this.scaleX = scale
+                                    this.scaleY = scale
+                                    this.alpha = alpha
+                                }
                                 .clickable {
                                     Toast
                                         .makeText(context, "링크로 이동합니다", Toast.LENGTH_SHORT)
@@ -1766,6 +1902,7 @@ fun PromoBannerPagerFromFirestore(
         }
     }
 }
+
 
 
 @Composable
@@ -1975,6 +2112,8 @@ fun MoreButton(onClick: () -> Unit) {
     }
 }
 
+// 5) HomeContent (전체)
+// - 섹션 헤더들에 AnimatedVisibility + PulseDot + UnderlineReveal 반영
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeContent(
@@ -1998,7 +2137,6 @@ fun HomeContent(
     var purchasedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     val coachBringer = remember { BringIntoViewRequester() }
-    // 헤더/리스트 좌우 패딩 통일
     val headerHPad = 8.dp
 
     LaunchedEffect(uid) {
@@ -2051,7 +2189,7 @@ fun HomeContent(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surface)
             .bringIntoViewRequester(coachBringer),
-    contentPadding = PaddingValues(
+        contentPadding = PaddingValues(
             top = 0.dp,
             start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
             end = paddingValues.calculateEndPadding(LayoutDirection.Ltr),
@@ -2065,9 +2203,8 @@ fun HomeContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(220.dp),
-                    targets = targets,
-                    bringer = coachBringer
-
+                targets = targets,
+                bringer = coachBringer
             )
         }
 
@@ -2114,140 +2251,203 @@ fun HomeContent(
                     Column {
                         when (section) {
                             is HomeSection.SearchBar -> {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = headerHPad, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "레시피 둘러보기",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Divider(
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                        thickness = 1.dp
-                                    )
-                                }
-                                val searchBringer = remember { BringIntoViewRequester() }
+                                // 헤더 애니메이션
+                                var appearSB by remember { mutableStateOf(false) }
+                                LaunchedEffect(Unit) { appearSB = true }
+                                val lineSB by animateFloatAsState(
+                                    targetValue = if (appearSB) 1f else 0f,
+                                    animationSpec = tween(600, delayMillis = 120, easing = FastOutSlowInEasing),
+                                    label = "sb-line"
+                                )
 
+                                AnimatedVisibility(
+                                    visible = appearSB,
+                                    enter = slideInVertically(initialOffsetY = { it / 4 }, animationSpec = tween(420)) + fadeIn(tween(420))
+                                ) {
+                                    Column(Modifier.padding(horizontal = headerHPad, vertical = 2.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                PulseDot(Modifier.size(6.dp), color = MaterialTheme.colorScheme.primary)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = "레시피 둘러보기",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                        UnderlineReveal(progress = lineSB)
+                                    }
+                                }
+
+                                val searchBringer = remember { BringIntoViewRequester() }
                                 ModernSearchBar(
                                     searchQuery = searchQuery,
                                     onSearchQueryChange = onSearchQueryChange,
-                                    modifier = Modifier.bringIntoViewRequester(searchBringer).coachTarget("home_search", targets, bringer = searchBringer, expandPx = 8f )
+                                    modifier = Modifier
+                                        .bringIntoViewRequester(searchBringer)
+                                        .coachTarget("home_search", targets, bringer = searchBringer, expandPx = 8f)
                                 )
                             }
 
                             is HomeSection.TrendRecipes -> {
-                                Column(Modifier.padding(vertical = 8.dp)) { // ⬅ 수평 패딩 제거
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = headerHPad, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            "인기 레시피",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.coachTarget("home_trend", targets, bringer = coachBringer, expandPx = 6f)
-                                        )
-                                        Spacer(Modifier.height(4.dp))
-                                        Divider(
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                            thickness = 1.dp
-                                        )
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    if (topClickedRecipes.isEmpty()) {
-                                        Text(
-                                            text = "불러오는 중...",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = headerHPad)
-                                        )
-                                    } else {
-                                        LazyRow(
-                                            contentPadding = PaddingValues(horizontal = headerHPad),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                // 헤더 애니메이션
+                                var appearTR by remember { mutableStateOf(false) }
+                                LaunchedEffect(Unit) { appearTR = true }
+                                val lineTR by animateFloatAsState(
+                                    targetValue = if (appearTR) 1f else 0f,
+                                    animationSpec = tween(600, delayMillis = 120, easing = FastOutSlowInEasing),
+                                    label = "tr-line"
+                                )
+
+                                AnimatedVisibility(
+                                    visible = appearTR,
+                                    enter = slideInVertically(initialOffsetY = { it / 4 }, animationSpec = tween(420)) + fadeIn(tween(420))
+                                ) {
+                                    Column(Modifier.padding(horizontal = headerHPad, vertical = 2.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            items(topClickedRecipes) { recipe ->
-                                                RecipePreviewCard(
-                                                    recipe = recipe,
-                                                    onClick = { /* no-op */ },
-                                                    homeViewModel = homeViewModel
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                PulseDot(Modifier.size(6.dp), color = MaterialTheme.colorScheme.primary)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    "인기 레시피",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.coachTarget("home_trend", targets, bringer = coachBringer, expandPx = 6f)
                                                 )
                                             }
-                                            item {
-                                                MoreButton { nav.navigate("trendRecipes") }
-                                            }
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                        UnderlineReveal(progress = lineTR)
+                                    }
+                                }
+
+                                Spacer(Modifier.height(8.dp))
+                                if (topClickedRecipes.isEmpty()) {
+                                    Text(
+                                        text = "불러오는 중...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = headerHPad)
+                                    )
+                                } else {
+                                    LazyRow(
+                                        contentPadding = PaddingValues(horizontal = headerHPad),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(topClickedRecipes) { recipe ->
+                                            RecipePreviewCard(
+                                                recipe = recipe,
+                                                onClick = { /* no-op */ },
+                                                homeViewModel = homeViewModel
+                                            )
+                                        }
+                                        item {
+                                            MoreButton { nav.navigate("trendRecipes") }
                                         }
                                     }
                                 }
                             }
 
                             is HomeSection.RecommendRecipes -> {
-                                Column {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = headerHPad, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            "추천 레시피",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.coachTarget("home_reco", targets, bringer = coachBringer, expandPx = 6f)
-                                        )
-                                        Spacer(Modifier.height(4.dp))
-                                        Divider(
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                            thickness = 1.dp
+                                // 헤더 애니메이션
+                                var appearRR by remember { mutableStateOf(false) }
+                                LaunchedEffect(Unit) { appearRR = true }
+                                val lineRR by animateFloatAsState(
+                                    targetValue = if (appearRR) 1f else 0f,
+                                    animationSpec = tween(600, delayMillis = 120, easing = FastOutSlowInEasing),
+                                    label = "rr-line"
+                                )
+
+                                AnimatedVisibility(
+                                    visible = appearRR,
+                                    enter = slideInVertically(initialOffsetY = { it / 4 }, animationSpec = tween(420)) + fadeIn(tween(420))
+                                ) {
+                                    Column {
+                                        Column(Modifier.padding(horizontal = headerHPad, vertical = 2.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    PulseDot(Modifier.size(6.dp), color = MaterialTheme.colorScheme.primary)
+                                                    Spacer(Modifier.width(8.dp))
+                                                    Text(
+                                                        "추천 레시피",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.coachTarget("home_reco", targets, bringer = coachBringer, expandPx = 6f)
+                                                    )
+                                                }
+                                            }
+                                            Spacer(Modifier.height(6.dp))
+                                            UnderlineReveal(progress = lineRR)
+                                        }
+                                    }
+                                }
+
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = headerHPad, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(recommendedRecipes) { recipe ->
+                                        RecipePreviewCard(
+                                            recipe = recipe,
+                                            homeViewModel = homeViewModel,
+                                            onClick = { /* 선택 시 추가 동작 */ }
                                         )
                                     }
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = headerHPad, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        items(recommendedRecipes) { recipe ->
-                                            RecipePreviewCard(
-                                                recipe = recipe,
-                                                homeViewModel = homeViewModel,
-                                                onClick = { /* 선택 시 추가 동작 */ }
-                                            )
-                                        }
-                                        item {
-                                            MoreButton { nav.navigate("recommendRecipes") }
-                                        }
+                                    item {
+                                        MoreButton { nav.navigate("recommendRecipes") }
                                     }
                                 }
                             }
 
                             is HomeSection.Categories -> {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = headerHPad, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                // 헤더 애니메이션
+                                var appearCG by remember { mutableStateOf(false) }
+                                LaunchedEffect(Unit) { appearCG = true }
+                                val lineCG by animateFloatAsState(
+                                    targetValue = if (appearCG) 1f else 0f,
+                                    animationSpec = tween(600, delayMillis = 120, easing = FastOutSlowInEasing),
+                                    label = "cg-line"
+                                )
+
+                                AnimatedVisibility(
+                                    visible = appearCG,
+                                    enter = slideInVertically(initialOffsetY = { it / 4 }, animationSpec = tween(420)) + fadeIn(tween(420))
                                 ) {
-                                    Text(
-                                        text = "카테고리",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(Modifier.height(4.dp))
-                                    Divider(
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                                        thickness = 1.dp
-                                    )
+                                    Column(Modifier.padding(horizontal = headerHPad, vertical = 2.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                PulseDot(Modifier.size(6.dp), color = MaterialTheme.colorScheme.primary)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    text = "카테고리",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                        UnderlineReveal(progress = lineCG)
+                                    }
                                 }
+
                                 val categoryList = listOf(
                                     "한식" to Icons.Default.RiceBowl,
                                     "중식" to Icons.Default.RamenDining,
@@ -2328,7 +2528,7 @@ fun HomeContent(
                     visible = isVisible,
                     enter = slideInVertically(
                         initialOffsetY = { it / 2 },
-                        animationSpec = tween(500, delayMillis = 50)
+                        animationSpec = tween(500, delayMillis = if (index == 0) 100 else 50)
                     ) + fadeIn(animationSpec = tween(400))
                 ) {
                     val baseModifier = Modifier.animateItemPlacement(tween(300))
@@ -2396,6 +2596,7 @@ fun HomeContent(
         }
     }
 }
+
 
 fun Context.isActivity(): Boolean {
     return this is Activity && !this.isFinishing && !this.isDestroyed
@@ -2552,30 +2753,4 @@ fun EmptyState(modifier: Modifier = Modifier) {
 
     }
 
-}
-@Composable
-fun CustomPagerIndicator(
-    totalDots: Int,
-    selectedIndex: Int,
-    modifier: Modifier = Modifier,
-    activeColor: Color = Color.White,
-    inactiveColor: Color = Color.LightGray
-) {
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-    ) {
-        repeat(totalDots) { index ->
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 4.dp)
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(if (index == selectedIndex) activeColor else inactiveColor)
-            )
-        }
-    }
 }
