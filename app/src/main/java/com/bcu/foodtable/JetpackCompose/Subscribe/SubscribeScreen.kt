@@ -566,7 +566,7 @@ private fun LazyListScope.sectionSpacer() {
 }
 
 /* ──────────────────────────────────────────────────────────────── */
-/* 카드 디자인: PrettyChannelCard (이미지 중심, 버튼 제거)          */
+/* 카드 디자인: PrettyChannelCard (구독자 뱃지 심플화 + 사이즈 업)   */
 /* ──────────────────────────────────────────────────────────────── */
 @Composable
 private fun PrettyChannelCard(
@@ -580,9 +580,22 @@ private fun PrettyChannelCard(
     val avatar = channel.imageResId
     val subs = channel.subscribers
 
+    // 1) 한국식 간단 표기: 1.2만 / 3.4억
+    fun formatSubs(n: Int): String {
+        if (n >= 100_000_000) { // 억 단위
+            val v = n / 100_000_0f
+            return String.format("%.1f억", v / 10f)
+        }
+        if (n >= 10_000) { // 만 단위
+            val v = n / 1_000f
+            return String.format("%.1f만", v / 10f)
+        }
+        return n.toString()
+    }
+
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(3.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = modifier
@@ -590,10 +603,10 @@ private fun PrettyChannelCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)   // 이미지가 주인공: 시원한 높이
-                .clip(RoundedCornerShape(18.dp))
+                .height(240.dp)   // ⬆️ 높이 살짝 키움 (이미지 몰입감)
+                .clip(RoundedCornerShape(20.dp))
         ) {
-            // 배경 이미지 (없으면 파스텔 그라데이션)
+            // 배경 이미지
             if (bg.isNotBlank()) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current).data(bg).crossfade(true).build(),
@@ -616,54 +629,54 @@ private fun PrettyChannelCard(
                 )
             }
 
-            // 상단-하단 시인성 오버레이
+            // 상/하단 가독성 오버레이
             Box(
                 Modifier
                     .matchParentSize()
                     .background(
                         Brush.verticalGradient(
-                            0f to Color.Black.copy(alpha = 0.10f),
-                            0.4f to Color.Transparent,
-                            0.75f to Color.Black.copy(alpha = 0.35f),
-                            1f to Color.Black.copy(alpha = 0.55f)
+                            0f to Color.Black.copy(alpha = 0.08f),
+                            0.45f to Color.Transparent,
+                            0.75f to Color.Black.copy(alpha = 0.32f),
+                            1f to Color.Black.copy(alpha = 0.52f)
                         )
                     )
             )
 
-            // 좌상단: 구독자 뱃지
+            // ✅ 간단 구독자 캡슐 뱃지 (우상단)
             if (subs > 0) {
                 Surface(
-                    color = Color.Black.copy(alpha = 0.35f),
+                    color = Color.Black.copy(alpha = 0.28f),
                     contentColor = Color.White,
                     shape = RoundedCornerShape(999.dp),
                     tonalElevation = 0.dp,
                     shadowElevation = 0.dp,
                     modifier = Modifier
+                        .align(Alignment.TopEnd)
                         .padding(12.dp)
-                        .align(Alignment.TopStart)
                 ) {
                     Text(
-                        text = "구독자 $subs",
+                        text = formatSubs(subs),
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     )
                 }
             }
 
-            // 하단 정보: 프로필 아바타 + 텍스트
+            // 하단: 프로필 + 텍스트(화이트)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(14.dp)
+                    .padding(16.dp)
             ) {
-                // 프로필 이미지 (흰색 테두리 + 높이 살짝 띄운 그림자)
+                // 프로필 이미지 (흰 링)
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(60.dp) // ⬆️ 살짝 키움
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.9f))
-                        .padding(2.dp) // 흰색 링
+                        .padding(2.dp)
                 ) {
                     if (avatar.isNotBlank()) {
                         AsyncImage(
@@ -675,7 +688,6 @@ private fun PrettyChannelCard(
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        // 이니셜
                         Box(
                             Modifier
                                 .clip(CircleShape)
@@ -692,7 +704,7 @@ private fun PrettyChannelCard(
                     }
                 }
 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
 
                 Column(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -709,32 +721,25 @@ private fun PrettyChannelCard(
                         Text(
                             text = desc,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f),
+                            color = Color.White.copy(alpha = 0.9f),
                             maxLines = 2
                         )
                     }
                 }
             }
-
-            // 카드 전체 클릭 힌트: 우하단 살짝의 글로우 점
-            Box(
-                modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f))
-                    .align(Alignment.BottomEnd)
-                    .padding(10.dp)
-            )
         }
     }
 }
+
 
 
 /* ──────────────────────────────────────────────────────────────── */
 /* Lists                                                           */
 /* ──────────────────────────────────────────────────────────────── */
 
-/** 2열 그리드 (FlowRow, 비-스크롤) : 이미지 중심 카드 + 스태거 인 */
+/** 2열 그리드 (FlowRow, 비-스크롤) : 이미지 중심 카드 + 스태거 인
+ *  - 그리드 특성상 ‘폭’을 직접 키우긴 제한적이므로, 카드 ‘높이/내부요소’를 키워 존재감을 올렸습니다.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ChannelGridFlowRow(
@@ -754,7 +759,7 @@ private fun ChannelGridFlowRow(
         filtered.forEachIndexed { index, channel ->
             Box(modifier = Modifier.weight(1f, fill = true)) {
                 key(channel.documentId.ifBlank { channel.name }) {
-                    // 가벼운 스태거 등장
+                    // 스태거 등장
                     var visible by remember(channel.documentId) { mutableStateOf(false) }
                     LaunchedEffect(channel.documentId) { delay(30L * (index % 4)); visible = true }
                     val enter = slideInVertically(
@@ -781,7 +786,11 @@ private fun ChannelGridFlowRow(
 }
 
 
-/** 가로 캐러셀(스냅) - 내 채널 : 이미지 중심 카드, 버튼 없음 */
+
+/** 가로 캐러셀(스냅) - 내 채널
+ *  - 카드 폭을 화면 폭 기준으로 유연하게 계산(보기 편한 비율)
+ *  - 채널이 많아도 폭이 과도하게 커지거나 작아지지 않도록 범위 제한
+ */
 @Composable
 fun HorizontalChannelList(
     items: List<Channel>,
@@ -792,54 +801,69 @@ fun HorizontalChannelList(
     val listState = rememberLazyListState()
     val fling = rememberSnapFlingBehavior(listState)
 
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        state = listState,
-        contentPadding = PaddingValues(horizontal = 2.dp),
-        flingBehavior = fling
-    ) {
-        items(
-            items = filtered,
-            key = { it.documentId.ifBlank { it.name } }
-        ) { channel ->
-            // 등장 연출
-            var visible by remember(channel.documentId) { mutableStateOf(false) }
-            LaunchedEffect(channel.documentId) { delay(30); visible = true }
-            val enter = slideInVertically(
-                initialOffsetY = { it / 4 },
-                animationSpec = tween(360, easing = LinearOutSlowInEasing)
-            ) + fadeIn(tween(320))
+    // 화면 폭 기반 카드 폭 계산 (최소 260dp, 최대 360dp)
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val base = maxWidth * 0.82f           // 화면의 약 82% 폭을 한 카드로
+        val cardWidth = when {
+            base < 260.dp -> 260.dp
+            base > 360.dp -> 360.dp
+            else -> base
+        }
 
-            AnimatedVisibility(visible = visible, enter = enter) {
-                // 가운데 근처에서 살짝 스케일 업
-                val firstIndex = listState.firstVisibleItemIndex
-                val centerBias = (filtered.indexOf(channel) - firstIndex).absoluteValue
-                val base = 0.96f
-                val scaleTarget = (1f - min(centerBias * 0.04f, 0.10f)).coerceAtLeast(base)
-                val scale by animateFloatAsState(
-                    targetValue = scaleTarget,
-                    animationSpec = tween(200, easing = FastOutSlowInEasing),
-                    label = "scale"
-                )
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            state = listState,
+            contentPadding = PaddingValues(horizontal = 6.dp),
+            flingBehavior = fling
+        ) {
+            items(
+                items = filtered,
+                key = { it.documentId.ifBlank { it.name } }
+            ) { channel ->
+                // 등장 연출
+                var visible by remember(channel.documentId) { mutableStateOf(false) }
+                LaunchedEffect(channel.documentId) { delay(30); visible = true }
+                val enter = slideInVertically(
+                    initialOffsetY = { it / 4 },
+                    animationSpec = tween(360, easing = LinearOutSlowInEasing)
+                ) + fadeIn(tween(320))
 
-                Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
-                    PrettyChannelCard(
-                        channel = channel,
-                        onClick = {
-                            Log.d(tag, "navigate: ${channel.name}")
-                            navController.navigate("channelView/${channel.name}")
-                        },
-                        modifier = Modifier
-                            .width(300.dp) // 캐러셀 카드 폭 살짝 넓게
+                AnimatedVisibility(visible = visible, enter = enter) {
+                    // 가운데 근처에서 살짝 스케일 업
+                    val firstIndex = listState.firstVisibleItemIndex
+                    val centerBias = (filtered.indexOf(channel) - firstIndex).absoluteValue
+                    val baseScale = 0.96f
+                    val scaleTarget = (1f - min(centerBias * 0.04f, 0.10f)).coerceAtLeast(baseScale)
+                    val scale by animateFloatAsState(
+                        targetValue = scaleTarget,
+                        animationSpec = tween(200, easing = FastOutSlowInEasing),
+                        label = "scale"
                     )
+
+                    Box(Modifier.graphicsLayer { scaleX = scale; scaleY = scale }) {
+                        PrettyChannelCard(
+                            channel = channel,
+                            onClick = {
+                                Log.d(tag, "navigate: ${channel.name}")
+                                navController.navigate("channelView/${channel.name}")
+                            },
+                            modifier = Modifier.width(cardWidth)
+                        )
+                    }
                 }
             }
         }
     }
+
+    LaunchedEffect(filtered) {
+        Log.d(tag, "Loaded ${filtered.size} channels")
+    }
 }
+
+
 
 
 /* ──────────────────────────────────────────────────────────────── */
@@ -950,9 +974,10 @@ private fun LazyListScope.sectionGridContent(
 }
 
 
-/* 내 채널: 가로 캐러셀(스냅)
-   - 아이템별 페이드/슬라이드 인
-   - 살짝의 스케일 업으로 중심 시선 유도(가벼운 효과) */
+/* 내 채널: 가로 캐러셀(스냅) ↔ 2열 그리드 자동 전환
+   - items.size >= 8 이면 그리드가 더 가독성 좋아서 그리드로 렌더링
+   - 비어있을 때는 기존 빈 카드 사용 그대로 유지
+*/
 private fun LazyListScope.sectionCarouselContent(
     channels: List<Channel>,
     navController: NavHostController,
@@ -960,9 +985,13 @@ private fun LazyListScope.sectionCarouselContent(
     emptyDesc: String,
     emptyAction: (@Composable () -> Unit)?
 ) {
-    item(key = "carousel:${emptyTitle.hashCode()}") {
+    item(key = "carousel_or_grid:${emptyTitle.hashCode()}") {
         AnimatedContent(
-            targetState = channels.isNotEmpty(),
+            targetState = when {
+                channels.isEmpty() -> "empty"
+                channels.size >= 8 -> "grid"
+                else -> "carousel"
+            },
             transitionSpec = {
                 val dur = 240
                 (slideInVertically(
@@ -975,19 +1004,30 @@ private fun LazyListScope.sectionCarouselContent(
                     )
                     .using(SizeTransform(clip = false))
             },
-            label = "carouselTransition"
-        ) { hasData ->
-            if (hasData) {
-                HorizontalChannelList(
-                    items = channels,
-                    navController = navController
-                )
-            } else {
-                ModernEmptyChannelCard(
-                    title = emptyTitle,
-                    description = emptyDesc,
-                    trailing = emptyAction
-                )
+            label = "myChannelsLayoutSwitch"
+        ) { state ->
+            when (state) {
+                "empty" -> {
+                    ModernEmptyChannelCard(
+                        title = emptyTitle,
+                        description = emptyDesc,
+                        trailing = emptyAction
+                    )
+                }
+                "grid" -> {
+                    // 내 채널이 많을 때: 2열 그리드로 한눈에
+                    ChannelGridFlowRow(
+                        items = channels,
+                        navController = navController
+                    )
+                }
+                else -> {
+                    // 소수일 때: 가로 캐러셀로 큼직하게
+                    HorizontalChannelList(
+                        items = channels,
+                        navController = navController
+                    )
+                }
             }
         }
     }
