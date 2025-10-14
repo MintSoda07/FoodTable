@@ -1,7 +1,5 @@
 package com.bcu.foodtable.JetpackCompose.Subscribe
 
-
-
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.bcu.foodtable.useful.Channel
@@ -58,7 +56,6 @@ class SubscribeViewModel(
             }
     }
 
-
     fun fetchMyChannels() {
         Log.d("fetchMyChannels", "userId = $userId")
 
@@ -67,7 +64,9 @@ class SubscribeViewModel(
             // .orderBy("date", Query.Direction.DESCENDING) <- 일단 주석처리
             .get()
             .addOnSuccessListener { snapshot ->
-                val list = snapshot.documents.mapNotNull { it.toObject(Channel::class.java) }
+                val list = snapshot.documents
+                    .mapNotNull { it.toObject(Channel::class.java) }
+                    .filter { it.name.isNotBlank() }
                 Log.d("fetchMyChannels", "가져온 문서 수 = ${list.size}")
                 _myChannels.value = list
             }
@@ -87,4 +86,3 @@ class SubscribeViewModel(
             }
     }
 }
-
