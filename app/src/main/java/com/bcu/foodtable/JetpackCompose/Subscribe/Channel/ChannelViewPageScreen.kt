@@ -219,9 +219,7 @@ fun ChannelViewPageScreen(
                                                 ).putExtra("recipe_id", id)
                                             )
                                         },
-                                        onPurchaseRecipe = { id ->
-                                            viewModel.purchaseRecipe(id, userId)
-                                        },
+                                        onPurchaseRecipe = { item -> viewModel.purchaseRecipe(item, userId) },
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -469,7 +467,7 @@ fun RecipeGridItem(
     channelName: String,
     channelOwnerId: String,
     onRecipeClick: (String) -> Unit,
-    onPurchaseRecipe: (String) -> Unit,
+    onPurchaseRecipe: (RecipeItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scope     = rememberCoroutineScope()
@@ -601,7 +599,7 @@ fun RecipeGridItem(
                 TextButton(onClick = {
                     pending = true
                     scope.launch {
-                        onPurchaseRecipe(recipe.id)
+                        onPurchaseRecipe(recipe)
                         boughtMap = boughtMap + (recipe.id to true)
                         pending = false
                         showDialog = false

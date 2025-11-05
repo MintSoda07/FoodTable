@@ -110,18 +110,28 @@ class ChannelViewModel : ViewModel() {
     /**
      * 레시피 구매 처리 후, 다시 loadAll을 호출해 UI를 갱신합니다.
      */
-    fun purchaseRecipe(recipeId: String, userId: String) {
+    fun purchaseRecipe(item: RecipeItem, userId: String) {
         viewModelScope.launch {
             try {
                 FirebaseFirestore.getInstance()
                     .collection("user")
                     .document(userId)
                     .collection("purchased")
-                    .document(recipeId)
-                    .set(mapOf("purchasedAt" to FieldValue.serverTimestamp()))
+                    .document(item.id)
+                    .set(
+                        mapOf(
+                            "purchased" to true,
+                            "price" to (item.cost ?: 0),
+                            "ts" to FieldValue.serverTimestamp(),  // 스샷의 ts 필드
+                            // 선택: 조회 편의를 위한 추가 메타
+                            "recipeName" to item.name,
+                            "channel" to item.contained_channel,
+                            "image" to item.imageResId
+                        )
+                    )
                     .await()
 
-                // 구매 후 채널과 레시피를 다시 로드
+                // 필요하면 기존처럼 리로드
                 loadAll(currentChannelName, userId)
             } catch (e: Exception) {
                 Log.e("ChannelViewModel", "purchaseRecipe 실패: ${e.message}")
