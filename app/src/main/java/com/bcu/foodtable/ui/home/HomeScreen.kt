@@ -855,6 +855,7 @@ fun HomeTopBar(
 ) {
     val userPoint = user?.point ?: 0
     val (greetingTitle, greetingSub) = getGreetingText(user?.name)
+    val context = androidx.compose.ui.platform.LocalContext.current   // ← 인텐트에 필요
 
     TopAppBar(
         title = {
@@ -863,7 +864,7 @@ fun HomeTopBar(
                 modifier = Modifier.padding(vertical = 8.dp)
             ) {
                 // 프로필 이미지
-                AsyncImage(
+                coil.compose.AsyncImage(
                     model = user?.image ?: "",
                     contentDescription = "User Profile Image",
                     modifier = Modifier
@@ -872,7 +873,7 @@ fun HomeTopBar(
                         .border(2.dp, MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
                     contentScale = ContentScale.Crop,
                     placeholder = painterResource(id = R.drawable.ic_profile_placeholder),
-                    error = rememberVectorPainter(Icons.Filled.AccountCircle)
+                    error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Filled.AccountCircle)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -904,33 +905,54 @@ fun HomeTopBar(
             }
         },
         actions = {
-            // 포인트 표시
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(end = 8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Filled.AcUnit,
-                    contentDescription = "포인트",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "$userPoint",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                // 포인트(소금) 표시
+//                Icon(
+//                    imageVector = Icons.Filled.AcUnit,
+//                    contentDescription = "포인트",
+//                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+//                    modifier = Modifier.size(24.dp)
+//                )
+//                Spacer(modifier = Modifier.width(4.dp))
+//                Text(
+//                    text = "$userPoint",
+//                    style = MaterialTheme.typography.bodyMedium,
+//                    fontWeight = FontWeight.SemiBold,
+//                    color = MaterialTheme.colorScheme.onSurface
+//                )
+
+                Spacer(modifier = Modifier.width(2.dp)) // 포인트와 MY 사이 간격
+
+                //
+                TextButton(
+                    onClick = {
+                        context.startActivity(
+                            android.content.Intent(
+                                context,
+                                com.bcu.foodtable.JetpackCompose.Mypage.Setting.SettingActivity::class.java
+                            )
+                        )
+                    },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "MY",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-
-
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
         )
     )
 }
+
 // 탑바 wrapper 함수
 @Composable
 fun AppTopBar(
