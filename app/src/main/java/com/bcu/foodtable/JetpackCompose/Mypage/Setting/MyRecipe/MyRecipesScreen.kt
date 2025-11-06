@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -28,33 +29,45 @@ import coil.compose.AsyncImage
 fun MyRecipesScreen(
     viewModel: MyRecipesViewModel,
     onOpenRecipe: (String) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    titleText: String = "내 레시피"
 ) {
     val cs = MaterialTheme.colorScheme
     val loading by viewModel.loading.collectAsState()
     val base by viewModel.items.collectAsState()
 
-    // 검색어만 유지
     var query by remember { mutableStateOf("") }
-
-    // 검색어 반영된 리스트
-    val shown = remember(base, query) {
-        base.filter { it.matchesQuery(query) }
-    }
+    val shown = remember(base, query) { base.filter { it.matchesQuery(query) } }
 
     Scaffold(
+        containerColor = cs.primaryContainer, // 상단 톤 동일
         topBar = {
             TopAppBar(
-                title = { Text("내 레시피", fontWeight = FontWeight.ExtraBold) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, null) } },
+                title = { Text(titleText, fontWeight = FontWeight.ExtraBold) },
+                navigationIcon = {
+                    // 설정 화면과 동일한 “원형 배경 + 아이콘” 패턴
+                    IconButton(onClick = onBack) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(cs.onPrimaryContainer.copy(alpha = 0.08f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = null, tint = cs.onPrimaryContainer)
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = { viewModel.fetchMyChannelRecipes() }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "새로고침")
+                        Icon(Icons.Filled.Refresh, contentDescription = "새로고침", tint = cs.onPrimaryContainer)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = cs.surface,
-                    titleContentColor = cs.onSurface
+                    containerColor = cs.primaryContainer,
+                    titleContentColor = cs.onPrimaryContainer,
+                    navigationIconContentColor = cs.onPrimaryContainer,
+                    actionIconContentColor = cs.onPrimaryContainer
                 )
             )
         }
@@ -63,7 +76,10 @@ fun MyRecipesScreen(
             Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(cs.background)
+                .background(
+                    // 설정 화면과 동일한 “상단 톤 분리 → 본문 그라데이션/표면” 느낌
+                    cs.surface
+                )
         ) {
             // 검색창 (제목/카테고리/채널 이름)
             OutlinedTextField(
@@ -167,29 +183,9 @@ private fun RecipeRowCard(
                 if (data.categories.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        data.categories.take(3).forEach { c ->
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(c) },
-                                shape = RoundedCornerShape(50),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = cs.surfaceVariant,
-                                    labelColor = cs.onSurfaceVariant
-                                )
-                            )
-                        }
+                        data.categories.take(3).forEach { c -> TagPill(c) }
                         val more = data.categories.size - 3
-                        if (more > 0) {
-                            AssistChip(
-                                onClick = {},
-                                label = { Text("+$more") },
-                                shape = RoundedCornerShape(50),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = cs.surfaceVariant,
-                                    labelColor = cs.onSurfaceVariant
-                                )
-                            )
-                        }
+                        if (more > 0) TagPill("+$more")
                     }
                 }
             }
@@ -210,5 +206,23 @@ private fun RecipeRowCard(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun TagPill(text: String) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(50),
+        color = cs.surfaceVariant,
+        contentColor = cs.onSurfaceVariant,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
     }
 }
