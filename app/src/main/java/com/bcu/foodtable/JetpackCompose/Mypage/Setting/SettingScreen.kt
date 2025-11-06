@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.bcu.foodtable.JetpackCompose.Mypage.ProfileViewModel
+import com.bcu.foodtable.JetpackCompose.Mypage.Setting.MyRecipe.MyRecipesActivity
 import com.bcu.foodtable.R
 import com.bcu.foodtable.ui.theme.WarmLightColorScheme
 import kotlinx.coroutines.launch
@@ -206,7 +207,9 @@ private fun SettingScreenContent(
                             title = "내가 등록한 레시피",
                             subtitle = "올린 레시피 목록 보기",
                             trailing = { Icon(Icons.Outlined.NavigateNext, null, tint = color.onSurfaceVariant) }
-                        ) { scope.launch { host.showSnackbar("내가 등록한 레시피(더미)") } }
+                        ) {
+                            context.startActivity(Intent(context, MyRecipesActivity::class.java))
+                        }
 
                         Divider(thickness = 0.8.dp, color = color.outlineVariant)
 

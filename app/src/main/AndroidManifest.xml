@@ -155,6 +155,9 @@
         <activity android:name=".PuchasePage" android:exported="false" />
         <activity android:name=".PurchaseConfirmActivity" android:exported="false" />
         <activity android:name=".JetpackCompose.Mypage.Setting.SettingActivity" android:exported="false" />
+        <activity
+            android:name=".JetpackCompose.Mypage.Setting.MyRecipe.MyRecipesActivity"
+            android:exported="false" />
         <activity android:name="com.bcu.foodtable.JetpackCompose.Mypage.CreateChannel.ChannelCreationActivity" android:exported="false" />
         <activity android:name="com.bcu.foodtable.model.ChallengeDetailActivity" android:exported="false" />
         <activity android:name=".JetpackCompose.HomeChannelDatil.RecipeCookingActivity" />
@@ -164,6 +167,7 @@
         <activity android:name=".ui.ChallengeActivity" android:exported="false" android:theme="@style/Theme.AppCompat.NoActionBar" />
         <activity android:name=".ui.ChallengeHistoryActivity" android:exported="false" android:theme="@style/Theme.Material3.DayNight.NoActionBar" />
         <activity android:name="com.bcu.foodtable.JetpackCompose.AI.AiMainActivity" />
+
         <activity
             android:name="com.bcu.foodtable.JetpackCompose.biometric.BiometricGateActivity"
             android:exported="false"

@@ -307,7 +307,7 @@ sealed class Screen(val route: String, val label: String, val icon: Int) {
     object Subscribe : Screen("subscribe", "채널", R.drawable.ic_notifications_black_24dp)
     object Social : Screen("social", "소설", R.drawable.ic_dashboard_black_24dp)
     object RecipeStorage : Screen("storage", "레시피 관리", R.drawable.baseline_menu_book_24)
-    object MyPage : Screen("mypage", "통합서비스", R.drawable.ic_profile_placeholder)
+    object MyPage : Screen("mypage", "통합서비스", R.drawable.ic_apps_24)
 }
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
