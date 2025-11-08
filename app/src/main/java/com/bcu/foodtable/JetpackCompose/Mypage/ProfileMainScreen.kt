@@ -3,10 +3,12 @@
 package com.bcu.foodtable.JetpackCompose.Mypage
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.util.Log
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +51,11 @@ import com.bcu.foodtable.JetpackCompose.coach.CoachmarkOverlay
 import com.bcu.foodtable.JetpackCompose.coach.CoachmarkStoreDataStore
 import com.bcu.foodtable.JetpackCompose.coach.coachTarget
 import com.unity3d.player.UnityPlayerGameActivity
+
+// ZXing (QR 생성)
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -152,6 +160,22 @@ fun ProfileMainScreen(
                     )
 
                     Spacer(Modifier.height(12.dp))
+
+                    // ▼▼▼ 더미 QR 미리보기 추가 (요청 섹션) ▼▼▼
+                    Spacer(Modifier.height(20.dp))
+                    Divider(color = color.outline.copy(alpha = 0.3f))
+                    Spacer(Modifier.height(16.dp))
+
+                    // 고정 더미 페이로드 (데모용)
+                    val demoQrPayload = remember { "foodtable://demo/pay?uid=guest" }
+
+                    QRPreviewCard(
+                        title = "내 결제 QR",
+                        subtitle = "매장에서 이 코드를 스캔해보는 테스트용",
+                        qrData = demoQrPayload,
+                        sizeDp = 200.dp
+                    )
+                    // ▲▲▲ 더미 QR 끝 ▲▲▲
                 }
             }
         }
@@ -383,5 +407,80 @@ private fun SegmentCell(
                 color = cs.onSurface.copy(alpha = alpha)
             )
         }
+    }
+}
+
+/** ──────────────────────── 보이는 QR 카드 (더미) ─────────────────────── */
+@Composable
+private fun QRPreviewCard(
+    title: String,
+    subtitle: String? = null,
+    qrData: String,
+    sizeDp: Dp = 200.dp
+) {
+    val cs = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.Transparent,
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, cs.outline.copy(alpha = 0.35f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = cs.onSurface)
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(12.dp))
+
+            val bitmap by remember(qrData, sizeDp) {
+                mutableStateOf(makeQrBitmap(qrData, sizeDp))
+            }
+
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap!!.asImageBitmap(),
+                    contentDescription = "QR Code",
+                    modifier = Modifier
+                        .size(sizeDp)
+                        .background(Color.White, RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(sizeDp)
+                        .background(cs.surfaceVariant, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("QR 생성 실패", color = cs.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+private fun makeQrBitmap(data: String, sizeDp: Dp): Bitmap? {
+    return try {
+        val density = android.content.res.Resources.getSystem().displayMetrics.density
+        val sizePx = (sizeDp.value * density).toInt()
+        val hints = mapOf(
+            EncodeHintType.CHARACTER_SET to "UTF-8",
+            EncodeHintType.MARGIN to 1
+        )
+        val bitMatrix = QRCodeWriter().encode(data, BarcodeFormat.QR_CODE, sizePx, sizePx, hints)
+        val bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        for (x in 0 until sizePx) {
+            for (y in 0 until sizePx) {
+                bmp.setPixel(x, y, if (bitMatrix.get(x, y)) 0xFF000000.toInt() else 0xFFFFFFFF.toInt())
+            }
+        }
+        bmp
+    } catch (_: Exception) {
+        null
     }
 }
