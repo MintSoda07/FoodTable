@@ -11,8 +11,10 @@ data class User(
     val image: String = "",
     val phoneNumber: String = "",
     var point: Int = 0,
-    var uid: String="",
-    var rankPoint: Int =0,
-    var description: String=""
-
+    var uid: String = "",
+    var rankPoint: Int = 0,
+    var description: String = "",
+    val location : String = "",
+    val manager : Boolean = false,
+    val fcmtoken : String = "",
 )

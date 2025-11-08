@@ -37,6 +37,7 @@
     <string name="skip">스킵</string>
     <string name="done">완료</string>
     <string name="cooking_order">조리과정</string>
+    <string name="salt_value">%1$d 소금</string>
     <string name="recommend_AI_output">AI의 추천 결과</string>
     <string name="recommend_AI_reason">추천 이유</string>
     <string name="recommend_sample">AI에게 추천받고 싶은 음식을 이야기 해 주세요!</string>

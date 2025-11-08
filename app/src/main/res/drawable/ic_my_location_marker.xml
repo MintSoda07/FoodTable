@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- ic_my_location_marker.xml (벡터 예시, 파란색 원 + 흰색 테두리) -->
+    <vector xmlns:android="http://schemas.android.com/apk/res/android"
+        android:width="36dp"
+        android:height="36dp"
+        android:viewportWidth="36"
+        android:viewportHeight="36">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M18,2A16,16 0 1,0 34,18A16,16 0 1,0 18,2Z"/>
+        <path
+            android:fillColor="#2196F3"
+            android:pathData="M18,6A12,12 0 1,0 30,18A12,12 0 1,0 18,6Z"/>
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M18,12A6,6 0 1,0 24,18A6,6 0 1,0 18,12Z"/>
+    </vector>
+
+</selector>

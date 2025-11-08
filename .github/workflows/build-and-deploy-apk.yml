@@ -1,0 +1,40 @@
+name: Build APK and Push to Web Repo
+
+on:
+  push:
+    branches:
+      - main6
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Android App Repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Grant permission to gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
+      - name: Clone Web Repo
+        run: |
+          git clone https://github.com/YOUR_USERNAME/YOUR_WEB_REPO.git web-repo
+          cp app/build/outputs/apk/release/app-release.apk web-repo/public/apk/babsangfriend.apk
+
+      - name: Push APK to Web Repo
+        run: |
+          cd web-repo
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add public/apk/babsangfriend.apk
+          git commit -m "자동 업데이트된 APK" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.WEB_REPO_TOKEN }}@github.com/YOUR_USERNAME/YOUR_WEB_REPO.git main

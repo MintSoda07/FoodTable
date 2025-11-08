@@ -1,4 +1,4 @@
-package com.bcu.foodtable.AI
+package com.bcu.foodtable.ai
 
 
 import android.util.Log
@@ -11,11 +11,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.asRequestBody
-import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 //  사용 예시. setAIWithAPI로 API Key를 받아 준비한 뒤, Success 시 sendMeesage 실행할 것!
 //  순서 잘못될 시 오류를 반환함. (Key가 null)
@@ -37,7 +38,7 @@ import java.util.concurrent.TimeUnit
 //  onError = {
 //      Log.e("AI_SERVICE","An Error Occured During Setting an AI.")
 //  })
-class OpenAIClient() {
+class OpenAIClient @Inject constructor() {
     // AI API 키 불러오기
     lateinit var apiKeyInfo : ApiKey
 
@@ -49,7 +50,20 @@ class OpenAIClient() {
     private val gson = Gson()
     private val baseUrl = "https://api.openai.com/v1/chat/completions"
 
+    private val imgUrl  = "https://api.openai.com/v1/images/generations"
+
     // API 키 정보를 가져오는 함수 (콜백을 사용하여 성공 및 오류 처리)
+    suspend fun setAIWithAPIAsync(): ApiKey = suspendCoroutine { continuation ->
+        val client = OpenAIClient()
+        client.setAIWithAPI(
+            onSuccess = { apiKey ->
+                continuation.resume(apiKey)
+            },
+            onError = { errorMsg ->
+                continuation.resumeWithException(Exception(errorMsg))
+            }
+        )
+    }
     fun setAIWithAPI(onSuccess: (ApiKey) -> Unit, onError: (String) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -73,6 +87,7 @@ class OpenAIClient() {
         onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
+        Log.i("AI ChatTest", "AI _ OpenAI 호출됨")
         // API 요청에 필요한 JSON 데이터
         val requestBody = mapOf(
             "model" to "gpt-4o",  // gpt-4o 혹은 gpt-4
@@ -121,6 +136,67 @@ class OpenAIClient() {
                     }
                 } else {
                     onError("Empty response body")
+                }
+            }
+        })
+    }
+    /** DALL·E 3 이미지 생성 */
+    fun generateImage(
+        prompt: String,
+        size: String = "1024x1024",
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        // 1) 요청 로그
+        Log.d("OpenAIClient", "🖼️ generateImage() prompt=\"$prompt\", size=$size")
+        
+
+        // 2) 바디 JSON 문자열로 미리 생성하고 로그
+        val bodyMap = mapOf(
+            "model"           to "dall-e-3",
+            "prompt"          to prompt,
+            "n"               to 1,
+            "size"            to size,
+            "response_format" to "url"
+        )
+        val jsonBody = gson.toJson(bodyMap)
+        Log.v("OpenAIClient", "🔤 Request JSON: $jsonBody")
+
+        val body = RequestBody.create(
+            "application/json; charset=utf-8".toMediaType(),
+            jsonBody
+        )
+
+        val req = Request.Builder()
+            .url(imgUrl)
+            .addHeader("Authorization", "Bearer ${apiKeyInfo.KEY_VALUE}")
+            .post(body)
+            .build()
+
+        // 3) 네트워크 호출
+        client.newCall(req).enqueue(object: Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("OpenAIClient", "❌ generateImage onFailure: ${e.localizedMessage}", e)
+                onError(e.localizedMessage ?: "Unknown error")
+            }
+            override fun onResponse(call: Call, res: Response) {
+                val code = res.code
+                val respBody = res.body?.string().orEmpty()
+                Log.d("OpenAIClient", "📨 generateImage response code=$code, body=$respBody")
+
+                if (code != 200) {
+                    onError("HTTP $code")
+                    return
+                }
+                try {
+                    val root = gson.fromJson(respBody, Map::class.java)
+                    val data = root["data"] as List<Map<String,Any>>
+                    val url = data[0]["url"] as String
+                    Log.d("OpenAIClient", "🎉 Image URL -> $url")
+                    onSuccess(url)
+                } catch (e: Exception) {
+                    Log.e("OpenAIClient", "⚠️ generateImage parse error: ${e.localizedMessage}", e)
+                    onError("Parse error: ${e.localizedMessage}")
                 }
             }
         })
